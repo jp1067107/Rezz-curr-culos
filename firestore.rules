@@ -1,0 +1,63 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidResume(data) {
+      return data.keys().hasAll(['ownerId', 'createdAt', 'updatedAt', 'data']) &&
+             data.keys().size() == 4 &&
+             data.ownerId is string && data.ownerId.size() <= 128 && data.ownerId == request.auth.uid &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp &&
+             data.data is map && data.data.size() <= 32;
+    }
+
+    match /users/{userId} {
+      match /resumes/{resumeId} {
+        allow get: if isSignedIn() && existing().ownerId == request.auth.uid;
+        allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+        
+        allow create: if isSignedIn() &&
+                         isValidId(userId) && userId == request.auth.uid &&
+                         isValidId(resumeId) &&
+                         isValidResume(incoming()) &&
+                         incoming().createdAt == request.time &&
+                         incoming().updatedAt == request.time;
+
+        allow update: if isSignedIn() &&
+                         isValidId(userId) && userId == request.auth.uid &&
+                         isValidId(resumeId) &&
+                         existing().ownerId == request.auth.uid &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['updatedAt', 'data']) &&
+                         incoming().ownerId == existing().ownerId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt == request.time &&
+                         incoming().data is map && incoming().data.size() <= 32;
+
+        allow delete: if isSignedIn() &&
+                         isValidId(userId) && userId == request.auth.uid &&
+                         isValidId(resumeId) &&
+                         existing().ownerId == request.auth.uid;
+      }
+    }
+  }
+}

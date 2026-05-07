@@ -1,0 +1,36 @@
+{
+  "entities": {
+    "resume": {
+      "title": "Resume",
+      "description": "A user's resume data containing personal info, experiences, education, and skills. Hosted in users/{userId}/resumes/{resumeId}.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "ID of the user who owns the resume"
+        },
+        "createdAt": {
+          "type": "number",
+          "description": "Timestamp of creation"
+        },
+        "updatedAt": {
+          "type": "number",
+          "description": "Timestamp of last update"
+        },
+        "data": {
+          "type": "object",
+          "description": "The resume payload"
+        }
+      },
+      "required": ["ownerId", "createdAt", "updatedAt", "data"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/resumes/{resumeId}": {
+      "schema": {
+        "$ref": "#/entities/resume"
+      },
+      "description": "A user's saved resumes."
+    }
+  }
+}
