@@ -11,7 +11,7 @@ import { extractResumeDataFromFile, generateResumeDataFromPrompt } from './servi
 import { auth, signInWithGoogle, signOut, saveResume, loadResumes, ResumeDoc } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useReactToPrint } from 'react-to-print';
-import { Download, LayoutTemplate, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard } from 'lucide-react';
+import { Download, LayoutTemplate, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 const INITIAL_DATA: ResumeData = {
@@ -91,7 +91,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 }
 
 function MainApp() {
-  const [appState, setAppState] = useState<'onboarding' | 'ai-info' | 'editor'>('onboarding');
+  const [appState, setAppState] = useState<'onboarding' | 'ai-info' | 'editor' | 'payment-success'>('onboarding');
   const [data, setData] = useState<ResumeData>(INITIAL_DATA);
   const [template, setTemplate] = useState<TemplateType>('modern');
   const componentRef = useRef<HTMLDivElement>(null);
@@ -113,8 +113,8 @@ function MainApp() {
       setHasPaid(true);
       // Remove o parâmetro da URL para ficar limpa
       window.history.replaceState({}, document.title, window.location.pathname);
-      // Opcional: já vai para a tela de editor
-      setAppState('editor');
+      // Ir para a tela de sucesso de pagamento
+      setAppState('payment-success');
     }
   }, []);
 
@@ -432,6 +432,30 @@ function MainApp() {
         </div>
       )}
 
+      {appState === 'payment-success' && (
+        <div key="payment-success" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
+          <div className="max-w-xl bg-slate-800/50 border border-emerald-500/20 p-8 sm:p-12 rounded-3xl shadow-2xl shadow-emerald-500/10 text-center space-y-6 animate-in fade-in zoom-in duration-500">
+            <div className="mx-auto w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6 text-emerald-400 border border-emerald-500/30 shadow-lg shadow-emerald-500/20">
+              <CheckCircle className="w-10 h-10" />
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+              Pagamento Confirmado!
+            </h2>
+            <p className="text-lg text-slate-300 leading-relaxed max-w-md mx-auto">
+              Muito obrigado pela confiança. Seu acesso para exportar o currículo limpo e em alta qualidade foi liberado com sucesso.
+            </p>
+            <div className="pt-8 flex justify-center">
+              <button
+                onClick={() => setAppState('editor')}
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-emerald-600 shadow-xl shadow-emerald-600/30 hover:bg-emerald-500 text-white text-lg font-bold rounded-2xl transition-all w-full sm:w-auto"
+              >
+                Acessar Meu Currículo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {appState === 'editor' && (
         <div key="editor" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans overflow-hidden">
       {/* Header Section */}
@@ -724,7 +748,7 @@ function MainApp() {
                    onClick={() => {
                      setHasPaid(true);
                      setIsPaymentModalOpen(false);
-                     setTimeout(() => generatePdf(), 500);
+                     setAppState('payment-success');
                    }}
                    className="text-xs text-slate-400 hover:text-indigo-500 underline transition-colors"
                  >
