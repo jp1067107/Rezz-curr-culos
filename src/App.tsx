@@ -589,15 +589,15 @@ function MainApp() {
                  <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center text-purple-400">
                    <Share2 className="w-6 h-6" />
                  </div>
-                 <h3 className="font-bold text-lg text-white">2. Compartilhe</h3>
-                 <p className="text-slate-400 text-sm">Envie para amigos, divulgue no LinkedIn, TikTok, Instagram ou grupos de WhatsApp.</p>
+                 <h3 className="font-bold text-lg text-white">2. Compartilhe seu Link</h3>
+                 <p className="text-slate-400 text-sm">Na Cakto, copie o seu link de afiliado da <strong>Página de Vendas</strong>. Compartilhe-o no LinkedIn, TikTok ou WhatsApp.</p>
                </div>
                <div className="bg-slate-800/50 border border-white/5 p-6 rounded-2xl flex flex-col items-center text-center gap-4">
                  <div className="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400">
                    <DollarSign className="w-6 h-6" />
                  </div>
                  <h3 className="font-bold text-lg text-white">3. Receba</h3>
-                 <p className="text-slate-400 text-sm">Quando alguém comprar o currículo pelo seu link, sua comissão cai na hora, direto na Cakto e no seu bolso.</p>
+                 <p className="text-slate-400 text-sm">Quando o cliente vier pelo seu link, montar o currículo e pagar para exportar, a comissão entra na hora na sua conta Cakto!</p>
                </div>
              </div>
 
