@@ -48,7 +48,43 @@ const INITIAL_DATA: ResumeData = {
   ]
 };
 
-export default function App() {
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
+  constructor(props: {children: React.ReactNode}) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6">
+          <h1 className="text-3xl text-red-400 font-bold mb-4">Algo deu errado!</h1>
+          <p className="text-slate-300 mb-6">Infelizmente ocorreu um erro interno.</p>
+          <pre className="bg-black/50 p-4 rounded-xl border border-red-500/30 text-red-200 text-xs overflow-auto max-w-full">
+            {this.state.error?.message}
+          </pre>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-8 px-6 py-3 bg-indigo-500 hover:bg-indigo-600 rounded-lg font-bold"
+          >
+            Recarregar Aplicativo
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function MainApp() {
   const [appState, setAppState] = useState<'onboarding' | 'ai-info' | 'editor'>('onboarding');
   const [data, setData] = useState<ResumeData>(INITIAL_DATA);
   const [template, setTemplate] = useState<TemplateType>('modern');
@@ -684,6 +720,14 @@ export default function App() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <MainApp />
+    </ErrorBoundary>
   );
 }
 
