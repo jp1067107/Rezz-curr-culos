@@ -11,7 +11,7 @@ import { extractResumeDataFromFile, generateResumeDataFromPrompt } from './servi
 import { auth, signInWithGoogle, signOut, saveResume, loadResumes, ResumeDoc } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useReactToPrint } from 'react-to-print';
-import { Download, LayoutTemplate, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, ChevronDown, Menu } from 'lucide-react';
+import { Download, LayoutTemplate, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, ChevronDown, Menu, DollarSign, Share2, Link as LinkIcon, ArrowLeft } from 'lucide-react';
 
 import { v4 as uuidv4 } from 'uuid';
 
@@ -92,7 +92,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 }
 
 function MainApp() {
-  const [appState, setAppState] = useState<'onboarding' | 'ai-info' | 'editor' | 'payment-success'>('onboarding');
+  const [appState, setAppState] = useState<'onboarding' | 'ai-info' | 'editor' | 'payment-success' | 'affiliate'>('onboarding');
   const [data, setData] = useState<ResumeData>(INITIAL_DATA);
   const [template, setTemplate] = useState<TemplateType>('modern');
   const componentRef = useRef<HTMLDivElement>(null);
@@ -111,6 +111,14 @@ function MainApp() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    
+    // Tracking de afiliação da Cakto
+    // Se a URL possuir ?ref=..., salvez o código de afiliado para uso no checkout
+    const affCode = params.get('ref') || params.get('src') || params.get('sck') || params.get('affCode');
+    if (affCode) {
+      localStorage.setItem('cakto_aff_code', affCode);
+    }
+
     if (params.get('payment') === 'success') {
       setHasPaid(true);
       // Remove o parâmetro da URL para ficar limpa
@@ -119,6 +127,23 @@ function MainApp() {
       setAppState('payment-success');
     }
   }, []);
+
+  const getCheckoutUrl = () => {
+    let baseUrl = import.meta.env.VITE_CAKTO_CHECKOUT_URL || "https://pay.cakto.com.br/";
+    const affCode = localStorage.getItem('cakto_aff_code');
+    
+    if (affCode) {
+      // Cria a URL com o parâmetro 'ref' ou 'src' dependendo de como a Cakto configurar
+      // O padrão mais comum em plataformas é ?ref= ou ?sck=
+      const urlObject = new URL(baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`);
+      urlObject.searchParams.set('ref', affCode);
+      // Opcionalmente, pode setar o sck também para garantir o rastreio na Cakto:
+      urlObject.searchParams.set('sck', affCode);
+      return urlObject.toString();
+    }
+    
+    return baseUrl;
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -358,8 +383,14 @@ function MainApp() {
                   <FolderOpen className="w-4 h-4 text-indigo-400" /> Meus Currículos
                 </button>
                 <button
+                  onClick={() => { setIsUserMenuOpen(false); setAppState('affiliate'); }}
+                  className="w-full text-left px-4 py-2.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2 transition-colors border-t border-white/5"
+                >
+                  <DollarSign className="w-4 h-4" /> Ganhar com Indicação
+                </button>
+                <button
                   onClick={() => { setIsUserMenuOpen(false); signOut(); }}
-                  className="w-full text-left px-4 py-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
+                  className="w-full text-left px-4 py-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2 transition-colors border-t border-white/5"
                 >
                   <LogOut className="w-4 h-4" /> Sair da conta
                 </button>
@@ -498,15 +529,95 @@ function MainApp() {
             <p className="text-lg text-slate-300 leading-relaxed max-w-md mx-auto">
               Muito obrigado pela confiança. Seu acesso para exportar o currículo limpo e em alta qualidade foi liberado com sucesso.
             </p>
-            <div className="pt-8 flex justify-center">
+            <div className="pt-8 flex flex-col sm:flex-row justify-center gap-4">
               <button
                 onClick={() => setAppState('editor')}
                 className="flex items-center justify-center gap-3 px-8 py-4 bg-emerald-600 shadow-xl shadow-emerald-600/30 hover:bg-emerald-500 text-white text-lg font-bold rounded-2xl transition-all w-full sm:w-auto"
               >
                 Acessar Meu Currículo
               </button>
+              <button
+                onClick={() => setAppState('affiliate')}
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white text-lg font-bold rounded-2xl transition-all w-full sm:w-auto"
+              >
+                Como Ganhar Dinheiro
+              </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {appState === 'affiliate' && (
+        <div key="affiliate" className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
+          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black text-xl ring-1 ring-white/20 font-serif">
+                R
+              </div>
+              <h1 className="text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">
+                Programa de Afiliados
+              </h1>
+            </div>
+            <button
+              onClick={() => setAppState(hasPaid ? 'payment-success' : 'editor')}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" /> Voltar
+            </button>
+          </header>
+          
+          <main className="flex-1 overflow-y-auto w-full max-w-4xl mx-auto p-4 sm:p-8 flex flex-col gap-8 pb-20">
+             <div className="text-center space-y-4 py-8">
+               <div className="mx-auto w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-400 mb-6 border border-emerald-500/20">
+                 <DollarSign className="w-10 h-10" />
+               </div>
+               <h2 className="text-4xl sm:text-5xl font-bold text-white tracking-tight">Ganhe recomendando o Rezz</h2>
+               <p className="text-xl text-slate-400 max-w-2xl mx-auto">
+                 Ajude outras pessoas a conseguirem o emprego dos sonhos e fature com isso. Receba uma comissão generosa por cada venda realizada através do seu link exclusivo da Cakto.
+               </p>
+             </div>
+
+             <div className="grid sm:grid-cols-3 gap-6">
+               <div className="bg-slate-800/50 border border-white/5 p-6 rounded-2xl flex flex-col items-center text-center gap-4">
+                 <div className="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400">
+                   <LinkIcon className="w-6 h-6" />
+                 </div>
+                 <h3 className="font-bold text-lg text-white">1. Crie seu Link</h3>
+                 <p className="text-slate-400 text-sm">Cadastre-se na Cakto como afiliado do nosso produto e copie seu link de indicação exclusivo.</p>
+               </div>
+               <div className="bg-slate-800/50 border border-white/5 p-6 rounded-2xl flex flex-col items-center text-center gap-4">
+                 <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center text-purple-400">
+                   <Share2 className="w-6 h-6" />
+                 </div>
+                 <h3 className="font-bold text-lg text-white">2. Compartilhe</h3>
+                 <p className="text-slate-400 text-sm">Envie para amigos, divulgue no LinkedIn, TikTok, Instagram ou grupos de WhatsApp.</p>
+               </div>
+               <div className="bg-slate-800/50 border border-white/5 p-6 rounded-2xl flex flex-col items-center text-center gap-4">
+                 <div className="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400">
+                   <DollarSign className="w-6 h-6" />
+                 </div>
+                 <h3 className="font-bold text-lg text-white">3. Receba</h3>
+                 <p className="text-slate-400 text-sm">Quando alguém comprar o currículo pelo seu link, sua comissão cai na hora, direto na Cakto e no seu bolso.</p>
+               </div>
+             </div>
+
+             <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-3xl p-8 sm:p-10 flex flex-col sm:flex-row items-center gap-8 text-center sm:text-left mt-8">
+               <div className="flex-1 space-y-4">
+                 <h2 className="text-2xl font-bold text-white">Pronto para começar?</h2>
+                 <p className="text-slate-300">
+                   Siga o link abaixo para ir direto para a plataforma da Cakto, afiliar-se com 1 clique e começar a ganhar 45% de comissão por cada venda!
+                 </p>
+                 <a 
+                   href="https://app.cakto.com.br/affiliate/invite/4ca6dedc-130a-49fe-aee2-5216ede37d0e"
+                   target="_blank" 
+                   rel="noreferrer"
+                   className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/20 mt-4"
+                 >
+                   Quero ser Afiliado do Rezz (45% de Ganho)
+                 </a>
+               </div>
+             </div>
+          </main>
         </div>
       )}
 
@@ -817,7 +928,7 @@ function MainApp() {
                </p>
                
                <a 
-                 href={import.meta.env.VITE_CAKTO_CHECKOUT_URL || "https://pay.cakto.com.br/"} 
+                 href={getCheckoutUrl()} 
                  target="_blank" 
                  rel="noreferrer"
                  className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-lg rounded-xl shadow-lg shadow-emerald-500/30 transition-all mb-4 block"

@@ -93,6 +93,9 @@ export interface ResumeDoc {
   data: ResumeData;
   createdAt: any;
   updatedAt: any;
+  afiliadoOrigem?: string | null;
+  sessionId?: string | null;
+  statusPagamento?: string;
 }
 
 export const saveResume = async (userId: string, resumeId: string, resumeData: ResumeData) => {
@@ -100,19 +103,31 @@ export const saveResume = async (userId: string, resumeId: string, resumeData: R
   try {
     const docRef = doc(db, 'users', userId, 'resumes', resumeId);
     
+    const afiliadoOrigem = localStorage.getItem('cakto_aff_code') || null;
+    let sessionId = localStorage.getItem('resume_session_id');
+    if (!sessionId) {
+      sessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('resume_session_id', sessionId);
+    }
+
     // Check if it exists
     const snap = await getDocFromServer(docRef);
     if (snap.exists()) {
       await updateDoc(docRef, {
         data: resumeData as any,
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        afiliadoOrigem: afiliadoOrigem,
+        sessionId: sessionId
       });
     } else {
       await setDoc(docRef, {
         ownerId: userId,
         data: resumeData as any,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        afiliadoOrigem: afiliadoOrigem,
+        sessionId: sessionId,
+        statusPagamento: 'pendente'
       });
     }
   } catch (error) {
