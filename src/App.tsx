@@ -11,7 +11,8 @@ import { extractResumeDataFromFile, generateResumeDataFromPrompt } from './servi
 import { auth, signInWithGoogle, signOut, saveResume, loadResumes, ResumeDoc } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useReactToPrint } from 'react-to-print';
-import { Download, LayoutTemplate, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle } from 'lucide-react';
+import { Download, LayoutTemplate, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, ChevronDown, Menu } from 'lucide-react';
+
 import { v4 as uuidv4 } from 'uuid';
 
 const INITIAL_DATA: ResumeData = {
@@ -98,6 +99,7 @@ function MainApp() {
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
   
   const [user, setUser] = useState<User | null>(null);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [currentResumeId, setCurrentResumeId] = useState<string>(uuidv4());
   const [resumesList, setResumesList] = useState<ResumeDoc[]>([]);
   const [isResumesModalOpen, setIsResumesModalOpen] = useState(false);
@@ -334,6 +336,58 @@ function MainApp() {
     minimal: 'Minimalista'
   };
 
+  const renderUserMenuDropdown = () => {
+    if (!isUserMenuOpen) return null;
+    return (
+      <>
+        <div className="fixed inset-0 z-40" onClick={() => setIsUserMenuOpen(false)}></div>
+        <div className="absolute right-0 mt-2 w-56 bg-slate-800 border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden text-sm animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+          {user && (
+            <div className="px-4 py-3 border-b border-white/5 bg-slate-900/50">
+              <p className="text-slate-300 font-medium truncate">{user.displayName || 'Usuário'}</p>
+              <p className="text-slate-500 text-xs truncate mt-0.5">{user.email}</p>
+            </div>
+          )}
+          <div className="py-1">
+            {user ? (
+              <>
+                <button
+                  onClick={() => { setIsUserMenuOpen(false); setIsResumesModalOpen(true); }}
+                  className="w-full text-left px-4 py-2.5 text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center gap-2 transition-colors"
+                >
+                  <FolderOpen className="w-4 h-4 text-indigo-400" /> Meus Currículos
+                </button>
+                <button
+                  onClick={() => { setIsUserMenuOpen(false); signOut(); }}
+                  className="w-full text-left px-4 py-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" /> Sair da conta
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => { setIsUserMenuOpen(false); signInWithGoogle(); }}
+                className="w-full text-left px-4 py-2.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2 transition-colors"
+              >
+                <LogIn className="w-4 h-4" /> Entrar para Salvar
+              </button>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  const hasActiveResume = Boolean(
+    data.personalInfo.fullName?.trim() || 
+    data.personalInfo.jobTitle?.trim() || 
+    data.personalInfo.summary?.trim() || 
+    data.experience?.length > 0 || 
+    data.education?.length > 0 || 
+    data.skills?.length > 0 ||
+    data.languages?.length > 0
+  );
+
   return (
     <div className="w-full min-h-screen bg-slate-900 flex flex-col">
       {appState === 'onboarding' && (
@@ -457,142 +511,109 @@ function MainApp() {
       )}
 
       {appState === 'editor' && (
-        <div key="editor" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans overflow-hidden">
+        <div key="editor" className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
       {/* Header Section */}
-      <header className="flex flex-col lg:flex-row justify-between items-center px-4 sm:px-8 py-4 sm:py-5 z-10 shrink-0 gap-4 border-b border-white/5 bg-slate-900/40 backdrop-blur-md">
+      <header className="flex flex-col lg:flex-row justify-between items-center px-4 sm:px-6 py-3 z-10 shrink-0 gap-4 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
         <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black text-xl sm:text-2xl ring-1 ring-white/20 font-serif">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black text-xl ring-1 ring-white/20 font-serif">
               R
             </div>
             <div className="flex items-baseline gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300">
+              <h1 className="text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">
                 Rezz
               </h1>
-              <span className="text-sm sm:text-base text-indigo-300/80 font-medium tracking-wide">
-                currículos
-              </span>
             </div>
             
             <button 
               onClick={() => setPaymentEnabled(!paymentEnabled)}
-              className={`hidden sm:flex ml-4 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors border ${paymentEnabled ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}
+              className={`hidden sm:flex ml-4 px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-lg transition-colors border ${paymentEnabled ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}
               title="Apenas Dev: Liga ou desliga o modo de pagamento"
             >
-              Pagamento: {paymentEnabled ? 'ON' : 'OFF'} (Dev)
+              Pagamento {paymentEnabled ? 'ON' : 'OFF'}
             </button>
           </div>
-          <div className="flex lg:hidden bg-slate-800/60 p-1 rounded-lg shrink-0 ring-1 ring-white/10">
-            <button
-              onClick={() => setMobileView('editor')}
-              className={`p-2 rounded-md transition-all ${mobileView === 'editor' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-300'}`}
-            >
-              <Edit2 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setMobileView('preview')}
-              className={`p-2 rounded-md transition-all ${mobileView === 'preview' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-300'}`}
-            >
-              <Eye className="w-4 h-4" />
-            </button>
+
+          <div className="flex lg:hidden items-center gap-6">
+            <div className="flex bg-slate-800 p-1 rounded-lg shrink-0 border border-white/5">
+              <button
+                onClick={() => setMobileView('editor')}
+                className={`p-1.5 rounded-md transition-all ${mobileView === 'editor' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-300'}`}
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setMobileView('preview')}
+                className={`p-1.5 rounded-md transition-all ${mobileView === 'preview' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-300'}`}
+              >
+                <Eye className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="relative">
+              <button
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className="flex items-center justify-center p-1.5 bg-slate-800 border border-white/10 hover:bg-slate-700 text-slate-300 rounded-lg transition-all shadow-sm"
+                title="Opções da conta"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              {renderUserMenuDropdown()}
+            </div>
           </div>
         </div>
         
         <div className="flex flex-col sm:flex-row gap-3 items-center w-full lg:w-auto pt-2 lg:pt-0">
-          <div className="flex w-full sm:w-auto items-center justify-between p-1 bg-slate-800/40 border border-white/10 rounded-xl shrink-0">
-            {(['modern', 'classic', 'minimal'] as const).map(t => (
-              <button
-                key={t}
-                onClick={() => setTemplate(t as TemplateType)}
-                className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-semibold rounded-lg transition-all capitalize flex items-center justify-center gap-1.5
-                  ${template === t ? 'bg-white/15 text-white shadow-sm ring-1 ring-white/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-              >
-                <span className="whitespace-nowrap">{templateNames[t]}</span>
-              </button>
-            ))}
-          </div>
           
-          <div className="flex gap-2 items-center justify-between sm:justify-center w-full sm:w-auto">
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleAiImport} 
-              onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
-              accept="application/pdf,image/*" 
-              className="hidden" 
-            />
-            <button
-              onClick={() => setIsPromptModalOpen(true)}
-              disabled={isPrompting || isProcessing}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-            >
-              <Wand2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> <span className="whitespace-nowrap">Editar</span>
-            </button>
-            <button
-              onClick={() => {
-                if (fileInputRef.current) {
-                  fileInputRef.current.click();
-                } else {
-                  setTimeout(() => fileInputRef.current?.click(), 100);
-                }
-              }}
-              disabled={isProcessing || isPrompting}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-indigo-500/20 border border-indigo-500/50 hover:bg-indigo-500/40 text-indigo-200 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-            >
-              {isProcessing ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin shrink-0" /> : <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />}
-              <span className="whitespace-nowrap">{isProcessing ? "Lendo..." : "Criar com IA"}</span>
-            </button>
-          </div>
-
-          <div className="flex gap-2 items-center justify-between sm:justify-center w-full sm:w-auto mt-2 sm:mt-0 flex-wrap">
+          <div className="flex gap-2 items-center justify-between sm:justify-center w-full sm:w-auto flex-wrap">
             {user ? (
-              <>
-                <button
-                  onClick={() => setIsResumesModalOpen(true)}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 bg-slate-800 border border-white/10 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm shrink-0"
-                  title="Abrir currículos salvos"
-                >
-                  <FolderOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> <span className="hidden sm:inline">Abrir</span>
-                </button>
-                <button
-                  onClick={handleSaveResume}
-                  disabled={isSaving}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 bg-emerald-500/20 border border-emerald-500/50 hover:bg-emerald-500/40 text-emerald-200 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm shrink-0 disabled:opacity-50"
-                  title="Salvar"
-                >
-                  {isSaving ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin shrink-0" /> : <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />}
-                  <span className="hidden sm:inline">Salvar</span>
-                </button>
-                <button
-                  onClick={signOut}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-300 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm shrink-0"
-                  title="Sair"
-                >
-                  <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                </button>
-              </>
+              <button
+                onClick={handleSaveResume}
+                disabled={isSaving || !hasActiveResume}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all shadow-sm shrink-0 ${hasActiveResume ? 'bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
+                title="Salvar"
+              >
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className={`w-4 h-4 ${hasActiveResume ? 'text-emerald-400' : 'text-slate-500'}`} />}
+                <span className="hidden sm:inline">Salvar</span>
+              </button>
             ) : (
               <button
                 onClick={signInWithGoogle}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 bg-white text-slate-900 border border-white/50 hover:bg-slate-100 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm shrink-0"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-slate-200 border border-white/10 hover:bg-slate-700 text-sm font-medium rounded-xl transition-all shadow-sm shrink-0"
               >
-                <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> 
-                <span className="whitespace-nowrap">Entrar p/ Salvar</span>
+                <LogIn className="w-4 h-4" /> 
+                <span className="whitespace-nowrap">Entrar para Salvar</span>
               </button>
             )}
 
+            <div className="w-px h-6 bg-white/10 mx-1 hidden sm:block"></div>
+
             <button
               onClick={handleDownloadClick}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2 bg-indigo-500 shadow-lg shadow-indigo-500/40 hover:bg-indigo-400 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shrink-0"
+              disabled={!hasActiveResume}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2 text-sm font-bold rounded-xl transition-all shrink-0 ${hasActiveResume ? 'bg-indigo-500 shadow-md shadow-indigo-500/20 hover:bg-indigo-400 text-white' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
             >
-              <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> <span className="whitespace-nowrap">Baixar</span>
+              <Download className="w-4 h-4" /> <span className="whitespace-nowrap">Exportar PDF</span>
             </button>
+
+            <div className="w-px h-6 bg-white/10 mx-1 hidden lg:block"></div>
+
+            <div className="hidden lg:block relative">
+              <button
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className="flex items-center justify-center p-2.5 bg-slate-800 border border-white/10 hover:bg-slate-700 text-slate-300 rounded-xl transition-all shadow-sm shrink-0"
+                title="Opções da conta"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              {renderUserMenuDropdown()}
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content Layout */}
-      <main className="flex-1 flex gap-4 sm:gap-6 overflow-hidden px-2 sm:px-6 pb-4 sm:pb-6 w-full max-w-[1920px] mx-auto">
+      <main className="flex-1 flex gap-6 overflow-hidden p-3 sm:p-6 w-full max-w-[1920px] mx-auto">
         {isResumesModalOpen && (
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
@@ -685,7 +706,63 @@ function MainApp() {
           </div>
         )}
         {/* Editor sidebar */}
-        <div className={`flex-1 h-full min-w-0 ${mobileView !== 'editor' ? 'hidden lg:block' : 'block'}`}>
+        <div className={`flex-1 h-full min-w-0 flex flex-col gap-4 ${mobileView !== 'editor' ? 'hidden lg:flex' : 'flex'}`}>
+          <div className="flex flex-col sm:flex-row gap-4 p-4 bg-slate-800/40 border border-white/5 rounded-2xl shrink-0 items-start sm:items-center justify-between">
+            <div>
+              <h2 className="text-white font-semibold text-lg">Seu Currículo</h2>
+              <p className="text-slate-400 text-sm hidden sm:block">Preencha os dados ou use a IA para otimizar</p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <div className="flex items-center justify-between p-1 bg-slate-900 border border-white/10 rounded-xl shrink-0 w-full sm:w-auto">
+                {(['modern', 'classic', 'minimal'] as const).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setTemplate(t as TemplateType)}
+                    className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 text-xs font-semibold rounded-lg transition-all capitalize flex items-center justify-center gap-1.5
+                      ${template === t ? 'bg-indigo-500 text-white shadow-sm ring-1 ring-white/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                  >
+                    <span className="whitespace-nowrap">{templateNames[t]}</span>
+                  </button>
+                ))}
+              </div>
+              
+              <div className="flex gap-2 w-full sm:w-auto">
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleAiImport} 
+                  onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
+                  accept="application/pdf,image/*" 
+                  className="hidden" 
+                />
+                <button
+                  onClick={() => setIsPromptModalOpen(true)}
+                  disabled={isPrompting || isProcessing || !hasActiveResume}
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm shrink-0 ${hasActiveResume ? 'bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
+                  title={hasActiveResume ? "Modificar as informações usando IA" : "Preencha o currículo primeiro"}
+                >
+                  <Wand2 className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">Modificar com IA</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (fileInputRef.current) {
+                      fileInputRef.current.click();
+                    } else {
+                      setTimeout(() => fileInputRef.current?.click(), 100);
+                    }
+                  }}
+                  disabled={isProcessing || isPrompting}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-indigo-500/20 border border-indigo-500/50 hover:bg-indigo-500/40 text-indigo-200 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  title="Recriar currículo usando inteligência artificial"
+                >
+                  {isProcessing ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Sparkles className="w-4 h-4 shrink-0" />}
+                  <span className="whitespace-nowrap">{isProcessing ? "Lendo..." : "Refazer com IA"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
           <ResumeForm data={data} onChange={setData} />
         </div>
         
@@ -699,17 +776,29 @@ function MainApp() {
               <div className="w-2 h-2 rounded-full bg-red-500"></div>
             </div>
           </div>
+
+          <div className="lg:hidden flex items-center justify-between p-1 bg-slate-900 border border-white/10 rounded-xl shrink-0 w-full mb-4">
+            {(['modern', 'classic', 'minimal'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setTemplate(t as TemplateType)}
+                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs font-semibold rounded-lg transition-all capitalize flex items-center justify-center gap-1.5
+                  ${template === t ? 'bg-indigo-500 text-white shadow-sm ring-1 ring-white/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+              >
+                <span className="whitespace-nowrap">{templateNames[t]}</span>
+              </button>
+            ))}
+          </div>
           
-          <div className="flex-1 overflow-y-auto flex justify-center items-start pt-2 pb-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent rounded-lg" ref={containerRef}>
+          <div className="flex-1 overflow-y-auto flex justify-center items-start pt-2 lg:pt-0 pb-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent rounded-lg" ref={containerRef}>
             <div 
               style={{ 
                 transform: `scale(${scale})`, 
                 transformOrigin: 'top center',
-                transition: 'transform 0.2s ease-out',
                 height: 1056 * scale, // Maintain aspect ratio height reserve
                 marginBottom: 40
               }}
-              className="print:transform-none bg-white shadow-2xl rounded-sm text-slate-900"
+              className={`print:transform-none shadow-2xl rounded-sm transition-all duration-300 ${hasActiveResume ? 'bg-white text-slate-900' : 'bg-slate-200 text-slate-400 grayscale opacity-80 blur-[0.5px] select-none pointer-events-none'}`}
             >
               <ResumePreview data={data} template={template} ref={componentRef} />
             </div>
