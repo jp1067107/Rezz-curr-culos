@@ -334,109 +334,106 @@ function MainApp() {
     minimal: 'Minimalista'
   };
 
-  if (appState === 'onboarding') {
-    return (
-      <div key="onboarding" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
-        <div className="max-w-2xl text-center space-y-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl shadow-2xl shadow-indigo-500/20 text-white font-black text-4xl ring-1 ring-white/20 font-serif mb-4">
-            R
-          </div>
-          <h1 className="text-4xl sm:text-6xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300">
-            Bem-vindo ao Rezz
-          </h1>
-          <p className="text-lg text-slate-300 font-medium max-w-lg mx-auto">
-            A forma mais rápida e profissional de criar o seu currículo. Escolha como deseja começar:
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-            <button
-              onClick={() => setAppState('ai-info')}
-              className="flex flex-col items-center justify-center gap-1 px-8 py-3 bg-indigo-500 shadow-xl shadow-indigo-500/30 hover:bg-indigo-400 text-white rounded-2xl transition-all"
-            >
-              <div className="flex items-center gap-3 text-lg font-bold">
-                <Sparkles className="w-5 h-5" />
-                Criar com IA
-              </div>
-              <span className="text-sm font-medium text-indigo-100/90">Pronto em menos de 15 segundos</span>
-            </button>
-            <button
-              onClick={() => setAppState('editor')}
-              className="flex items-center justify-center gap-3 px-8 py-4 bg-slate-800/80 border border-white/10 hover:bg-slate-700/80 text-white text-lg font-bold rounded-2xl transition-all"
-            >
-              <Edit2 className="w-5 h-5" />
-              Criar Manualmente
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (appState === 'ai-info') {
-    return (
-      <div key="ai-info" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
-        <div className="max-w-3xl bg-slate-800/50 border border-white/10 p-8 sm:p-12 rounded-3xl shadow-2xl text-center space-y-8">
-          <div className="mx-auto w-16 h-16 bg-purple-500/20 rounded-2xl flex items-center justify-center mb-6 text-purple-400 border border-purple-500/30">
-            <Wand2 className="w-8 h-8" />
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
-            Magia Pura no seu Currículo
-          </h2>
-          <div className="text-lg text-slate-300 leading-relaxed max-w-xl mx-auto text-left space-y-4">
-            <p className="text-center mb-6">A nossa IA transforma qualquer foto ou currículo antigo em material de <strong className="text-white">altíssimo nível</strong>.</p>
-            <ul className="space-y-4">
-              <li className="flex items-start gap-3">
-                <span className="text-purple-400 mt-1">✓</span>
-                <span><strong>Reescrita Profissional:</strong> Linguagem corporativa persuasiva que destaca seus resultados e liderança.</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-purple-400 mt-1">✓</span>
-                <span><strong>Aprimoramento Automático:</strong> Organiza rascunhos rasos, inferindo e enriquecendo os pontos mais fracos.</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-purple-400 mt-1">✓</span>
-                <span><strong>Super Simples:</strong> Basta enviar um PDF ou uma simples foto tirada pelo seu celular.</span>
-              </li>
-            </ul>
-          </div>
-          <div className="pt-6 flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleAiImport} 
-              onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
-              accept="application/pdf,image/*" 
-              className="hidden" 
-            />
-            <button
-              onClick={() => {
-                if (fileInputRef.current) {
-                  fileInputRef.current.click();
-                } else {
-                  // Fallback if ref is disconnected momentarily
-                  setTimeout(() => fileInputRef.current?.click(), 100);
-                }
-              }}
-              disabled={isProcessing}
-              className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-purple-600 shadow-xl shadow-purple-600/30 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-lg font-bold rounded-2xl transition-all"
-            >
-              {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5 rotate-180" />}
-              {isProcessing ? "Analisando Arquivo..." : "Enviar Arquivo"}
-            </button>
-            <button
-              onClick={() => setAppState('onboarding')}
-              disabled={isProcessing}
-              className="text-slate-400 hover:text-white font-medium text-sm transition-colors py-2 px-4"
-            >
-              Voltar
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div key="editor" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans overflow-hidden">
+    <div className="w-full min-h-screen bg-slate-900 flex flex-col">
+      {appState === 'onboarding' && (
+        <div key="onboarding" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
+          <div className="max-w-2xl text-center space-y-8">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl shadow-2xl shadow-indigo-500/20 text-white font-black text-4xl ring-1 ring-white/20 font-serif mb-4">
+              R
+            </div>
+            <h1 className="text-4xl sm:text-6xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300">
+              Bem-vindo ao Rezz
+            </h1>
+            <p className="text-lg text-slate-300 font-medium max-w-lg mx-auto">
+              A forma mais rápida e profissional de criar o seu currículo. Escolha como deseja começar:
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+              <button
+                onClick={() => setAppState('ai-info')}
+                className="flex flex-col items-center justify-center gap-1 px-8 py-3 bg-indigo-500 shadow-xl shadow-indigo-500/30 hover:bg-indigo-400 text-white rounded-2xl transition-all"
+              >
+                <div className="flex items-center gap-3 text-lg font-bold">
+                  <Sparkles className="w-5 h-5" />
+                  Criar com IA
+                </div>
+                <span className="text-sm font-medium text-indigo-100/90">Pronto em menos de 15 segundos</span>
+              </button>
+              <button
+                onClick={() => setAppState('editor')}
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-slate-800/80 border border-white/10 hover:bg-slate-700/80 text-white text-lg font-bold rounded-2xl transition-all"
+              >
+                <Edit2 className="w-5 h-5" />
+                Criar Manualmente
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {appState === 'ai-info' && (
+        <div key="ai-info" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
+          <div className="max-w-3xl bg-slate-800/50 border border-white/10 p-8 sm:p-12 rounded-3xl shadow-2xl text-center space-y-8">
+            <div className="mx-auto w-16 h-16 bg-purple-500/20 rounded-2xl flex items-center justify-center mb-6 text-purple-400 border border-purple-500/30">
+              <Wand2 className="w-8 h-8" />
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+              Magia Pura no seu Currículo
+            </h2>
+            <div className="text-lg text-slate-300 leading-relaxed max-w-xl mx-auto text-left space-y-4">
+              <p className="text-center mb-6">A nossa IA transforma qualquer foto ou currículo antigo em material de <strong className="text-white">altíssimo nível</strong>.</p>
+              <ul className="space-y-4">
+                <li className="flex items-start gap-3">
+                  <span className="text-purple-400 mt-1">✓</span>
+                  <span><strong>Reescrita Profissional:</strong> Linguagem corporativa persuasiva que destaca seus resultados e liderança.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-purple-400 mt-1">✓</span>
+                  <span><strong>Aprimoramento Automático:</strong> Organiza rascunhos rasos, inferindo e enriquecendo os pontos mais fracos.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-purple-400 mt-1">✓</span>
+                  <span><strong>Super Simples:</strong> Basta enviar um PDF ou uma simples foto tirada pelo seu celular.</span>
+                </li>
+              </ul>
+            </div>
+            <div className="pt-6 flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleAiImport} 
+                onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
+                accept="application/pdf,image/*" 
+                className="hidden" 
+              />
+              <button
+                onClick={() => {
+                  if (fileInputRef.current) {
+                    fileInputRef.current.click();
+                  } else {
+                    setTimeout(() => fileInputRef.current?.click(), 100);
+                  }
+                }}
+                disabled={isProcessing}
+                className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-purple-600 shadow-xl shadow-purple-600/30 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-lg font-bold rounded-2xl transition-all"
+              >
+                {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5 rotate-180" />}
+                {isProcessing ? "Analisando Arquivo..." : "Enviar Arquivo"}
+              </button>
+              <button
+                onClick={() => setAppState('onboarding')}
+                disabled={isProcessing}
+                className="text-slate-400 hover:text-white font-medium text-sm transition-colors py-2 px-4"
+              >
+                Voltar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {appState === 'editor' && (
+        <div key="editor" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans overflow-hidden">
       {/* Header Section */}
       <header className="flex flex-col lg:flex-row justify-between items-center px-4 sm:px-8 py-4 sm:py-5 z-10 shrink-0 gap-4 border-b border-white/5 bg-slate-900/40 backdrop-blur-md">
         <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
@@ -738,6 +735,8 @@ function MainApp() {
           </div>
         )}
       </main>
+    </div>
+    )}
     </div>
   );
 }
