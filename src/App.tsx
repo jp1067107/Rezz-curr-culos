@@ -48,13 +48,19 @@ const INITIAL_DATA: ResumeData = {
   ]
 };
 
-class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
-  constructor(props: {children: React.ReactNode}) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+interface ErrorBoundaryProps { children: React.ReactNode; }
+interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-  static getDerivedStateFromError(error: Error) {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // @ts-ignore
+  public props: ErrorBoundaryProps;
+
+  state: ErrorBoundaryState = {
+    hasError: false,
+    error: null
+  };
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
@@ -330,7 +336,7 @@ function MainApp() {
 
   if (appState === 'onboarding') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
+      <div key="onboarding" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
         <div className="max-w-2xl text-center space-y-8">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl shadow-2xl shadow-indigo-500/20 text-white font-black text-4xl ring-1 ring-white/20 font-serif mb-4">
             R
@@ -367,7 +373,7 @@ function MainApp() {
 
   if (appState === 'ai-info') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
+      <div key="ai-info" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
         <div className="max-w-3xl bg-slate-800/50 border border-white/10 p-8 sm:p-12 rounded-3xl shadow-2xl text-center space-y-8">
           <div className="mx-auto w-16 h-16 bg-purple-500/20 rounded-2xl flex items-center justify-center mb-6 text-purple-400 border border-purple-500/30">
             <Wand2 className="w-8 h-8" />
@@ -430,7 +436,7 @@ function MainApp() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans overflow-hidden">
+    <div key="editor" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans overflow-hidden">
       {/* Header Section */}
       <header className="flex flex-col lg:flex-row justify-between items-center px-4 sm:px-8 py-4 sm:py-5 z-10 shrink-0 gap-4 border-b border-white/5 bg-slate-900/40 backdrop-blur-md">
         <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
