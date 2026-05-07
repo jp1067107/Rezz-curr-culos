@@ -402,7 +402,14 @@ function MainApp() {
               className="hidden" 
             />
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => {
+                if (fileInputRef.current) {
+                  fileInputRef.current.click();
+                } else {
+                  // Fallback if ref is disconnected momentarily
+                  setTimeout(() => fileInputRef.current?.click(), 100);
+                }
+              }}
               disabled={isProcessing}
               className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-purple-600 shadow-xl shadow-purple-600/30 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-lg font-bold rounded-2xl transition-all"
             >
@@ -495,7 +502,13 @@ function MainApp() {
               <Wand2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> <span className="whitespace-nowrap">Editar</span>
             </button>
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => {
+                if (fileInputRef.current) {
+                  fileInputRef.current.click();
+                } else {
+                  setTimeout(() => fileInputRef.current?.click(), 100);
+                }
+              }}
               disabled={isProcessing || isPrompting}
               className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-indigo-500/20 border border-indigo-500/50 hover:bg-indigo-500/40 text-indigo-200 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
             >
