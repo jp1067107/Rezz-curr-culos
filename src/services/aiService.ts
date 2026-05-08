@@ -3,7 +3,6 @@ import { v4 as uuidv4 } from "uuid";
 import Groq from "groq-sdk";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.min.mjs";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { GoogleGenAI } from "@google/genai";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -20,14 +19,6 @@ function getGroq(): Groq {
   return groqClient;
 }
 
-let geminiClient: GoogleGenAI | null = null;
-function getGemini(): GoogleGenAI {
-  if (!geminiClient) {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-    geminiClient = new GoogleGenAI({ apiKey });
-  }
-  return geminiClient;
-}
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -153,26 +144,39 @@ export async function extractResumeDataFromFile(file: File): Promise<ResumeData>
     // It's an image - Groq model is deprecated, use Gemini instead
     try {
       const base64Data = await fileToBase64(file);
-      const gemini = getGemini();
       
-      const response = await gemini.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: `${SYSTEM_PROMPT}\n\nAnalise a imagem de currículo fornecida. Extraia as informações, mas não apenas transcreva. REESCREVA E OTIMIZE ativamente as informações utilizando uma linguagem corporativa profunda, persuasiva e orientada para resultados. Transforme o conteúdo no formato JSON estrito.` },
-              { inlineData: { mimeType: "image/jpeg", data: base64Data } }
-            ]
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error("Chave da API Gemini não encontrada. Adicione GEMINI_API_KEY nas configurações ou secrets.");
+      }
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { text: `${SYSTEM_PROMPT}\n\nAnalise a imagem de currículo fornecida. Extraia as informações, mas não apenas transcreva. REESCREVA E OTIMIZE ativamente as informações utilizando uma linguagem corporativa profunda, persuasiva e orientada para resultados. Transforme o conteúdo no formato JSON estrito.` },
+                { inlineData: { mimeType: "image/jpeg", data: base64Data } }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.5,
+            responseMimeType: "application/json"
           }
-        ],
-        config: {
-          responseMimeType: "application/json",
-          temperature: 0.5
-        }
+        })
       });
 
-      const textResponse = response.text || "{}";
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
+      }
+
+      const rawResult = await response.json();
+      const textResponse = rawResult.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
       const rawData = parseJsonResponse(textResponse);
       return normalizeResponse(rawData);
     } catch (error: any) {
