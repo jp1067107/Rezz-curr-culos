@@ -11,7 +11,7 @@ import { extractResumeDataFromFile, generateResumeDataFromPrompt } from './servi
 import { auth, signInWithGoogle, signOut, saveResume, loadResumes, ResumeDoc } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useReactToPrint } from 'react-to-print';
-import { Download, LayoutTemplate, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, ChevronDown, Menu, DollarSign, Share2, Link as LinkIcon, ArrowLeft } from 'lucide-react';
+import { Download, LayoutTemplate, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, ChevronDown, Menu, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown } from 'lucide-react';
 
 import { v4 as uuidv4 } from 'uuid';
 
@@ -100,6 +100,29 @@ function MainApp() {
   
   const [user, setUser] = useState<User | null>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
   const [currentResumeId, setCurrentResumeId] = useState<string>(uuidv4());
   const [resumesList, setResumesList] = useState<ResumeDoc[]>([]);
   const [isResumesModalOpen, setIsResumesModalOpen] = useState(false);
@@ -388,6 +411,14 @@ function MainApp() {
                 >
                   <DollarSign className="w-4 h-4" /> Ganhar com Indicação
                 </button>
+                {deferredPrompt && (
+                  <button
+                    onClick={() => { setIsUserMenuOpen(false); handleInstallClick(); }}
+                    className="w-full text-left px-4 py-2.5 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 flex items-center gap-2 transition-colors border-t border-white/5"
+                  >
+                    <MonitorDown className="w-4 h-4" /> Instalar App
+                  </button>
+                )}
                 <button
                   onClick={() => { setIsUserMenuOpen(false); signOut(); }}
                   className="w-full text-left px-4 py-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2 transition-colors border-t border-white/5"
@@ -396,12 +427,22 @@ function MainApp() {
                 </button>
               </>
             ) : (
-              <button
-                onClick={() => { setIsUserMenuOpen(false); signInWithGoogle(); }}
-                className="w-full text-left px-4 py-2.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2 transition-colors"
-              >
-                <LogIn className="w-4 h-4" /> Entrar para Salvar
-              </button>
+              <>
+                <button
+                  onClick={() => { setIsUserMenuOpen(false); signInWithGoogle(); }}
+                  className="w-full text-left px-4 py-2.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2 transition-colors"
+                >
+                  <LogIn className="w-4 h-4" /> Entrar para Salvar
+                </button>
+                {deferredPrompt && (
+                  <button
+                    onClick={() => { setIsUserMenuOpen(false); handleInstallClick(); }}
+                    className="w-full text-left px-4 py-2.5 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 flex items-center gap-2 transition-colors border-t border-white/5"
+                  >
+                    <MonitorDown className="w-4 h-4" /> Instalar App
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -818,60 +859,45 @@ function MainApp() {
         )}
         {/* Editor sidebar */}
         <div className={`flex-1 h-full min-w-0 flex flex-col gap-4 ${mobileView !== 'editor' ? 'hidden lg:flex' : 'flex'}`}>
-          <div className="flex flex-col sm:flex-row gap-4 p-4 bg-slate-800/40 border border-white/5 rounded-2xl shrink-0 items-start sm:items-center justify-between">
+          <div className="flex flex-col lg:flex-row gap-4 p-4 bg-slate-800/40 border border-white/5 rounded-2xl shrink-0 items-start lg:items-center justify-between">
             <div>
               <h2 className="text-white font-semibold text-lg">Seu Currículo</h2>
-              <p className="text-slate-400 text-sm hidden sm:block">Preencha os dados ou use a IA para otimizar</p>
+              <p className="text-slate-400 text-sm hidden sm:block">Preencha os dados manualmente ou use IA.</p>
             </div>
             
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <div className="flex items-center justify-between p-1 bg-slate-900 border border-white/10 rounded-xl shrink-0 w-full sm:w-auto">
-                {(['modern', 'classic', 'minimal'] as const).map(t => (
-                  <button
-                    key={t}
-                    onClick={() => setTemplate(t as TemplateType)}
-                    className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 text-xs font-semibold rounded-lg transition-all capitalize flex items-center justify-center gap-1.5
-                      ${template === t ? 'bg-indigo-500 text-white shadow-sm ring-1 ring-white/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                  >
-                    <span className="whitespace-nowrap">{templateNames[t]}</span>
-                  </button>
-                ))}
-              </div>
-              
-              <div className="flex gap-2 w-full sm:w-auto">
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleAiImport} 
-                  onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
-                  accept="application/pdf,image/*" 
-                  className="hidden" 
-                />
-                <button
-                  onClick={() => setIsPromptModalOpen(true)}
-                  disabled={isPrompting || isProcessing || !hasActiveResume}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm shrink-0 ${hasActiveResume ? 'bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
-                  title={hasActiveResume ? "Modificar as informações usando IA" : "Preencha o currículo primeiro"}
-                >
-                  <Wand2 className="w-4 h-4 shrink-0" />
-                  <span className="whitespace-nowrap">Modificar com IA</span>
-                </button>
-                <button
-                  onClick={() => {
-                    if (fileInputRef.current) {
-                      fileInputRef.current.click();
-                    } else {
-                      setTimeout(() => fileInputRef.current?.click(), 100);
-                    }
-                  }}
-                  disabled={isProcessing || isPrompting}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-indigo-500/20 border border-indigo-500/50 hover:bg-indigo-500/40 text-indigo-200 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                  title="Recriar currículo usando inteligência artificial"
-                >
-                  {isProcessing ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Sparkles className="w-4 h-4 shrink-0" />}
-                  <span className="whitespace-nowrap">{isProcessing ? "Lendo..." : "Refazer com IA"}</span>
-                </button>
-              </div>
+            <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleAiImport} 
+                onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
+                accept="application/pdf,image/*" 
+                className="hidden" 
+              />
+              <button
+                onClick={() => setIsPromptModalOpen(true)}
+                disabled={isPrompting || isProcessing || !hasActiveResume}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-all shadow-sm shrink-0 ${hasActiveResume ? 'bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
+                title={hasActiveResume ? "Modificar as informações usando IA" : "Preencha o currículo primeiro"}
+              >
+                <Wand2 className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">Modificar com IA</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (fileInputRef.current) {
+                    fileInputRef.current.click();
+                  } else {
+                    setTimeout(() => fileInputRef.current?.click(), 100);
+                  }
+                }}
+                disabled={isProcessing || isPrompting}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-indigo-500/20 border border-indigo-500/50 hover:bg-indigo-500/40 text-indigo-200 text-sm font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                title="Recriar currículo usando inteligência artificial"
+              >
+                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Sparkles className="w-4 h-4 shrink-0" />}
+                <span className="whitespace-nowrap">{isProcessing ? "Lendo..." : "Refazer com IA"}</span>
+              </button>
             </div>
           </div>
           <ResumeForm data={data} onChange={setData} />
@@ -888,7 +914,7 @@ function MainApp() {
             </div>
           </div>
 
-          <div className="lg:hidden flex items-center justify-between p-1 bg-slate-900 border border-white/10 rounded-xl shrink-0 w-full mb-4">
+          <div className="flex items-center justify-between p-1 bg-slate-900 border border-white/10 rounded-xl shrink-0 w-full mb-4">
             {(['modern', 'classic', 'minimal'] as const).map(t => (
               <button
                 key={t}
