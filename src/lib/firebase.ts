@@ -73,8 +73,9 @@ export const signInWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
   try {
     await signInWithPopup(auth, provider);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error signing in with Google", error);
+    alert("Erro ao fazer login com Google: " + error.message + ".\n\nSe estiver no Safari/iOS ou dentro de um preview, tente abrir o app em uma nova guia/janela.");
   }
 };
 

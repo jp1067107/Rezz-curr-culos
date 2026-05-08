@@ -93,7 +93,22 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
 function MainApp() {
   const [appState, setAppState] = useState<'onboarding' | 'ai-info' | 'editor' | 'payment-success' | 'affiliate'>('onboarding');
-  const [data, setData] = useState<ResumeData>(INITIAL_DATA);
+  const [data, setData] = useState<ResumeData>(() => {
+    const saved = localStorage.getItem('rezz_draft_data');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return INITIAL_DATA;
+      }
+    }
+    return INITIAL_DATA;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('rezz_draft_data', JSON.stringify(data));
+  }, [data]);
+
   const [template, setTemplate] = useState<TemplateType>('modern');
   const componentRef = useRef<HTMLDivElement>(null);
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
