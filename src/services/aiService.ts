@@ -226,10 +226,11 @@ function normalizeResponse(rawData: any): ResumeData {
       id: uuidv4(),
       name: skill.name || '',
     })) : [],
+    coverLetter: rawData.coverLetter || '',
   };
 }
 
-export async function generateResumeDataFromPrompt(prompt: string, currentData: ResumeData): Promise<ResumeData> {
+export async function enhanceResumeData(currentData: ResumeData): Promise<ResumeData> {
   const dataForAi = {
     ...currentData,
     personalInfo: {
@@ -237,13 +238,23 @@ export async function generateResumeDataFromPrompt(prompt: string, currentData: 
       photoUrl: undefined, 
     }
   };
-  const currentDataString = JSON.stringify(dataForAi, null, 2);
-  
+
+  const modelPrompt = `
+Você é um escritor de currículos especialista e coach de carreira. 
+Revise os dados do currículo fornecido e reescreva-os para que soem profissionais, impactantes e polidos.
+Corrija erros gramaticais ou de ortografia (mantenha em português). Expanda descrições curtas usando bullet points para que pareçam conquistas profissionais. 
+Use a quebra de linha ("\\n") para separar os bullet points na "description" da experiência.
+Mantenha a estrutura JSON OBRIGATÓRIA. Não adicione texto fora do JSON.
+
+Dados Atuais do Currículo:
+${JSON.stringify(dataForAi, null, 2)}
+`;
+
   const response = await getGroq().chat.completions.create({
     model: "llama-3.3-70b-versatile",
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: `Os dados atuais do currículo do usuário são:\n${currentDataString}\n\nO usuário pediu:\n"${prompt}"\n\nAtualize as informações do currículo com base no pedido do usuário e retorne TODO o currículo de volta (partes modificadas e partes não modificadas) em JSON.\n\nCRÍTICO: Você não deve apenas transcrever ou inserir os dados crus. Você deve REESCREVER E APRIMORAR o conteúdo como um especialista. Aprimore o perfil e a experiência usando formato de bullet points concisos e focados em resultados.` }
+      { role: "user", content: modelPrompt }
     ],
     temperature: 0.5,
     response_format: { type: "json_object" },
@@ -251,84 +262,56 @@ export async function generateResumeDataFromPrompt(prompt: string, currentData: 
 
   const parsedText = response.choices[0]?.message?.content || "{}";
   const rawData = parseJsonResponse(parsedText);
-
-  const normalizedData: ResumeData = {
+  
+  return {
+    ...normalizeResponse(rawData),
+    id: currentData.id,
     personalInfo: {
-      fullName: rawData.personalInfo?.fullName || currentData.personalInfo.fullName,
-      jobTitle: rawData.personalInfo?.jobTitle || currentData.personalInfo.jobTitle,
-      email: rawData.personalInfo?.email || currentData.personalInfo.email,
-      phone: rawData.personalInfo?.phone || currentData.personalInfo.phone,
-      location: rawData.personalInfo?.location || currentData.personalInfo.location,
-      summary: rawData.personalInfo?.summary || currentData.personalInfo.summary,
+      ...normalizeResponse(rawData).personalInfo,
       photoUrl: currentData.personalInfo.photoUrl,
-    },
-    experience: Array.isArray(rawData.experience) ? rawData.experience.map((exp: any) => ({
-      id: uuidv4(),
-      company: exp.company || '',
-      position: exp.position || '',
-      startDate: exp.startDate || '',
-      endDate: exp.endDate || '',
-      description: exp.description || '',
-    })) : currentData.experience,
-    education: Array.isArray(rawData.education) ? rawData.education.map((edu: any) => ({
-      id: uuidv4(),
-      institution: edu.institution || '',
-      degree: edu.degree || '',
-      startDate: edu.startDate || '',
-      endDate: edu.endDate || '',
-    })) : currentData.education,
-    skills: Array.isArray(rawData.skills) ? rawData.skills.map((skill: any) => ({
-      id: uuidv4(),
-      name: skill.name || '',
-    })) : currentData.skills,
-  };
-
-  return normalizedData;
-}
-
-export async function generateCoverLetter(resumeData: ResumeData, targetJob: string): Promise<string> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Chave da API Gemini não encontrada. Adicione GEMINI_API_KEY nas configurações ou secrets.");
-  }
-
-  const payload = {
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { text: `Aja como um redator profissional especializado em carreira e recursos humanos. Use as informações do currículo abaixo para criar uma Carta de Apresentação (Cover Letter) focada na seguinte vaga ou cargo alvo: "${targetJob}".
-          
-Regras:
-1. Comece com uma saudação profissional.
-2. Destaque as experiências e habilidades essenciais do currículo que tenham sinergia com o cargo alvo.
-3. Mantenha um tom profissional, entusiasmado e persuasivo.
-4. Finalize com um chamado para ação (call to action) para uma entrevista ou conversa.
-5. Seja direto, a carta deve ter entre 3 a 4 parágrafos.
-6. A formatação deve ser um texto limpo, sem markdown (sem ** para negrito ou # para títulos), formatado para ser copiado e colado em um corpo de e-mail ou documento.
-7. Substitua informações sensíveis por colchetes, caso faltem detalhes para enviar a carta, por exemplo: [Nome da Empresa].
-
-Dados do Currículo:
-${JSON.stringify(resumeData, null, 2)}` }
-        ]
-      }
-    ],
-    generationConfig: {
-      temperature: 0.7,
     }
   };
+}
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+export async function generateCustomCoverLetter(resumeData: ResumeData, answers: any): Promise<string> {
+  const dataForAi = {
+    ...resumeData,
+    personalInfo: { ...resumeData.personalInfo, photoUrl: undefined }
+  };
+  
+  const modelPrompt = `
+Você é um redator profissional de cartas de apresentação empresariais e recrutador sênior.
+O usuário preencheu algumas informações específicas sobre a vaga e seus objetivos, e forneceu seu currículo.
+
+INFORMAÇÕES EXTRAS PREENCHIDAS PELO USUÁRIO:
+- Cargo Desejado / Nome da Vaga: ${answers.targetJob}
+- Nome da Empresa: ${answers.companyName || 'Não informada'}
+- Nome do Recrutador (opcional): ${answers.recruiterName || 'Não informado'}
+- Estilo/Tom da Carta: ${answers.tone || 'Profissional e Direto'}
+- Pontos que deseja destacar: ${answers.highlights || 'Use os pontos fortes visíveis no currículo'}
+
+CURRÍCULO DO USUÁRIO:
+${JSON.stringify(dataForAi, null, 2)}
+
+INSTRUÇÕES:
+1. Escreva uma Carta de Apresentação (Cover Letter) focada no cargo e empresa informados.
+2. Utilize o tom/estilo solicitado.
+3. Destaque os pontos mencionados, conectando a experiência com a vaga.
+4. Caso a empresa não tenha sido informada, use espaços em branco como "[Nome da Empresa]".
+5. Inicie com uma saudação formal.
+6. A formatação deve ser um texto limpo, com 3 a 4 parágrafos, sem utilizar formatações markdown (sem **, sem #, etc.).
+
+IMPORTANTE: Você deve retornar SOMENTE O TEXTO DA CARTA. Não adicione observações, conselhos, introdução ou conclusão para o usuário. Apenas a carta redigida.
+`;
+
+  const response = await getGroq().chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    messages: [
+      { role: "system", content: "Você é um assistente gerador de cartas de apresentação baseadas em perfis profissionais. Responda única e exclusivamente com o conteúdo da carta final." },
+      { role: "user", content: modelPrompt }
+    ],
+    temperature: 0.6,
   });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Erro ao gerar a carta (${response.status}): ${errText}`);
-  }
-
-  const rawResult = await response.json();
-  return rawResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  return response.choices[0]?.message?.content || "";
 }

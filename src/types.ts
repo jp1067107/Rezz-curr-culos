@@ -37,6 +37,7 @@ export interface ResumeData {
   experience: Experience[];
   education: Education[];
   skills: Skill[];
+  coverLetter?: string;
 }
 
 export type TemplateType = 'modern' | 'classic' | 'minimal';

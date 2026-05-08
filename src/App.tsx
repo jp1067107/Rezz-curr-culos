@@ -7,7 +7,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ResumeData, TemplateType } from './types';
 import { ResumeForm } from './components/ResumeForm';
 import { ResumePreview } from './components/ResumePreview';
-import { extractResumeDataFromFile, generateResumeDataFromPrompt } from './services/aiService';
+import { CoverLetterGenerator } from './components/CoverLetterGenerator';
+import { extractResumeDataFromFile } from './services/aiService';
 import { auth, signInWithGoogle, signOut, saveResume, loadResumes, ResumeDoc } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown } from 'lucide-react';
@@ -163,6 +164,7 @@ function MainApp() {
   const [isSaving, setIsSaving] = useState(false);
 
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [simulateOrderBump, setSimulateOrderBump] = useState(false);
   const [isInsufficientDataModalOpen, setIsInsufficientDataModalOpen] = useState(false);
   const [unlockedConfigs, setUnlockedConfigs] = useState<string[]>(() => {
     try {
@@ -197,7 +199,7 @@ function MainApp() {
   
   const signature = `${currentResumeId}_${template}`;
   const hasPaid = unlockedConfigs.includes(signature);
-  const [hasCoverLetter, setHasCoverLetter] = useState(false);
+  const hasCoverLetter = unlockedConfigs.includes(`${currentResumeId}_cover_letter`);
 
   useEffect(() => {
     localStorage.setItem('rezz_unlocked', JSON.stringify(unlockedConfigs));
@@ -210,7 +212,8 @@ function MainApp() {
       localStorage.removeItem('rezz_has_paid'); // migrate fully to new system
     }
     if (localStorage.getItem('rezz_has_cover_letter') === 'true') {
-      setHasCoverLetter(true);
+      setUnlockedConfigs(prev => [...new Set([...prev, `${currentResumeId}_cover_letter`])]);
+      localStorage.removeItem('rezz_has_cover_letter');
     }
 
     const params = new URLSearchParams(window.location.search);
@@ -221,7 +224,13 @@ function MainApp() {
     }
 
     if (params.get('payment') === 'success') {
-      setUnlockedConfigs(prev => [...new Set([...prev, signature])]);
+      setUnlockedConfigs(prev => {
+        let newConfigs = [...prev, signature];
+        if (params.get('cover_letter') === 'true' || params.get('order_bump') === 'cover_letter') {
+          newConfigs.push(`${currentResumeId}_cover_letter`);
+        }
+        return [...new Set(newConfigs)];
+      });
       
       // Save locally so it appears in "My Resumes" even without login
       setLocalPurchasedResumes(prev => {
@@ -239,11 +248,6 @@ function MainApp() {
           .catch(err => console.error("Error auto-saving resume:", err));
       }
       
-      if (params.get('cover_letter') === 'true' || params.get('order_bump') === 'cover_letter') {
-        setHasCoverLetter(true);
-        localStorage.setItem('rezz_has_cover_letter', 'true');
-      }
-
       window.history.replaceState({}, document.title, window.location.pathname);
       setAppState('payment-success');
     }
@@ -337,6 +341,7 @@ function MainApp() {
     setCurrentResumeId(doc.id);
     setData(doc.data);
     setIsPurchasedEditing(false);
+    setLastEnhancedLength(null);
     
     // Check if it's purchased
     const signaturePrefix = `${doc.id}_`;
@@ -458,7 +463,8 @@ function MainApp() {
       pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
       heightLeft -= pageHeight;
 
-      while (heightLeft > 0) {
+      // Adiciona nova página apenas se sobrar um conteúdo significativo (evitar página extra em branco)
+      while (heightLeft > 2) {
         position = position - pageHeight;
         pdf.addPage();
         pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
@@ -483,9 +489,9 @@ function MainApp() {
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
-  const [promptText, setPromptText] = useState('');
+
   const [isPrompting, setIsPrompting] = useState(false);
+  const [lastEnhancedLength, setLastEnhancedLength] = useState<number | null>(null);
 
   React.useEffect(() => {
     const updateScale = () => {
@@ -513,6 +519,7 @@ function MainApp() {
       const extractedData = await extractResumeDataFromFile(file);
       setData(extractedData);
       setCurrentResumeId(uuidv4());
+      setLastEnhancedLength(null);
       setAppState('editor');
       setMobileView('preview');
     } catch (error: any) {
@@ -525,16 +532,15 @@ function MainApp() {
     }
   };
 
-  const handleAiPromptSubmit = async () => {
-    if (!promptText.trim()) return;
+  const handleEnhanceWithAI = async () => {
     try {
-      setIsPrompting(true);
-      const newData = await generateResumeDataFromPrompt(promptText, data);
+      setIsPrompting(true); // We can still use isPrompting to show the loading state
+      const { enhanceResumeData } = await import('./services/aiService');
+      const newData = await enhanceResumeData(data);
       setData(newData);
-      setIsPromptModalOpen(false);
-      setPromptText('');
+      setLastEnhancedLength(JSON.stringify(newData).length);
     } catch (error: any) {
-      alert(error.message || 'Falha ao processar pedido com IA.');
+      alert(error.message || 'Falha ao aprimorar currículo com IA.');
     } finally {
       setIsPrompting(false);
     }
@@ -568,6 +574,10 @@ function MainApp() {
     data.education?.length > 0 || 
     data.skills?.length > 0
   );
+
+  const currentDataLength = JSON.stringify(data).length;
+  // Can enhance if never enhanced, or if user removed a significant amount of text
+  const canEnhance = hasActiveResume && (lastEnhancedLength === null || currentDataLength < lastEnhancedLength - 100);
 
   return (
     <div className="w-full min-h-screen bg-slate-900 flex flex-col">
@@ -794,6 +804,14 @@ function MainApp() {
               >
                 Acessar Meu Currículo
               </button>
+              {hasCoverLetter && (
+                <button
+                  onClick={() => setAppState('cover-letter')}
+                  className="flex items-center justify-center gap-3 px-8 py-4 bg-purple-600 shadow-xl shadow-purple-600/30 hover:bg-purple-500 text-white text-lg font-bold rounded-2xl transition-all w-full sm:w-auto"
+                >
+                  <Wand2 className="w-5 h-5" /> Acessar Carta
+                </button>
+              )}
               <button
                 onClick={() => setAppState('affiliate')}
                 className="flex items-center justify-center gap-3 px-8 py-4 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white text-lg font-bold rounded-2xl transition-all w-full sm:w-auto"
@@ -898,73 +916,8 @@ function MainApp() {
             </button>
           </header>
 
-          <main className="flex-1 overflow-y-auto w-full max-w-4xl mx-auto p-4 sm:p-8 flex flex-col gap-6 pb-20">
-            <div className="bg-slate-800/50 border border-white/10 rounded-2xl p-6 sm:p-8 shadow-xl">
-              <h2 className="text-2xl font-bold text-white mb-2">Carta de Apresentação com Inteligência Artificial</h2>
-              <p className="text-slate-400 mb-6 text-sm sm:text-base">
-                Preencha o cargo desejado e nossa IA analisará seu currículo para redigir uma carta focada e persuasiva.
-              </p>
-
-              <div className="space-y-3 mb-6">
-                 <label className="block text-sm font-medium text-slate-300">Cargo Desejado / Nome da Vaga</label>
-                 <input 
-                   type="text" 
-                   id="targetJobInput" 
-                   placeholder="Ex: Engenheiro de Software Sênior" 
-                   className="w-full bg-slate-900 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all font-medium"
-                 />
-              </div>
-
-              <button
-                id="btnGenerateCoverLetter"
-                onClick={async () => {
-                   const input = document.getElementById('targetJobInput') as HTMLInputElement;
-                   if (!input || !input.value.trim()) {
-                     alert("Por favor, informe o cargo desejado.");
-                     return;
-                   }
-                   const btn = document.getElementById('btnGenerateCoverLetter') as HTMLButtonElement;
-                   const resultBox = document.getElementById('coverLetterResult') as HTMLTextAreaElement;
-                   
-                   btn.disabled = true;
-                   btn.innerHTML = `<span class="flex items-center justify-center gap-2 animate-pulse"><svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Analisando e Escrevendo...</span>`;
-                   
-                   try {
-                     const { generateCoverLetter } = await import('./services/aiService');
-                     const text = await generateCoverLetter(data, input.value.trim());
-                     resultBox.value = text;
-                     resultBox.parentElement?.classList.remove('hidden');
-                   } catch (err: any) {
-                     alert(err.message || 'Erro ao gerar carta.');
-                   } finally {
-                     btn.disabled = false;
-                     btn.innerHTML = 'Gerar Carta Mágica';
-                   }
-                }}
-                className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-purple-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
-              >
-                Gerar Carta Mágica
-              </button>
-              
-              <div className="mt-8 hidden">
-                <label className="block text-sm font-medium text-slate-300 mb-2">Sua Carta Gerada</label>
-                <textarea 
-                  id="coverLetterResult" 
-                  className="w-full bg-slate-900 border border-purple-500/30 rounded-xl p-4 text-white focus:outline-none min-h-[300px] resize-y leading-relaxed"
-                  readOnly
-                ></textarea>
-                <button 
-                  onClick={() => {
-                    const result = document.getElementById('coverLetterResult') as HTMLTextAreaElement;
-                    navigator.clipboard.writeText(result.value);
-                    alert("Copiado para a área de transferência!");
-                  }}
-                  className="mt-4 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-lg transition-colors border border-white/5 shadow-sm active:scale-95"
-                >
-                  <span className="flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>Copiar Texto</span>
-                </button>
-              </div>
-            </div>
+          <main className="flex-1 overflow-y-auto w-full mx-auto p-4 sm:p-8 flex flex-col gap-6 pb-20">
+            <CoverLetterGenerator data={data} setData={setData} />
           </main>
         </div>
       )}
@@ -975,28 +928,37 @@ function MainApp() {
         return (
         <div key="purchased-view" className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
           <div className="h-1.5 w-full bg-gradient-to-r from-emerald-400 via-indigo-500 to-purple-500 shrink-0"></div>
-          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-emerald-500/10 bg-slate-900/40 backdrop-blur-md z-10 shrink-0 relative">
+          <header className="flex flex-col lg:flex-row justify-between items-center px-4 sm:px-6 py-4 border-b border-emerald-500/10 bg-slate-900/40 backdrop-blur-md z-10 shrink-0 relative gap-3">
             <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 to-transparent pointer-events-none"></div>
-            <div className="flex items-center gap-4 relative z-10">
-              <button
-                onClick={() => setAppState('my-resumes')}
-                className="p-2 bg-slate-800/80 border border-white/5 hover:bg-slate-700 text-slate-300 rounded-xl transition-all shrink-0"
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </button>
-              <div>
-                <h1 className="text-lg sm:text-xl font-bold text-white leading-tight">
-                  {data.name || data.personalInfo.fullName || 'Currículo Adquirido'}
-                </h1>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-emerald-400 font-bold px-2 py-0.5 bg-emerald-500/10 rounded-md border border-emerald-500/20 uppercase tracking-widest flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" /> Desbloqueado
+            <div className="flex w-full lg:w-auto items-center justify-between lg:justify-start gap-4 relative z-10">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setAppState('my-resumes')}
+                  className="p-2 bg-slate-800/80 border border-white/5 hover:bg-slate-700 text-slate-300 rounded-xl transition-all shrink-0"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <div className="flex flex-col">
+                  <h1 className="text-lg sm:text-xl font-bold text-white leading-tight truncate max-w-[150px] sm:max-w-xs">
+                    {data.name || (data.personalInfo.fullName ? data.personalInfo.fullName.split(' ')[0] : '') || 'Currículo Adquirido'}
+                  </h1>
+                  <span className="text-[10px] sm:text-xs text-emerald-400 font-bold px-1.5 sm:px-2 py-0.5 bg-emerald-500/10 rounded-md border border-emerald-500/20 uppercase tracking-widest flex items-center gap-1 w-fit mt-1">
+                    <CheckCircle className="w-3 h-3" /> Comprado
                   </span>
                 </div>
               </div>
+
+              {/* Mobile Download Button (Visible only on small screens) */}
+              <button
+                onClick={handleDownloadClick}
+                className="flex lg:hidden items-center gap-1.5 px-3 py-2 text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white rounded-xl transition-all"
+                title="Exportar PDF"
+              >
+                <Download className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-3 relative z-10">
+            <div className="flex w-full lg:w-auto items-center justify-between lg:justify-end gap-2 sm:gap-3 relative z-10">
               <button
                 onClick={handleSaveResume}
                 disabled={isSaving}
@@ -1006,14 +968,7 @@ function MainApp() {
                 <span>Salvar</span>
               </button>
 
-              <button
-                onClick={() => setIsPromptModalOpen(true)}
-                disabled={isPrompting || isProcessing}
-                className="hidden lg:flex items-center gap-2 px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/20 text-sm font-bold rounded-xl transition-all shadow-sm"
-              >
-                <Wand2 className="w-4 h-4" />
-                <span>Modificar com IA</span>
-              </button>
+
 
               <button
                 onClick={() => setIsPurchasedEditing(!isPurchasedEditing)}
@@ -1025,15 +980,25 @@ function MainApp() {
 
               <button
                 onClick={() => setMobileView(mobileView === 'editor' ? 'preview' : 'editor')}
-                className="flex lg:hidden items-center gap-2 px-3 sm:px-4 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-bold rounded-xl transition-all border border-white/5"
+                className="flex lg:hidden flex-1 justify-center items-center gap-2 px-3 sm:px-4 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-bold rounded-xl transition-all border border-white/5"
               >
                 {mobileView === 'editor' ? <Eye className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
-                <span className="hidden sm:inline">{mobileView === 'editor' ? 'Ver PDF' : 'Editar'}</span>
+                <span className="inline">{mobileView === 'editor' ? 'Ver PDF' : 'Editar Dados'}</span>
               </button>
+
+              {hasCoverLetter && (
+                <button
+                  onClick={() => setAppState('cover-letter')}
+                  className="flex lg:flex-none flex-1 justify-center items-center gap-2 px-3 sm:px-6 py-2 bg-purple-600 hover:bg-purple-500 shadow-lg shadow-purple-600/30 text-white text-sm font-bold rounded-xl transition-all"
+                >
+                  <Wand2 className="w-4 h-4" />
+                  <span className="inline">Carta Profissional</span>
+                </button>
+              )}
 
               <button
                 onClick={handleDownloadClick}
-                className="flex items-center gap-2 px-4 sm:px-6 py-2 bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/30 text-white text-sm font-bold rounded-xl transition-all"
+                className="hidden lg:flex items-center gap-2 px-4 sm:px-6 py-2 bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/30 text-white text-sm font-bold rounded-xl transition-all"
               >
                 <Download className="w-4 h-4" />
                 <span className="hidden sm:inline">Exportar PDF</span>
@@ -1048,7 +1013,7 @@ function MainApp() {
             </div>
 
             <div className={`h-full w-full max-w-[800px] flex flex-col transition-all z-10 ${!isPurchasedEditing ? 'lg:w-[600px]' : 'lg:flex-1'} ${mobileView === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
-              <div className="flex justify-center mb-6 gap-2">
+              <div className="flex justify-center mb-6 gap-2 shrink-0">
                 <div className="bg-slate-900/80 backdrop-blur-md p-1.5 rounded-xl border border-white/10 shadow-xl flex gap-1">
                   {purchasedTemplates.map(t => (
                     <button
@@ -1062,23 +1027,16 @@ function MainApp() {
                 </div>
               </div>
 
-              <div className="lg:hidden w-full mb-4 px-2">
-                <button
-                  onClick={() => setIsPromptModalOpen(true)}
-                  disabled={isPrompting || isProcessing}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl transition-all shadow-sm bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer"
-                >
-                  <Wand2 className="w-4 h-4 shrink-0" />
-                  <span className="whitespace-nowrap">Modificar com IA</span>
-                </button>
-              </div>
+
 
               <div className="flex-1 overflow-y-auto flex items-start justify-center pb-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent rounded-lg" ref={containerRef}>
-                <div 
-                  style={{ transform: `scale(${scale})`, transformOrigin: 'top center', marginBottom: 40 }}
-                  className="shadow-2xl rounded-sm transition-all duration-300 bg-white text-slate-900 ring-1 ring-black/5"
-                >
-                  <ResumePreview data={data} template={template} ref={componentRef} />
+                <div style={{ height: 1122.52 * scale, width: 794 * scale }} className="flex justify-center transition-all duration-300">
+                  <div 
+                    style={{ transform: `scale(${scale})`, transformOrigin: 'top center' }}
+                    className="shadow-2xl rounded-sm transition-all duration-300 bg-white text-slate-900 ring-1 ring-black/5 shrink-0"
+                  >
+                    <ResumePreview data={data} template={template} ref={componentRef} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1113,6 +1071,7 @@ function MainApp() {
                    const initial = getInitialData();
                    setData(initial);
                    setCurrentResumeId(initial.id || uuidv4());
+                   setLastEnhancedLength(null);
                    setAppState('editor');
                 }}
                 className="bg-slate-800/40 border border-white/10 hover:border-indigo-500/50 hover:bg-slate-800/80 border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-4 text-slate-400 hover:text-white min-h-[160px] group"
@@ -1303,13 +1262,13 @@ function MainApp() {
                 className="hidden" 
               />
               <button
-                onClick={() => setIsPromptModalOpen(true)}
-                disabled={isPrompting || isProcessing || !hasActiveResume}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-all shadow-sm shrink-0 ${hasActiveResume ? 'bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
-                title={hasActiveResume ? "Modificar as informações usando IA" : "Preencha o currículo primeiro"}
+                onClick={handleEnhanceWithAI}
+                disabled={isPrompting || isProcessing || !canEnhance}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-all shadow-sm shrink-0 ${canEnhance ? 'bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
+                title={canEnhance ? "Aprimorar textos para uma linguagem profissional usando IA" : (hasActiveResume ? "Limite de aprimoramento atingido para esses dados" : "Preencha o currículo primeiro")}
               >
-                <Wand2 className="w-4 h-4 shrink-0" />
-                <span className="whitespace-nowrap">Modificar com IA</span>
+                {isPrompting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Wand2 className="w-4 h-4 shrink-0" />}
+                <span className="whitespace-nowrap">{isPrompting ? "Aprimorando..." : "Aprimorar com IA"}</span>
               </button>
               <button
                 onClick={() => {
@@ -1357,26 +1316,27 @@ function MainApp() {
 
           <div className="lg:hidden w-full mb-4 px-2">
             <button
-              onClick={() => setIsPromptModalOpen(true)}
-              disabled={isPrompting || isProcessing || !hasActiveResume}
-              className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl transition-all shadow-sm ${hasActiveResume ? 'bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
+              onClick={handleEnhanceWithAI}
+              disabled={isPrompting || isProcessing || !canEnhance}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl transition-all shadow-sm ${canEnhance ? 'bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
+              title={canEnhance ? "Aprimorar textos para uma linguagem profissional usando IA" : (hasActiveResume ? "Limite de aprimoramento atingido para esses dados" : "Preencha o currículo primeiro")}
             >
-              <Wand2 className="w-4 h-4 shrink-0" />
-              <span className="whitespace-nowrap">Modificar com IA</span>
+              {isPrompting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Wand2 className="w-4 h-4 shrink-0" />}
+              <span className="whitespace-nowrap">{isPrompting ? "Aprimorando..." : "Aprimorar com IA"}</span>
             </button>
           </div>
           
           <div className="flex-1 overflow-y-auto flex justify-center items-start pt-2 lg:pt-0 pb-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent rounded-lg" ref={containerRef}>
-            <div 
-              style={{ 
-                transform: `scale(${scale})`, 
-                transformOrigin: 'top center',
-                height: 1056 * scale, // Maintain aspect ratio height reserve
-                marginBottom: 40
-              }}
-              className={`print:transform-none shadow-2xl rounded-sm transition-all duration-300 ${hasActiveResume ? 'bg-white text-slate-900' : 'bg-slate-200 text-slate-400 grayscale opacity-80 blur-[0.5px] select-none pointer-events-none'}`}
-            >
-              <ResumePreview data={data} template={template} ref={componentRef} />
+            <div style={{ height: 1122.52 * scale, width: 794 * scale }} className="flex justify-center transition-all duration-300">
+              <div 
+                style={{ 
+                  transform: `scale(${scale})`, 
+                  transformOrigin: 'top center'
+                }}
+                className={`print:transform-none shadow-2xl rounded-sm transition-all duration-300 shrink-0 ${hasActiveResume ? 'bg-white text-slate-900' : 'bg-slate-200 text-slate-400 grayscale opacity-80 blur-[0.5px] select-none pointer-events-none'}`}
+              >
+                <ResumePreview data={data} template={template} ref={componentRef} />
+              </div>
             </div>
           </div>
         </section>
@@ -1408,10 +1368,23 @@ function MainApp() {
                  Voltar e editar mais
                </button>
                
-               <div className="mt-8 pt-6 border-t border-slate-100">
+               <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col items-center gap-3">
+                 <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-500">
+                   <input
+                     type="checkbox"
+                     checked={simulateOrderBump}
+                     onChange={(e) => setSimulateOrderBump(e.target.checked)}
+                     className="w-4 h-4 rounded text-indigo-500"
+                   />
+                   Simular compra COM Order Bump (Carta)
+                 </label>
                  <button 
                    onClick={() => {
-                     setUnlockedConfigs(prev => [...new Set([...prev, signature])]);
+                     setUnlockedConfigs(prev => {
+                       let next = [...prev, signature];
+                       if (simulateOrderBump) next.push(`${currentResumeId}_cover_letter`);
+                       return [...new Set(next)];
+                     });
                      setIsPaymentModalOpen(false);
                      setAppState('payment-success');
                    }}
@@ -1462,53 +1435,7 @@ function MainApp() {
     </div>
     )}
 
-        {isPromptModalOpen && (
-          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
-              <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                  <Wand2 className="w-5 h-5 text-purple-600" />
-                  Modificar Currículo com IA
-                </h3>
-                <button 
-                  onClick={() => setIsPromptModalOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 flex flex-col gap-4">
-                <p className="text-sm text-slate-600">
-                  Descreva o que você gostaria de adicionar ou alterar no seu currículo. A IA atualizará as informações mantendo o formato preenchido.
-                </p>
-                <textarea
-                  value={promptText}
-                  onChange={(e) => setPromptText(e.target.value)}
-                  placeholder="Ex: Adicione 3 habilidades de design gráfico e crie uma experiência como Designer Pleno na empresa TechX."
-                  className="w-full h-32 p-3 text-sm text-gray-800 border-slate-300 rounded-md focus:ring-purple-500 focus:border-purple-500 border resize-none"
-                  disabled={isPrompting}
-                />
-              </div>
-              <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-                <button
-                  onClick={() => setIsPromptModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-                  disabled={isPrompting}
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleAiPromptSubmit}
-                  disabled={isPrompting || !promptText.trim()}
-                  className="px-4 py-2 text-sm font-bold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isPrompting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                  {isPrompting ? 'Modificando...' : 'Aplicar Mudanças'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+
 
     </div>
   );
