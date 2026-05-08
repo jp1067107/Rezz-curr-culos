@@ -89,7 +89,7 @@ export const signInWithGoogle = async () => {
     } else if (error.code === 'auth/popup-closed-by-user') {
       userFriendlyMessage = "A janela de login foi fechada antes de completar o processo.";
     } else if (error.code === 'auth/unauthorized-domain') {
-       userFriendlyMessage = "Este domínio não está autorizado no Firebase. Adicione o domínio atual nas configurações do Firebase Console.";
+       userFriendlyMessage = `ATENÇÃO: Este domínio (${window.location.hostname}) não está autorizado no Firebase.\n\nPara consertar:\n1. Acesse o Firebase Console\n2. Vá em Authentication > Settings > Authorized domains\n3. Adicione o domínio: ${window.location.hostname}`;
     } else {
       userFriendlyMessage += " " + (error.message || "");
     }

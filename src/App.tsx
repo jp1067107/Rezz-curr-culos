@@ -108,10 +108,6 @@ function MainApp() {
     return getInitialData();
   });
 
-  useEffect(() => {
-    localStorage.setItem('rezz_draft_data', JSON.stringify(data));
-  }, [data]);
-
   const [template, setTemplate] = useState<TemplateType>(() => {
     return (localStorage.getItem('rezz_template') as TemplateType) || 'modern';
   });
@@ -175,6 +171,29 @@ function MainApp() {
       return [];
     }
   });
+
+  useEffect(() => {
+    localStorage.setItem('rezz_draft_data', JSON.stringify(data));
+    
+    // Auto-update local purchased list if currently editing a purchased resume
+    const signature = `${currentResumeId}_${template}`;
+    if (unlockedConfigs.includes(signature)) {
+      setLocalPurchasedResumes(prev => {
+        const index = prev.findIndex(r => r.id === currentResumeId);
+        if (index >= 0) {
+           const newResumes = [...prev];
+           // Only update if data actually changed to avoid unnecessary re-renders
+           if (JSON.stringify(newResumes[index].data) !== JSON.stringify(data)) {
+             newResumes[index] = { ...newResumes[index], data, updatedAt: new Date().toISOString() };
+             return newResumes;
+           }
+           return prev;
+        } else {
+           return [...prev, { id: currentResumeId, data, updatedAt: new Date().toISOString() }];
+        }
+      });
+    }
+  }, [data, currentResumeId, template, unlockedConfigs]);
   
   const signature = `${currentResumeId}_${template}`;
   const hasPaid = unlockedConfigs.includes(signature);
@@ -1112,7 +1131,7 @@ function MainApp() {
                     
                     <div className="flex items-center justify-between mt-auto pt-4 border-t border-white/5">
                       <span className="text-xs text-slate-500">
-                        {resume.updatedAt ? new Date(resume.updatedAt.toMillis()).toLocaleDateString() : 'Recente'}
+                        {resume.updatedAt ? new Date(typeof resume.updatedAt === 'string' ? resume.updatedAt : (typeof resume.updatedAt.toMillis === 'function' ? resume.updatedAt.toMillis() : (resume.updatedAt.seconds ? resume.updatedAt.seconds * 1000 : resume.updatedAt))).toLocaleDateString() : 'Recente'}
                       </span>
                       <button
                         onClick={() => handleLoadResume(resume)}
