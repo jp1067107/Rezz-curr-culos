@@ -212,6 +212,13 @@ function MainApp() {
         localStorage.setItem('rezz_local_purchased', JSON.stringify(newResumes));
         return newResumes;
       });
+
+      // Automatically save to cloud if user is logged in
+      if (user) {
+        saveResume(user.uid, currentResumeId, data)
+          .then(() => fetchResumes(user.uid))
+          .catch(err => console.error("Error auto-saving resume:", err));
+      }
       
       if (params.get('cover_letter') === 'true' || params.get('order_bump') === 'cover_letter') {
         setHasCoverLetter(true);
