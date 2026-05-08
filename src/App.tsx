@@ -325,7 +325,6 @@ function MainApp() {
       const docUnlocked = unlockedConfigs.filter(cfg => cfg.startsWith(`${currentResumeId}_`));
       await saveResume(user.uid, currentResumeId, data, docUnlocked.length > 0 ? docUnlocked : undefined);
       await fetchResumes(user.uid);
-      alert('Currículo salvo com sucesso!');
     } catch (error) {
       console.error(error);
       alert('Erro ao salvar o currículo.');
