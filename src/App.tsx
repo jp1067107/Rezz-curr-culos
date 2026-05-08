@@ -176,8 +176,8 @@ function MainApp() {
     localStorage.setItem('rezz_draft_data', JSON.stringify(data));
     
     // Auto-update local purchased list if currently editing a purchased resume
-    const signature = `${currentResumeId}_${template}`;
-    if (unlockedConfigs.includes(signature)) {
+    const signaturePrefix = `${currentResumeId}_`;
+    if (unlockedConfigs.some(cfg => cfg.startsWith(signaturePrefix))) {
       setLocalPurchasedResumes(prev => {
         const index = prev.findIndex(r => r.id === currentResumeId);
         if (index >= 0) {
@@ -320,8 +320,8 @@ function MainApp() {
   const isResumeWellFormed = () => {
     const hasName = data.personalInfo.fullName?.trim().length > 0;
     const hasContact = (data.personalInfo.email?.trim()?.length ?? 0) > 0 || (data.personalInfo.phone?.trim()?.length ?? 0) > 0;
-    const hasExperience = data.experience && data.experience.length > 0 && data.experience.some(e => e.title?.trim() || e.company?.trim());
-    const hasEducation = data.education && data.education.length > 0 && data.education.some(e => e.school?.trim() || e.degree?.trim());
+    const hasExperience = data.experience && data.experience.length > 0 && data.experience.some(e => e.position?.trim() || e.company?.trim());
+    const hasEducation = data.education && data.education.length > 0 && data.education.some(e => e.institution?.trim() || e.degree?.trim());
     const hasSkills = data.skills && data.skills.length > 0 && data.skills.some(s => s.name?.trim());
     const hasSummary = (data.personalInfo.summary?.trim()?.length ?? 0) > 10;
     
@@ -365,7 +365,7 @@ function MainApp() {
         wrapperElement.style.transition = 'none';
         wrapperElement.style.transform = 'scale(1)';
         wrapperElement.style.width = '794px';
-        wrapperElement.style.height = '1123px';
+        wrapperElement.style.height = 'auto';
         wrapperElement.style.position = 'relative';
       }
       
@@ -532,8 +532,7 @@ function MainApp() {
     data.personalInfo.summary?.trim() || 
     data.experience?.length > 0 || 
     data.education?.length > 0 || 
-    data.skills?.length > 0 ||
-    data.languages?.length > 0
+    data.skills?.length > 0
   );
 
   return (
