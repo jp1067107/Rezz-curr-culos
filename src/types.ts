@@ -31,6 +31,8 @@ export interface Skill {
 }
 
 export interface ResumeData {
+  id?: string;
+  name?: string;
   personalInfo: PersonalInfo;
   experience: Experience[];
   education: Education[];

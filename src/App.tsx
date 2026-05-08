@@ -15,7 +15,8 @@ import { Download, LayoutTemplate, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogI
 
 import { v4 as uuidv4 } from 'uuid';
 
-const INITIAL_DATA: ResumeData = {
+const getInitialData = (): ResumeData => ({
+  id: uuidv4(),
   personalInfo: {
     fullName: '',
     jobTitle: '',
@@ -47,7 +48,7 @@ const INITIAL_DATA: ResumeData = {
   skills: [
     { id: uuidv4(), name: '' }
   ]
-};
+});
 
 interface ErrorBoundaryProps { children: React.ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
@@ -92,24 +93,32 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 }
 
 function MainApp() {
-  const [appState, setAppState] = useState<'onboarding' | 'ai-info' | 'editor' | 'payment-success' | 'affiliate'>('onboarding');
+  const [appState, setAppState] = useState<'onboarding' | 'ai-info' | 'editor' | 'payment-success' | 'affiliate' | 'cover-letter' | 'my-resumes' | 'purchased-view'>('onboarding');
+  const [isPurchasedEditing, setIsPurchasedEditing] = useState(false);
   const [data, setData] = useState<ResumeData>(() => {
     const saved = localStorage.getItem('rezz_draft_data');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (!parsed.id) parsed.id = uuidv4();
+        return parsed;
       } catch (e) {
-        return INITIAL_DATA;
+        return getInitialData();
       }
     }
-    return INITIAL_DATA;
+    return getInitialData();
   });
 
   useEffect(() => {
     localStorage.setItem('rezz_draft_data', JSON.stringify(data));
   }, [data]);
 
-  const [template, setTemplate] = useState<TemplateType>('modern');
+  const [template, setTemplate] = useState<TemplateType>(() => {
+    return (localStorage.getItem('rezz_template') as TemplateType) || 'modern';
+  });
+  useEffect(() => {
+    localStorage.setItem('rezz_template', template);
+  }, [template]);
   const componentRef = useRef<HTMLDivElement>(null);
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
   
@@ -138,33 +147,66 @@ function MainApp() {
       setDeferredPrompt(null);
     }
   };
-  const [currentResumeId, setCurrentResumeId] = useState<string>(uuidv4());
+  const [currentResumeId, setCurrentResumeId] = useState<string>(() => {
+    return localStorage.getItem('rezz_current_id') || uuidv4();
+  });
+
+  useEffect(() => {
+    localStorage.setItem('rezz_current_id', currentResumeId);
+  }, [currentResumeId]);
   const [resumesList, setResumesList] = useState<ResumeDoc[]>([]);
-  const [isResumesModalOpen, setIsResumesModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const [paymentEnabled, setPaymentEnabled] = useState(true);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [hasPaid, setHasPaid] = useState(false);
+  const [isInsufficientDataModalOpen, setIsInsufficientDataModalOpen] = useState(false);
+  const [unlockedConfigs, setUnlockedConfigs] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('rezz_unlocked') || '[]');
+    } catch {
+      return [];
+    }
+  });
+  
+  const signature = `${currentResumeId}_${template}`;
+  const hasPaid = unlockedConfigs.includes(signature);
+  const [hasCoverLetter, setHasCoverLetter] = useState(false);
 
   useEffect(() => {
+    localStorage.setItem('rezz_unlocked', JSON.stringify(unlockedConfigs));
+  }, [unlockedConfigs]);
+
+  useEffect(() => {
+    // Migration: If old rezz_has_paid exists, let's unlock the current signature.
+    if (localStorage.getItem('rezz_has_paid') === 'true') {
+      setUnlockedConfigs(prev => [...new Set([...prev, signature])]);
+      localStorage.removeItem('rezz_has_paid'); // migrate fully to new system
+    }
+    if (localStorage.getItem('rezz_has_cover_letter') === 'true') {
+      setHasCoverLetter(true);
+    }
+
     const params = new URLSearchParams(window.location.search);
     
-    // Tracking de afiliação da Cakto
-    // Se a URL possuir ?ref=..., salvez o código de afiliado para uso no checkout
     const affCode = params.get('ref') || params.get('src') || params.get('sck') || params.get('affCode');
     if (affCode) {
       localStorage.setItem('cakto_aff_code', affCode);
     }
 
     if (params.get('payment') === 'success') {
-      setHasPaid(true);
-      // Remove o parâmetro da URL para ficar limpa
+      setUnlockedConfigs(prev => [...new Set([...prev, signature])]);
+      
+      if (params.get('cover_letter') === 'true' || params.get('order_bump') === 'cover_letter') {
+        setHasCoverLetter(true);
+        localStorage.setItem('rezz_has_cover_letter', 'true');
+      }
+
       window.history.replaceState({}, document.title, window.location.pathname);
-      // Ir para a tela de sucesso de pagamento
       setAppState('payment-success');
     }
-  }, []);
+  }, [signature]); // adding signature so if it changes, we don't keep running (but we have params check) 
+  // Wait, if signature changes we don't want to run the params check again unless it's in the URL, but window.history.replaceState removes 'payment=success'.
+  // However, the old `localStorage` check might run again. Since we `removeItem`, it's safe.
 
   const getCheckoutUrl = () => {
     let baseUrl = import.meta.env.VITE_CAKTO_CHECKOUT_URL || "https://pay.cakto.com.br/";
@@ -217,11 +259,38 @@ function MainApp() {
   const handleLoadResume = (doc: ResumeDoc) => {
     setCurrentResumeId(doc.id);
     setData(doc.data);
-    setIsResumesModalOpen(false);
-    setAppState('editor');
+    setIsPurchasedEditing(false);
+    
+    // Check if it's purchased
+    const signaturePrefix = `${doc.id}_`;
+    const isPurchased = unlockedConfigs.some(cfg => cfg.startsWith(signaturePrefix));
+    
+    if (isPurchased) {
+      const purchasedTemplate = unlockedConfigs.find(cfg => cfg.startsWith(signaturePrefix))?.split('_')[1] as TemplateType;
+      if (purchasedTemplate) setTemplate(purchasedTemplate);
+      setAppState('purchased-view');
+    } else {
+      setAppState('editor');
+    }
+  };
+
+  const isResumeWellFormed = () => {
+    const hasName = data.personalInfo.fullName?.trim().length > 0;
+    const hasContact = (data.personalInfo.email?.trim()?.length ?? 0) > 0 || (data.personalInfo.phone?.trim()?.length ?? 0) > 0;
+    const hasExperience = data.experience && data.experience.length > 0 && data.experience.some(e => e.title?.trim() || e.company?.trim());
+    const hasEducation = data.education && data.education.length > 0 && data.education.some(e => e.school?.trim() || e.degree?.trim());
+    const hasSkills = data.skills && data.skills.length > 0 && data.skills.some(s => s.name?.trim());
+    const hasSummary = (data.personalInfo.summary?.trim()?.length ?? 0) > 10;
+    
+    return hasName && hasContact && (hasExperience || hasEducation || hasSkills || hasSummary);
   };
 
   const handleDownloadClick = async () => {
+    if (!isResumeWellFormed()) {
+      setIsInsufficientDataModalOpen(true);
+      return;
+    }
+
     if (paymentEnabled && !hasPaid) {
       setIsPaymentModalOpen(true);
       return;
@@ -366,6 +435,7 @@ function MainApp() {
       setIsProcessing(true);
       const extractedData = await extractResumeDataFromFile(file);
       setData(extractedData);
+      setCurrentResumeId(uuidv4());
       setAppState('editor');
       setMobileView('preview');
     } catch (error: any) {
@@ -393,77 +463,17 @@ function MainApp() {
     }
   };
 
+  const returnToEditor = () => {
+    setAppState(unlockedConfigs.some(cfg => cfg.startsWith(`${currentResumeId}_`)) ? 'purchased-view' : 'editor');
+  };
+
   const templateNames = {
     modern: 'Moderno',
     classic: 'Clássico',
     minimal: 'Minimalista'
   };
 
-  const renderUserMenuDropdown = () => {
-    if (!isUserMenuOpen) return null;
-    return (
-      <>
-        <div className="fixed inset-0 z-40" onClick={() => setIsUserMenuOpen(false)}></div>
-        <div className="absolute right-0 mt-2 w-56 bg-slate-800 border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden text-sm animate-in fade-in zoom-in-95 duration-100 origin-top-right">
-          {user && (
-            <div className="px-4 py-3 border-b border-white/5 bg-slate-900/50">
-              <p className="text-slate-300 font-medium truncate">{user.displayName || 'Usuário'}</p>
-              <p className="text-slate-500 text-xs truncate mt-0.5">{user.email}</p>
-            </div>
-          )}
-          <div className="py-1">
-            {user ? (
-              <>
-                <button
-                  onClick={() => { setIsUserMenuOpen(false); setIsResumesModalOpen(true); }}
-                  className="w-full text-left px-4 py-2.5 text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center gap-2 transition-colors"
-                >
-                  <FolderOpen className="w-4 h-4 text-indigo-400" /> Meus Currículos
-                </button>
-                <button
-                  onClick={() => { setIsUserMenuOpen(false); setAppState('affiliate'); }}
-                  className="w-full text-left px-4 py-2.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2 transition-colors border-t border-white/5"
-                >
-                  <DollarSign className="w-4 h-4" /> Ganhar com Indicação
-                </button>
-                {deferredPrompt && (
-                  <button
-                    onClick={() => { setIsUserMenuOpen(false); handleInstallClick(); }}
-                    className="w-full text-left px-4 py-2.5 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 flex items-center gap-2 transition-colors border-t border-white/5"
-                  >
-                    <MonitorDown className="w-4 h-4" /> Instalar App
-                  </button>
-                )}
-                <button
-                  onClick={() => { setIsUserMenuOpen(false); signOut(); }}
-                  className="w-full text-left px-4 py-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2 transition-colors border-t border-white/5"
-                >
-                  <LogOut className="w-4 h-4" /> Sair da conta
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => { setIsUserMenuOpen(false); signInWithGoogle(); }}
-                  className="w-full text-left px-4 py-2.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2 transition-colors"
-                >
-                  <LogIn className="w-4 h-4" /> Entrar para Salvar
-                </button>
-                {deferredPrompt && (
-                  <button
-                    onClick={() => { setIsUserMenuOpen(false); handleInstallClick(); }}
-                    className="w-full text-left px-4 py-2.5 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 flex items-center gap-2 transition-colors border-t border-white/5"
-                  >
-                    <MonitorDown className="w-4 h-4" /> Instalar App
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </>
-    );
-  };
+  const purchasedResumes = resumesList.filter(resume => unlockedConfigs.some(cfg => cfg.startsWith(`${resume.id}_`)));
 
   const hasActiveResume = Boolean(
     data.personalInfo.fullName?.trim() || 
@@ -478,35 +488,134 @@ function MainApp() {
   return (
     <div className="w-full min-h-screen bg-slate-900 flex flex-col">
       {appState === 'onboarding' && (
-        <div key="onboarding" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
-          <div className="max-w-2xl text-center space-y-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl shadow-2xl shadow-indigo-500/20 text-white font-black text-4xl ring-1 ring-white/20 font-serif mb-4">
-              R
+        <div key="onboarding" className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black text-slate-100 flex flex-col font-sans relative overflow-hidden">
+          {/* Header */}
+          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-slate-900/50 backdrop-blur-md relative z-10 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg text-white font-black text-sm sm:text-xl ring-1 ring-white/20 font-serif">
+                R
+              </div>
+              <span className="font-bold text-lg sm:text-xl tracking-tight text-white">Rezz</span>
             </div>
-            <h1 className="text-4xl sm:text-6xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300">
-              Bem-vindo ao Rezz
-            </h1>
-            <p className="text-lg text-slate-300 font-medium max-w-lg mx-auto">
-              A forma mais rápida e profissional de criar o seu currículo. Escolha como deseja começar:
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-              <button
-                onClick={() => setAppState('ai-info')}
-                className="flex flex-col items-center justify-center gap-1 px-8 py-3 bg-indigo-500 shadow-xl shadow-indigo-500/30 hover:bg-indigo-400 text-white rounded-2xl transition-all"
-              >
-                <div className="flex items-center gap-3 text-lg font-bold">
-                  <Sparkles className="w-5 h-5" />
-                  Criar com IA
+            <div>
+              {user ? (
+                <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 bg-slate-800/80 rounded-xl sm:rounded-full border border-white/5">
+                  <div className="w-6 h-6 bg-indigo-500/20 rounded-full flex items-center justify-center text-indigo-400 hidden sm:flex">
+                    <UserCircle className="w-4 h-4" />
+                  </div>
+                  <span className="text-xs sm:text-sm font-medium text-slate-300 truncate max-w-[100px] sm:max-w-none">{user.displayName?.split(' ')[0] || 'Usuário'}</span>
+                  <button onClick={() => signOut()} className="ml-1 sm:ml-2 text-slate-500 hover:text-red-400" title="Sair da conta">
+                    <LogOut className="w-4 h-4" />
+                  </button>
                 </div>
-                <span className="text-sm font-medium text-indigo-100/90">Pronto em menos de 15 segundos</span>
-              </button>
-              <button
-                onClick={() => setAppState('editor')}
-                className="flex items-center justify-center gap-3 px-8 py-4 bg-slate-800/80 border border-white/10 hover:bg-slate-700/80 text-white text-lg font-bold rounded-2xl transition-all"
-              >
-                <Edit2 className="w-5 h-5" />
-                Criar Manualmente
-              </button>
+              ) : (
+                <button
+                  onClick={signInWithGoogle}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl transition-all shadow-md shadow-indigo-500/20"
+                >
+                  <LogIn className="w-4 h-4" /> Entrar
+                </button>
+              )}
+            </div>
+          </header>
+
+          {/* Main Content */}
+          <div className="flex-1 overflow-y-auto flex flex-col justify-center py-10 px-4 sm:px-6 relative w-full items-center">
+            {/* Background effects */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none hidden sm:block"></div>
+
+            <div className="max-w-4xl w-full space-y-10 relative z-10 flex flex-col items-center">
+              <div className="text-center space-y-4 max-w-2xl">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">
+                  O que você deseja<br/>fazer hoje?
+                </h1>
+                <p className="text-base sm:text-lg text-slate-400 font-medium px-4">
+                  Acesse seus documentos salvos, crie um novo currículo vencedor ou participe do nosso programa de parceiros.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                
+                {/* Meus Currículos - Featured */}
+                <button
+                  onClick={() => {
+                    if (!user) {
+                       signInWithGoogle().then(() => setAppState('my-resumes'));
+                    } else {
+                       setAppState('my-resumes');
+                    }
+                  }}
+                  className="col-span-1 md:col-span-2 flex flex-col sm:flex-row items-center text-center sm:text-left gap-4 sm:gap-6 p-6 sm:p-8 bg-gradient-to-br from-slate-800/80 to-slate-800/40 hover:from-slate-700/80 hover:to-slate-800/80 border border-white/10 hover:border-indigo-500/40 rounded-3xl transition-all group shadow-xl"
+                >
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-400 group-hover:scale-110 group-hover:bg-indigo-500/20 transition-all shrink-0">
+                    <FolderOpen className="w-8 h-8 sm:w-10 sm:h-10" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 flex flex-col sm:flex-row items-center gap-3">
+                      Meus Currículos
+                      <span className="px-2.5 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">
+                        {user ? (purchasedResumes.length > 0 ? `${purchasedResumes.length} salvos` : 'Nuvem') : 'Requer Login'}
+                      </span>
+                    </h2>
+                    <p className="text-slate-400 text-sm sm:text-base">
+                      Acesse, edite ou exporte os currículos que você já criou. Tudo salvo com segurança na sua conta.
+                    </p>
+                  </div>
+                  <div className="hidden sm:flex ml-auto pl-4">
+                     <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-indigo-500/20 transition-all">
+                       <ArrowLeft className="w-5 h-5 text-slate-400 group-hover:text-indigo-400 rotate-180" />
+                     </div>
+                  </div>
+                </button>
+
+                {/* Criar Novo (IA) */}
+                <button
+                  onClick={() => setAppState('ai-info')}
+                  className="flex flex-col text-center sm:text-left items-center sm:items-start p-6 sm:p-8 bg-slate-800/40 hover:bg-slate-800/80 border border-white/5 hover:border-purple-500/30 rounded-3xl transition-all group"
+                >
+                  <div className="w-14 h-14 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-400 mb-6 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all">
+                    <Sparkles className="w-7 h-7" />
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-bold text-white mb-2">Criar Novo com IA</h2>
+                  <p className="text-slate-400 text-sm">
+                    Transforme uma foto ou PDF antigo em um currículo de alto nível em segundos usando inteligência artificial.
+                  </p>
+                </button>
+
+                {/* Editor Manual */}
+                <button
+                  onClick={() => {
+                   setAppState('editor');
+                  }}
+                  className="flex flex-col text-center sm:text-left items-center sm:items-start p-6 sm:p-8 bg-slate-800/40 hover:bg-slate-800/80 border border-white/5 hover:border-slate-500/50 rounded-3xl transition-all group h-full"
+                >
+                  <div className="w-14 h-14 bg-slate-700/50 text-slate-300 group-hover:bg-slate-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-all">
+                    <Edit2 className="w-7 h-7" />
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-bold text-white mb-2">Editor Manual</h2>
+                  <p className="text-slate-400 text-sm">
+                    Acesse o editor avançado. O seu progresso é salvo automaticamente no navegador enquanto você preenche os dados.
+                  </p>
+                </button>
+
+                {/* Programa de Afiliados */}
+                <button
+                  onClick={() => setAppState('affiliate')}
+                  className="col-span-1 md:col-span-2 flex flex-col sm:flex-row items-center justify-between text-center sm:text-left p-6 sm:p-8 bg-emerald-900/10 hover:bg-emerald-900/20 border border-emerald-500/10 hover:border-emerald-500/30 rounded-3xl transition-all group gap-4 mt-2"
+                >
+                  <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-400 group-hover:scale-110 group-hover:bg-emerald-500/20 transition-all shrink-0">
+                      <DollarSign className="w-7 h-7 sm:w-8 sm:h-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg sm:text-xl font-bold text-emerald-50 mb-1">Programa de Afiliados</h3>
+                      <p className="text-emerald-500/70 text-sm font-medium">Ganhe 45% de comissão indicando o Rezz</p>
+                    </div>
+                  </div>
+                  <ArrowLeft className="hidden sm:block w-5 h-5 text-emerald-500/50 rotate-180 group-hover:translate-x-1 transition-all" />
+                </button>
+
+              </div>
             </div>
           </div>
         </div>
@@ -587,7 +696,7 @@ function MainApp() {
             </p>
             <div className="pt-8 flex flex-col sm:flex-row justify-center gap-4">
               <button
-                onClick={() => setAppState('editor')}
+                onClick={() => setAppState('purchased-view')}
                 className="flex items-center justify-center gap-3 px-8 py-4 bg-emerald-600 shadow-xl shadow-emerald-600/30 hover:bg-emerald-500 text-white text-lg font-bold rounded-2xl transition-all w-full sm:w-auto"
               >
                 Acessar Meu Currículo
@@ -615,7 +724,7 @@ function MainApp() {
               </h1>
             </div>
             <button
-              onClick={() => setAppState(hasPaid ? 'payment-success' : 'editor')}
+              onClick={() => setAppState('onboarding')}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
             >
               <ArrowLeft className="w-4 h-4" /> Voltar
@@ -677,12 +786,322 @@ function MainApp() {
         </div>
       )}
 
+      {appState === 'cover-letter' && (
+        <div key="cover-letter" className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
+          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20 text-white font-black text-xl ring-1 ring-white/20">
+                <Wand2 className="w-5 h-5" />
+              </div>
+              <h1 className="text-lg sm:text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">
+                Gerador de Carta de Apresentação
+              </h1>
+            </div>
+            <button
+              onClick={returnToEditor}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" /> Voltar
+            </button>
+          </header>
+
+          <main className="flex-1 overflow-y-auto w-full max-w-4xl mx-auto p-4 sm:p-8 flex flex-col gap-6 pb-20">
+            <div className="bg-slate-800/50 border border-white/10 rounded-2xl p-6 sm:p-8 shadow-xl">
+              <h2 className="text-2xl font-bold text-white mb-2">Carta de Apresentação com Inteligência Artificial</h2>
+              <p className="text-slate-400 mb-6 text-sm sm:text-base">
+                Preencha o cargo desejado e nossa IA analisará seu currículo para redigir uma carta focada e persuasiva.
+              </p>
+
+              <div className="space-y-3 mb-6">
+                 <label className="block text-sm font-medium text-slate-300">Cargo Desejado / Nome da Vaga</label>
+                 <input 
+                   type="text" 
+                   id="targetJobInput" 
+                   placeholder="Ex: Engenheiro de Software Sênior" 
+                   className="w-full bg-slate-900 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all font-medium"
+                 />
+              </div>
+
+              <button
+                id="btnGenerateCoverLetter"
+                onClick={async () => {
+                   const input = document.getElementById('targetJobInput') as HTMLInputElement;
+                   if (!input || !input.value.trim()) {
+                     alert("Por favor, informe o cargo desejado.");
+                     return;
+                   }
+                   const btn = document.getElementById('btnGenerateCoverLetter') as HTMLButtonElement;
+                   const resultBox = document.getElementById('coverLetterResult') as HTMLTextAreaElement;
+                   
+                   btn.disabled = true;
+                   btn.innerHTML = `<span class="flex items-center justify-center gap-2 animate-pulse"><svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Analisando e Escrevendo...</span>`;
+                   
+                   try {
+                     const { generateCoverLetter } = await import('./services/aiService');
+                     const text = await generateCoverLetter(data, input.value.trim());
+                     resultBox.value = text;
+                     resultBox.parentElement?.classList.remove('hidden');
+                   } catch (err: any) {
+                     alert(err.message || 'Erro ao gerar carta.');
+                   } finally {
+                     btn.disabled = false;
+                     btn.innerHTML = 'Gerar Carta Mágica';
+                   }
+                }}
+                className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-purple-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                Gerar Carta Mágica
+              </button>
+              
+              <div className="mt-8 hidden">
+                <label className="block text-sm font-medium text-slate-300 mb-2">Sua Carta Gerada</label>
+                <textarea 
+                  id="coverLetterResult" 
+                  className="w-full bg-slate-900 border border-purple-500/30 rounded-xl p-4 text-white focus:outline-none min-h-[300px] resize-y leading-relaxed"
+                  readOnly
+                ></textarea>
+                <button 
+                  onClick={() => {
+                    const result = document.getElementById('coverLetterResult') as HTMLTextAreaElement;
+                    navigator.clipboard.writeText(result.value);
+                    alert("Copiado para a área de transferência!");
+                  }}
+                  className="mt-4 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-lg transition-colors border border-white/5 shadow-sm active:scale-95"
+                >
+                  <span className="flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>Copiar Texto</span>
+                </button>
+              </div>
+            </div>
+          </main>
+        </div>
+      )}
+
+      {appState === 'purchased-view' && (() => {
+        const purchasedTemplates = (['modern', 'classic', 'minimal'] as TemplateType[]).filter(t => unlockedConfigs.includes(`${currentResumeId}_${t}`));
+        
+        return (
+        <div key="purchased-view" className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
+          <div className="h-1.5 w-full bg-gradient-to-r from-emerald-400 via-indigo-500 to-purple-500 shrink-0"></div>
+          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-emerald-500/10 bg-slate-900/40 backdrop-blur-md z-10 shrink-0 relative">
+            <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 to-transparent pointer-events-none"></div>
+            <div className="flex items-center gap-4 relative z-10">
+              <button
+                onClick={() => setAppState('my-resumes')}
+                className="p-2 bg-slate-800/80 border border-white/5 hover:bg-slate-700 text-slate-300 rounded-xl transition-all shrink-0"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <div>
+                <h1 className="text-lg sm:text-xl font-bold text-white leading-tight">
+                  {data.name || data.personalInfo.fullName || 'Currículo Adquirido'}
+                </h1>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-emerald-400 font-bold px-2 py-0.5 bg-emerald-500/10 rounded-md border border-emerald-500/20 uppercase tracking-widest flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" /> Desbloqueado
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-3 relative z-10">
+              <button
+                onClick={handleSaveResume}
+                disabled={isSaving}
+                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-xl transition-all border border-white/5 shadow-sm"
+              >
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span>Salvar</span>
+              </button>
+
+              <button
+                onClick={() => setIsPromptModalOpen(true)}
+                disabled={isPrompting || isProcessing}
+                className="hidden lg:flex items-center gap-2 px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/20 text-sm font-bold rounded-xl transition-all shadow-sm"
+              >
+                <Wand2 className="w-4 h-4" />
+                <span>Modificar com IA</span>
+              </button>
+
+              <button
+                onClick={() => setIsPurchasedEditing(!isPurchasedEditing)}
+                className="hidden lg:flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white border border-white/5 text-sm font-bold rounded-xl transition-all shadow-sm"
+              >
+                <Edit2 className="w-4 h-4" />
+                <span>{isPurchasedEditing ? 'Ocultar Edição' : 'Editar Dados'}</span>
+              </button>
+
+              <button
+                onClick={() => setMobileView(mobileView === 'editor' ? 'preview' : 'editor')}
+                className="flex lg:hidden items-center gap-2 px-3 sm:px-4 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-bold rounded-xl transition-all border border-white/5"
+              >
+                {mobileView === 'editor' ? <Eye className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
+                <span className="hidden sm:inline">{mobileView === 'editor' ? 'Ver PDF' : 'Editar'}</span>
+              </button>
+
+              <button
+                onClick={handleDownloadClick}
+                className="flex items-center gap-2 px-4 sm:px-6 py-2 bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/30 text-white text-sm font-bold rounded-xl transition-all"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Exportar PDF</span>
+              </button>
+            </div>
+          </header>
+
+          <main className="flex-1 overflow-hidden flex flex-col lg:flex-row p-4 gap-6 items-center lg:items-start justify-center relative bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-fixed">
+            <div className="absolute inset-0 bg-slate-950/80 pointer-events-none"></div>
+            <div className={`w-full lg:w-1/3 max-w-lg h-full overflow-y-auto bg-slate-900/90 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl flex flex-col transition-all z-10 ${isPurchasedEditing ? 'hidden lg:flex' : 'hidden'} ${mobileView === 'editor' ? '!flex lg:hidden' : ''}`}>
+               <ResumeForm data={data} onChange={setData} />
+            </div>
+
+            <div className={`h-full w-full max-w-[800px] flex flex-col transition-all z-10 ${!isPurchasedEditing ? 'lg:w-[600px]' : 'lg:flex-1'} ${mobileView === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
+              <div className="flex justify-center mb-6 gap-2">
+                <div className="bg-slate-900/80 backdrop-blur-md p-1.5 rounded-xl border border-white/10 shadow-xl flex gap-1">
+                  {purchasedTemplates.map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setTemplate(t)}
+                      className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${template === t ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-inner' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-transparent'}`}
+                    >
+                      {templateNames[t]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="lg:hidden w-full mb-4 px-2">
+                <button
+                  onClick={() => setIsPromptModalOpen(true)}
+                  disabled={isPrompting || isProcessing}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl transition-all shadow-sm bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer"
+                >
+                  <Wand2 className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">Modificar com IA</span>
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto flex items-start justify-center pb-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent rounded-lg" ref={containerRef}>
+                <div 
+                  style={{ transform: `scale(${scale})`, transformOrigin: 'top center', marginBottom: 40 }}
+                  className="shadow-2xl rounded-sm transition-all duration-300 bg-white text-slate-900 ring-1 ring-black/5"
+                >
+                  <ResumePreview data={data} template={template} ref={componentRef} />
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+        );
+      })()}
+
+      {appState === 'my-resumes' && (
+        <div key="my-resumes" className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
+          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black text-xl ring-1 ring-white/20 font-serif">
+                <FolderOpen className="w-5 h-5" />
+              </div>
+              <h1 className="text-lg sm:text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">
+                Meus Currículos
+              </h1>
+            </div>
+            <button
+              onClick={() => setAppState('onboarding')}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" /> Voltar
+            </button>
+          </header>
+          
+          <main className="flex-1 overflow-y-auto w-full max-w-6xl mx-auto p-4 sm:p-8 flex flex-col gap-6 pb-20">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <button
+                onClick={() => {
+                   const initial = getInitialData();
+                   setData(initial);
+                   setCurrentResumeId(initial.id || uuidv4());
+                   setAppState('editor');
+                }}
+                className="bg-slate-800/40 border border-white/10 hover:border-indigo-500/50 hover:bg-slate-800/80 border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-4 text-slate-400 hover:text-white min-h-[160px] group"
+              >
+                <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-500/20 group-hover:text-indigo-400 transition-all">
+                  <Sparkles className="w-6 h-6" />
+                </div>
+                <span className="font-medium text-lg">Criar Novo Currículo</span>
+              </button>
+              
+              {purchasedResumes.length > 0 && purchasedResumes.map(resume => (
+                  <div key={resume.id} className={`bg-slate-800/80 border ${currentResumeId === resume.id ? 'border-indigo-500 shadow-lg shadow-indigo-500/10' : 'border-white/10 hover:border-indigo-500/50'} rounded-2xl p-5 transition-all flex flex-col gap-4 relative group`}>
+                    {currentResumeId === resume.id && (
+                      <div className="absolute -top-3 -right-3 bg-indigo-500 text-white text-[10px] uppercase tracking-wider font-bold px-3 py-1 rounded-full shadow-md shadow-indigo-500/20">
+                        Aberto Agora
+                      </div>
+                    )}
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="flex-1 w-full">
+                        <input
+                          type="text"
+                          defaultValue={resume.data.name || resume.data.personalInfo.fullName || 'Sem Nome'}
+                          className="w-full bg-transparent text-lg font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded px-2 py-1 -ml-2 border border-transparent focus:bg-slate-900 transition-all border-b-white/10 hover:border-b-white/30 truncate"
+                          placeholder="Nome do Currículo"
+                          title="Clique para editar o nome"
+                          onBlur={async (e) => {
+                            const newName = e.target.value.trim();
+                            if (newName && newName !== resume.data.name) {
+                              const updatedData = { ...resume.data, name: newName };
+                              if (user) {
+                                await saveResume(user.uid, resume.id, updatedData);
+                                setResumesList(prev => prev.map(r => r.id === resume.id ? { ...r, data: updatedData } : r));
+                                if (currentResumeId === resume.id) setData(updatedData);
+                              }
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.currentTarget.blur();
+                          }}
+                        />
+                        <p className="text-sm text-slate-400 px-1 mt-1 truncate">
+                          {resume.data.personalInfo.jobTitle || 'Sem Título'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between mt-auto pt-4 border-t border-white/5">
+                      <span className="text-xs text-slate-500">
+                        {resume.updatedAt ? new Date(resume.updatedAt.toMillis()).toLocaleDateString() : 'Recente'}
+                      </span>
+                      <button
+                        onClick={() => handleLoadResume(resume)}
+                        className={`px-4 py-2 ${currentResumeId === resume.id ? 'bg-slate-700 text-slate-300' : 'bg-indigo-600 hover:bg-indigo-500 text-white'} text-sm font-bold rounded-lg transition-all`}
+                      >
+                        {currentResumeId === resume.id ? 'Aberto' : 'Abrir'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+          </main>
+        </div>
+      )}
+
       {appState === 'editor' && (
         <div key="editor" className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
       {/* Header Section */}
       <header className="flex flex-col lg:flex-row justify-between items-center px-4 sm:px-6 py-3 z-10 shrink-0 gap-4 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
         <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
           <div className="flex items-center gap-3">
+            <button 
+              onClick={() => {
+                if (hasActiveResume) {
+                  handleSaveResume();
+                }
+                setAppState('onboarding');
+              }}
+              className="p-1.5 sm:p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-white/5 shadow-sm transition-all shrink-0 mr-1 sm:mr-2"
+              title="Voltar ao Início"
+            >
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black text-xl ring-1 ring-white/20 font-serif">
               R
             </div>
@@ -701,31 +1120,20 @@ function MainApp() {
             </button>
           </div>
 
-          <div className="flex lg:hidden items-center gap-6">
-            <div className="flex bg-slate-800 p-1 rounded-lg shrink-0 border border-white/5">
+          <div className="flex lg:hidden items-center gap-3 sm:gap-6 flex-1 justify-end">
+            <div className="flex bg-slate-800 p-1 rounded-xl shrink-0 border border-white/5 shadow-inner">
               <button
                 onClick={() => setMobileView('editor')}
-                className={`p-1.5 rounded-md transition-all ${mobileView === 'editor' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-300'}`}
+                className={`py-1.5 px-3 sm:px-4 rounded-lg transition-all text-xs sm:text-sm font-medium flex items-center justify-center gap-2 ${mobileView === 'editor' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
               >
-                <Edit2 className="w-4 h-4" />
+                <Edit2 className="w-4 h-4" /> <span className="hidden min-[380px]:inline">Editar</span>
               </button>
               <button
                 onClick={() => setMobileView('preview')}
-                className={`p-1.5 rounded-md transition-all ${mobileView === 'preview' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-300'}`}
+                className={`py-1.5 px-3 sm:px-4 rounded-lg transition-all text-xs sm:text-sm font-medium flex items-center justify-center gap-2 ${mobileView === 'preview' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
               >
-                <Eye className="w-4 h-4" />
+                <Eye className="w-4 h-4" /> <span className="hidden min-[380px]:inline">Ver</span>
               </button>
-            </div>
-
-            <div className="relative">
-              <button
-                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center justify-center p-1.5 bg-slate-800 border border-white/10 hover:bg-slate-700 text-slate-300 rounded-lg transition-all shadow-sm"
-                title="Opções da conta"
-              >
-                <Menu className="w-5 h-5" />
-              </button>
-              {renderUserMenuDropdown()}
             </div>
           </div>
         </div>
@@ -757,121 +1165,28 @@ function MainApp() {
 
             <button
               onClick={handleDownloadClick}
-              disabled={!hasActiveResume}
-              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2 text-sm font-bold rounded-xl transition-all shrink-0 ${hasActiveResume ? 'bg-indigo-500 shadow-md shadow-indigo-500/20 hover:bg-indigo-400 text-white' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2 text-sm font-bold rounded-xl transition-all shrink-0 ${hasActiveResume ? 'bg-indigo-500 shadow-md shadow-indigo-500/20 hover:bg-indigo-400 text-white' : 'bg-slate-800 border border-white/5 hover:border-indigo-500/50 text-slate-300'}`}
             >
               <Download className="w-4 h-4" /> <span className="whitespace-nowrap">Exportar PDF</span>
             </button>
-
-            <div className="w-px h-6 bg-white/10 mx-1 hidden lg:block"></div>
-
-            <div className="hidden lg:block relative">
+            
+            {hasCoverLetter && (
               <button
-                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center justify-center p-2.5 bg-slate-800 border border-white/10 hover:bg-slate-700 text-slate-300 rounded-xl transition-all shadow-sm shrink-0"
-                title="Opções da conta"
+                onClick={() => setAppState('cover-letter')}
+                disabled={!hasActiveResume}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-all shrink-0 ${hasActiveResume ? 'bg-purple-600 shadow-md shadow-purple-600/20 hover:bg-purple-500 text-white' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
+                title="Criar Carta de Apresentação"
               >
-                <Menu className="w-5 h-5" />
+                <Wand2 className="w-4 h-4" /> <span className="hidden sm:inline whitespace-nowrap">Gerar Carta</span>
               </button>
-              {renderUserMenuDropdown()}
-            </div>
+            )}
           </div>
         </div>
       </header>
 
       {/* Main Content Layout */}
       <main className="flex-1 flex gap-6 overflow-hidden p-3 sm:p-6 w-full max-w-[1920px] mx-auto">
-        {isResumesModalOpen && (
-          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
-              <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                  <FolderOpen className="w-5 h-5 text-indigo-600" />
-                  Seus Currículos Salvos
-                </h3>
-                <button 
-                  onClick={() => setIsResumesModalOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
-                {resumesList.length === 0 ? (
-                  <p className="text-sm text-slate-500 text-center py-8">Nenhum currículo salvo ainda.</p>
-                ) : (
-                  resumesList.map(resume => (
-                    <button
-                      key={resume.id}
-                      onClick={() => handleLoadResume(resume)}
-                      className="p-4 text-left border border-slate-200 rounded-xl hover:border-indigo-400 hover:bg-indigo-50 transition-all flex flex-col gap-1"
-                    >
-                      <strong className="text-slate-800">{resume.data.personalInfo.fullName || 'Sem Nome'}</strong>
-                      <span className="text-xs text-slate-500">
-                        {resume.data.personalInfo.jobTitle || 'Sem Título'} • Atualizado em: {resume.updatedAt ? new Date(resume.updatedAt.toMillis()).toLocaleDateString() : 'Recente'}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
-              <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-                <button
-                  onClick={() => setIsResumesModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-                >
-                  Fechar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        {isPromptModalOpen && (
-          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
-              <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                  <Wand2 className="w-5 h-5 text-purple-600" />
-                  Modificar Currículo com IA
-                </h3>
-                <button 
-                  onClick={() => setIsPromptModalOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 flex flex-col gap-4">
-                <p className="text-sm text-slate-600">
-                  Descreva o que você gostaria de adicionar ou alterar no seu currículo. A IA atualizará as informações mantendo o formato preenchido.
-                </p>
-                <textarea
-                  value={promptText}
-                  onChange={(e) => setPromptText(e.target.value)}
-                  placeholder="Ex: Adicione 3 habilidades de design gráfico e crie uma experiência como Designer Pleno na empresa TechX."
-                  className="w-full h-32 p-3 text-sm text-gray-800 border-slate-300 rounded-md focus:ring-purple-500 focus:border-purple-500 border resize-none"
-                  disabled={isPrompting}
-                />
-              </div>
-              <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-                <button
-                  onClick={() => setIsPromptModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-                  disabled={isPrompting}
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleAiPromptSubmit}
-                  disabled={isPrompting || !promptText.trim()}
-                  className="px-4 py-2 text-sm font-bold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isPrompting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                  {isPrompting ? 'Modificando...' : 'Aplicar Mudanças'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+
         {/* Editor sidebar */}
         <div className={`flex-1 h-full min-w-0 flex flex-col gap-4 ${mobileView !== 'editor' ? 'hidden lg:flex' : 'flex'}`}>
           <div className="flex flex-col lg:flex-row gap-4 p-4 bg-slate-800/40 border border-white/5 rounded-2xl shrink-0 items-start lg:items-center justify-between">
@@ -941,6 +1256,17 @@ function MainApp() {
               </button>
             ))}
           </div>
+
+          <div className="lg:hidden w-full mb-4 px-2">
+            <button
+              onClick={() => setIsPromptModalOpen(true)}
+              disabled={isPrompting || isProcessing || !hasActiveResume}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl transition-all shadow-sm ${hasActiveResume ? 'bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
+            >
+              <Wand2 className="w-4 h-4 shrink-0" />
+              <span className="whitespace-nowrap">Modificar com IA</span>
+            </button>
+          </div>
           
           <div className="flex-1 overflow-y-auto flex justify-center items-start pt-2 lg:pt-0 pb-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent rounded-lg" ref={containerRef}>
             <div 
@@ -965,7 +1291,7 @@ function MainApp() {
                </div>
                <h3 className="text-2xl font-bold text-slate-800 mb-2">Libere seu Currículo</h3>
                <p className="text-slate-600 mb-6">
-                 Para gerar o PDF em alta qualidade, limpo e sem marcas, é necessário o pagamento da taxa única do serviço.
+                 O pagamento desbloqueia a exportação deste currículo específico com o layout atual permanentemente.
                </p>
                
                <a 
@@ -987,7 +1313,7 @@ function MainApp() {
                <div className="mt-8 pt-6 border-t border-slate-100">
                  <button 
                    onClick={() => {
-                     setHasPaid(true);
+                     setUnlockedConfigs(prev => [...new Set([...prev, signature])]);
                      setIsPaymentModalOpen(false);
                      setAppState('payment-success');
                    }}
@@ -999,9 +1325,93 @@ function MainApp() {
             </div>
           </div>
         )}
+
+        {isInsufficientDataModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col p-8 text-center animate-in fade-in zoom-in duration-300">
+               <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-amber-500/30">
+                 <Edit2 className="w-8 h-8" />
+               </div>
+               <h3 className="text-2xl font-bold text-slate-800 mb-2">Currículo Incompleto</h3>
+               <p className="text-slate-600 mb-6">
+                 Parece que seu currículo ainda não está totalmente preenchido. Para garantir que você tenha um ótimo resultado, precisamos de pelo menos:
+               </p>
+               <ul className="text-left text-sm text-slate-600 mb-8 space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                 <li className="flex items-center gap-2">
+                   <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                   Seu nome completo
+                 </li>
+                 <li className="flex items-center gap-2">
+                   <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                   Uma forma de contato (Email ou Telefone)
+                 </li>
+                 <li className="flex items-center gap-2 items-start">
+                   <div className="w-1.5 h-1.5 rounded-full bg-orange-400 mt-1.5 shrink-0" />
+                   <span>Uma seção com conteúdo (Resumo, Experiência, Educação ou Habilidades)</span>
+                 </li>
+               </ul>
+
+               <button 
+                 onClick={() => setIsInsufficientDataModalOpen(false)}
+                 className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-lg rounded-xl shadow-lg shadow-slate-800/30 transition-all"
+               >
+                 Continuar Editando
+               </button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
     )}
+
+        {isPromptModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+              <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                  <Wand2 className="w-5 h-5 text-purple-600" />
+                  Modificar Currículo com IA
+                </h3>
+                <button 
+                  onClick={() => setIsPromptModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 flex flex-col gap-4">
+                <p className="text-sm text-slate-600">
+                  Descreva o que você gostaria de adicionar ou alterar no seu currículo. A IA atualizará as informações mantendo o formato preenchido.
+                </p>
+                <textarea
+                  value={promptText}
+                  onChange={(e) => setPromptText(e.target.value)}
+                  placeholder="Ex: Adicione 3 habilidades de design gráfico e crie uma experiência como Designer Pleno na empresa TechX."
+                  className="w-full h-32 p-3 text-sm text-gray-800 border-slate-300 rounded-md focus:ring-purple-500 focus:border-purple-500 border resize-none"
+                  disabled={isPrompting}
+                />
+              </div>
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                <button
+                  onClick={() => setIsPromptModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                  disabled={isPrompting}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleAiPromptSubmit}
+                  disabled={isPrompting || !promptText.trim()}
+                  className="px-4 py-2 text-sm font-bold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isPrompting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                  {isPrompting ? 'Modificando...' : 'Aplicar Mudanças'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
     </div>
   );
 }

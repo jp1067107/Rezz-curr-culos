@@ -285,3 +285,50 @@ export async function generateResumeDataFromPrompt(prompt: string, currentData: 
 
   return normalizedData;
 }
+
+export async function generateCoverLetter(resumeData: ResumeData, targetJob: string): Promise<string> {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Chave da API Gemini não encontrada. Adicione GEMINI_API_KEY nas configurações ou secrets.");
+  }
+
+  const payload = {
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: `Aja como um redator profissional especializado em carreira e recursos humanos. Use as informações do currículo abaixo para criar uma Carta de Apresentação (Cover Letter) focada na seguinte vaga ou cargo alvo: "${targetJob}".
+          
+Regras:
+1. Comece com uma saudação profissional.
+2. Destaque as experiências e habilidades essenciais do currículo que tenham sinergia com o cargo alvo.
+3. Mantenha um tom profissional, entusiasmado e persuasivo.
+4. Finalize com um chamado para ação (call to action) para uma entrevista ou conversa.
+5. Seja direto, a carta deve ter entre 3 a 4 parágrafos.
+6. A formatação deve ser um texto limpo, sem markdown (sem ** para negrito ou # para títulos), formatado para ser copiado e colado em um corpo de e-mail ou documento.
+7. Substitua informações sensíveis por colchetes, caso faltem detalhes para enviar a carta, por exemplo: [Nome da Empresa].
+
+Dados do Currículo:
+${JSON.stringify(resumeData, null, 2)}` }
+        ]
+      }
+    ],
+    generationConfig: {
+      temperature: 0.7,
+    }
+  };
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Erro ao gerar a carta (${response.status}): ${errText}`);
+  }
+
+  const rawResult = await response.json();
+  return rawResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
+}
