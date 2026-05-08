@@ -71,11 +71,30 @@ testConnection();
 // Utilities for Auth
 export const signInWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
+  // Ensure we don't try to use redirect in iframes as it often fails to return state
+  provider.setCustomParameters({ prompt: 'select_account' });
+  
   try {
-    await signInWithPopup(auth, provider);
+    const result = await signInWithPopup(auth, provider);
+    return result.user;
   } catch (error: any) {
     console.error("Error signing in with Google", error);
-    alert("Erro ao fazer login com Google: " + error.message + ".\n\nSe estiver no Safari/iOS ou dentro de um preview, tente abrir o app em uma nova guia/janela.");
+    
+    let userFriendlyMessage = "Erro ao fazer login com Google.";
+    
+    if (error.code === 'auth/popup-blocked') {
+      userFriendlyMessage = "O popup de login foi bloqueado pelo seu navegador. Por favor, permita popups para este site.";
+    } else if (error.code === 'auth/cancelled-popup-request') {
+      userFriendlyMessage = "O login foi cancelado.";
+    } else if (error.code === 'auth/popup-closed-by-user') {
+      userFriendlyMessage = "A janela de login foi fechada antes de completar o processo.";
+    } else if (error.code === 'auth/unauthorized-domain') {
+       userFriendlyMessage = "Este domínio não está autorizado no Firebase. Adicione o domínio atual nas configurações do Firebase Console.";
+    } else {
+      userFriendlyMessage += " " + (error.message || "");
+    }
+
+    alert(userFriendlyMessage + "\n\nDICA: Se estiver usando o Safari ou iOS, tente abrir o app em uma nova aba para evitar restrições de iframe.");
   }
 };
 

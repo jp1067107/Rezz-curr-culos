@@ -17,9 +17,20 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
     if (!shouldRenderPhotoArea) return null;
     
     return (
-      <div className={`${className} bg-slate-100 flex items-center justify-center`}>
+      <div className={`${className} bg-slate-100 flex items-center justify-center overflow-hidden`}>
         {hasPhoto ? (
-          <img src={personalInfo.photoUrl!} alt="Profile" className={innerClassName} />
+          <img 
+            src={personalInfo.photoUrl!} 
+            alt="Profile" 
+            className={innerClassName}
+            crossOrigin="anonymous"
+            style={{ 
+              display: 'block',
+              maxWidth: '100%',
+              maxHeight: '100%',
+              objectFit: 'cover'
+            }} 
+          />
         ) : null}
       </div>
     );

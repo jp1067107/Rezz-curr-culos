@@ -10,8 +10,7 @@ import { ResumePreview } from './components/ResumePreview';
 import { extractResumeDataFromFile, generateResumeDataFromPrompt } from './services/aiService';
 import { auth, signInWithGoogle, signOut, saveResume, loadResumes, ResumeDoc } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { useReactToPrint } from 'react-to-print';
-import { Download, LayoutTemplate, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, ChevronDown, Menu, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown } from 'lucide-react';
+import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown } from 'lucide-react';
 
 import { v4 as uuidv4 } from 'uuid';
 
@@ -123,7 +122,6 @@ function MainApp() {
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
   
   const [user, setUser] = useState<User | null>(null);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
@@ -138,7 +136,6 @@ function MainApp() {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);
-
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
@@ -147,6 +144,7 @@ function MainApp() {
       setDeferredPrompt(null);
     }
   };
+
   const [currentResumeId, setCurrentResumeId] = useState<string>(() => {
     return localStorage.getItem('rezz_current_id') || uuidv4();
   });
@@ -155,9 +153,19 @@ function MainApp() {
     localStorage.setItem('rezz_current_id', currentResumeId);
   }, [currentResumeId]);
   const [resumesList, setResumesList] = useState<ResumeDoc[]>([]);
+  const [localPurchasedResumes, setLocalPurchasedResumes] = useState<ResumeDoc[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('rezz_local_purchased') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('rezz_local_purchased', JSON.stringify(localPurchasedResumes));
+  }, [localPurchasedResumes]);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [paymentEnabled, setPaymentEnabled] = useState(true);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isInsufficientDataModalOpen, setIsInsufficientDataModalOpen] = useState(false);
   const [unlockedConfigs, setUnlockedConfigs] = useState<string[]>(() => {
@@ -195,6 +203,15 @@ function MainApp() {
 
     if (params.get('payment') === 'success') {
       setUnlockedConfigs(prev => [...new Set([...prev, signature])]);
+      
+      // Save locally so it appears in "My Resumes" even without login
+      setLocalPurchasedResumes(prev => {
+        const exists = prev.find(r => r.id === currentResumeId);
+        if (exists) return prev;
+        const newResumes = [...prev, { id: currentResumeId, data, updatedAt: new Date().toISOString() }];
+        localStorage.setItem('rezz_local_purchased', JSON.stringify(newResumes));
+        return newResumes;
+      });
       
       if (params.get('cover_letter') === 'true' || params.get('order_bump') === 'cover_letter') {
         setHasCoverLetter(true);
@@ -291,7 +308,7 @@ function MainApp() {
       return;
     }
 
-    if (paymentEnabled && !hasPaid) {
+    if (!hasPaid) {
       setIsPaymentModalOpen(true);
       return;
     }
@@ -307,64 +324,64 @@ function MainApp() {
 
     await document.fonts.ready;
 
-    setIsProcessing(true); // show some loading state if needed
+    setIsProcessing(true);
     
     try {
-      // THE FIX FOR HTML2CANVAS OVERLAPPING TEXT BUG:
-      // html2canvas completely breaks text layout when the target element or its parents have CSS transform scales applied.
-      // We MUST temporarily remove the scaling from the parent wrapper, take the snapshot, and restore it.
-      
       const wrapperElement = componentRef.current.parentElement;
       const originalTransform = wrapperElement?.style.transform || '';
       const originalTransition = wrapperElement?.style.transition || '';
       const originalHeight = wrapperElement?.style.height || '';
+      const originalWidth = wrapperElement?.style.width || '';
+      const originalPosition = wrapperElement?.style.position || '';
       
       if (wrapperElement) {
-        // Disable transitions and remove scale so it renders at exactly 100% natural 210mm width
+        // Prepare for capture: fix width to exactly 210mm (~794px) and remove scaling
         wrapperElement.style.transition = 'none';
         wrapperElement.style.transform = 'scale(1)';
-        wrapperElement.style.height = 'auto';
+        wrapperElement.style.width = '794px';
+        wrapperElement.style.height = '1123px';
+        wrapperElement.style.position = 'relative';
       }
       
-      // Force a synchronous reflow so the browser recalcs the layout at 100% scale
+      // Force a synchronous reflow
       void componentRef.current.offsetHeight;
 
-      // Small delay to ensure the DOM paints at 100% scale
-      await new Promise(resolve => setTimeout(resolve, 50));
+      // Small delay to ensure the DOM paints at 100% scale and images are ready
+      await new Promise(resolve => setTimeout(resolve, 150));
 
       const element = componentRef.current;
 
       const canvas = await html2canvas(element, {
         scale: 2, // High resolution
         useCORS: true,
+        allowTaint: true,
         logging: false,
         backgroundColor: '#ffffff',
+        width: 794,
         onclone: (clonedDoc) => {
           const allElements = clonedDoc.querySelectorAll('*');
-          for (let i = 0; i < allElements.length; i++) {
-            const el = allElements[i] as HTMLElement;
-            el.style.fontVariantLigatures = 'none';
-            // ensure text rendering is standard
-            el.style.textRendering = 'auto';
-            // Explicitly force word wrapping to reduce overlap risk
-            el.style.wordBreak = 'break-word';
-          }
+          allElements.forEach((el) => {
+            const htmlEl = el as HTMLElement;
+            htmlEl.style.fontVariantLigatures = 'none';
+            htmlEl.style.textRendering = 'optimizeLegibility';
+            htmlEl.style.wordBreak = 'break-word';
+          });
         }
       });
 
-      // Restore the original scale layout immediately after snapshotting
+      // Restore the original layout
       if (wrapperElement) {
         wrapperElement.style.transform = originalTransform;
         wrapperElement.style.height = originalHeight;
-        // Don't restore transition yet to avoid animation glitch
+        wrapperElement.style.width = originalWidth;
+        wrapperElement.style.position = originalPosition;
         setTimeout(() => {
           if (wrapperElement) wrapperElement.style.transition = originalTransition;
         }, 50);
       }
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
       
-      // A4 dimensions in mm
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -473,7 +490,15 @@ function MainApp() {
     minimal: 'Minimalista'
   };
 
-  const purchasedResumes = resumesList.filter(resume => unlockedConfigs.some(cfg => cfg.startsWith(`${resume.id}_`)));
+  const purchasedResumes = (() => {
+    // Combine cloud resumes + local purchased resumes
+    const combined = [...resumesList, ...localPurchasedResumes];
+    // Filter only those that are actually unlocked/purchased
+    const filtered = combined.filter(resume => unlockedConfigs.some(cfg => cfg.startsWith(`${resume.id}_`)));
+    // Remove duplicates by ID
+    const unique = Array.from(new Map(filtered.map(item => [item.id, item])).values());
+    return unique;
+  })();
 
   const hasActiveResume = Boolean(
     data.personalInfo.fullName?.trim() || 
@@ -497,7 +522,16 @@ function MainApp() {
               </div>
               <span className="font-bold text-lg sm:text-xl tracking-tight text-white">Rezz</span>
             </div>
-            <div>
+            <div className="flex items-center gap-2 sm:gap-3">
+              {deferredPrompt && (
+                <button
+                  onClick={handleInstallClick}
+                  className="flex items-center gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] sm:text-xs font-bold rounded-xl border border-white/5 transition-all"
+                >
+                  <MonitorDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
+                  <span className="hidden min-[400px]:inline">Instalar App</span>
+                </button>
+              )}
               {user ? (
                 <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 bg-slate-800/80 rounded-xl sm:rounded-full border border-white/5">
                   <div className="w-6 h-6 bg-indigo-500/20 rounded-full flex items-center justify-center text-indigo-400 hidden sm:flex">
@@ -539,7 +573,7 @@ function MainApp() {
                 {/* Meus Currículos - Featured */}
                 <button
                   onClick={() => {
-                    if (!user) {
+                    if (!user && purchasedResumes.length === 0) {
                        signInWithGoogle().then(() => setAppState('my-resumes'));
                     } else {
                        setAppState('my-resumes');
@@ -554,7 +588,7 @@ function MainApp() {
                     <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 flex flex-col sm:flex-row items-center gap-3">
                       Meus Currículos
                       <span className="px-2.5 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">
-                        {user ? (purchasedResumes.length > 0 ? `${purchasedResumes.length} salvos` : 'Nuvem') : 'Requer Login'}
+                        {purchasedResumes.length > 0 ? `${purchasedResumes.length} salvos` : (user ? 'Nuvem' : 'Acesse seus currículos')}
                       </span>
                     </h2>
                     <p className="text-slate-400 text-sm sm:text-base">
@@ -1052,8 +1086,11 @@ function MainApp() {
                               if (user) {
                                 await saveResume(user.uid, resume.id, updatedData);
                                 setResumesList(prev => prev.map(r => r.id === resume.id ? { ...r, data: updatedData } : r));
-                                if (currentResumeId === resume.id) setData(updatedData);
                               }
+                              // Always update local list if it's there
+                              setLocalPurchasedResumes(prev => prev.map(r => r.id === resume.id ? { ...r, data: updatedData } : r));
+                              
+                              if (currentResumeId === resume.id) setData(updatedData);
                             }
                           }}
                           onKeyDown={(e) => {
@@ -1111,13 +1148,6 @@ function MainApp() {
               </h1>
             </div>
             
-            <button 
-              onClick={() => setPaymentEnabled(!paymentEnabled)}
-              className={`hidden sm:flex ml-4 px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-lg transition-colors border ${paymentEnabled ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}
-              title="Apenas Dev: Liga ou desliga o modo de pagamento"
-            >
-              Pagamento {paymentEnabled ? 'ON' : 'OFF'}
-            </button>
           </div>
 
           <div className="flex lg:hidden items-center gap-3 sm:gap-6 flex-1 justify-end">
@@ -1139,6 +1169,14 @@ function MainApp() {
         </div>
         
         <div className="flex flex-col sm:flex-row gap-3 items-center w-full lg:w-auto pt-2 lg:pt-0">
+          {deferredPrompt && (
+            <button
+              onClick={handleInstallClick}
+              className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-white/5 transition-all w-full sm:w-auto justify-center"
+            >
+              <MonitorDown className="w-4 h-4" /> Instalar App
+            </button>
+          )}
           
           <div className="flex gap-2 items-center justify-between sm:justify-center w-full sm:w-auto flex-wrap">
             {user ? (
