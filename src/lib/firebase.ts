@@ -116,9 +116,10 @@ export interface ResumeDoc {
   afiliadoOrigem?: string | null;
   sessionId?: string | null;
   statusPagamento?: string;
+  unlockedTemplates?: string[];
 }
 
-export const saveResume = async (userId: string, resumeId: string, resumeData: ResumeData) => {
+export const saveResume = async (userId: string, resumeId: string, resumeData: ResumeData, unlockedTemplates?: string[]) => {
   const path = `users/${userId}/resumes/${resumeId}`;
   try {
     const docRef = doc(db, 'users', userId, 'resumes', resumeId);
@@ -130,25 +131,29 @@ export const saveResume = async (userId: string, resumeId: string, resumeData: R
       localStorage.setItem('resume_session_id', sessionId);
     }
 
-    // Check if it exists
+    // Prepare update data
+    const updateData: any = {
+      data: resumeData as any,
+      updatedAt: serverTimestamp(),
+      afiliadoOrigem: afiliadoOrigem,
+      sessionId: sessionId
+    };
+    if (unlockedTemplates !== undefined) {
+      updateData.unlockedTemplates = unlockedTemplates;
+    }
+
     const snap = await getDocFromServer(docRef);
     if (snap.exists()) {
-      await updateDoc(docRef, {
-        data: resumeData as any,
-        updatedAt: serverTimestamp(),
-        afiliadoOrigem: afiliadoOrigem,
-        sessionId: sessionId
-      });
+      await updateDoc(docRef, updateData);
     } else {
-      await setDoc(docRef, {
+      const setPayload: any = {
         ownerId: userId,
         data: resumeData as any,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        afiliadoOrigem: afiliadoOrigem,
-        sessionId: sessionId,
+        ...updateData,
         statusPagamento: 'pendente'
-      });
+      };
+      await setDoc(docRef, setPayload);
     }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);

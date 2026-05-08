@@ -269,9 +269,30 @@ function MainApp() {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
+        // Sync any local purchased resumes to the cloud now that we are logged in
+        try {
+          const localStr = localStorage.getItem('rezz_local_purchased');
+          const unlockedStr = localStorage.getItem('rezz_unlocked');
+          let localUnlocked: string[] = [];
+          try { localUnlocked = JSON.parse(unlockedStr || '[]'); } catch (e) {}
+
+          if (localStr) {
+            const localArr = JSON.parse(localStr);
+            if (Array.isArray(localArr) && localArr.length > 0) {
+              const promises = localArr.map((localResume: any) => {
+                const docUnlocked = localUnlocked.filter((cfg: string) => cfg.startsWith(`${localResume.id}_`));
+                return saveResume(currentUser.uid, localResume.id, localResume.data, docUnlocked.length > 0 ? docUnlocked : undefined);
+              });
+              await Promise.all(promises);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to sync local resumes to cloud", err);
+        }
+        
         fetchResumes(currentUser.uid);
       } else {
         setResumesList([]);
@@ -283,16 +304,30 @@ function MainApp() {
   const fetchResumes = async (userId: string) => {
     const list = await loadResumes(userId);
     setResumesList(list);
+    
+    // Auto-sync unlocked configs from cloud to local device
+    const cloudUnlocked = list.flatMap(r => r.unlockedTemplates || []);
+    if (cloudUnlocked.length > 0) {
+      setUnlockedConfigs(prev => {
+        const merged = [...new Set([...prev, ...cloudUnlocked])];
+        return merged;
+      });
+    }
   };
 
   const handleSaveResume = async () => {
-    if (!user) return;
+    if (!user) {
+      alert("Por favor, faça login para salvar seu currículo na nuvem. Você os encontra em 'Meus Currículos'.");
+      return;
+    }
     setIsSaving(true);
     try {
-      await saveResume(user.uid, currentResumeId, data);
+      const docUnlocked = unlockedConfigs.filter(cfg => cfg.startsWith(`${currentResumeId}_`));
+      await saveResume(user.uid, currentResumeId, data, docUnlocked.length > 0 ? docUnlocked : undefined);
       await fetchResumes(user.uid);
       alert('Currículo salvo com sucesso!');
     } catch (error) {
+      console.error(error);
       alert('Erro ao salvar o currículo.');
     } finally {
       setIsSaving(false);
@@ -1109,7 +1144,8 @@ function MainApp() {
                             if (newName && newName !== resume.data.name) {
                               const updatedData = { ...resume.data, name: newName };
                               if (user) {
-                                await saveResume(user.uid, resume.id, updatedData);
+                                const docUnlocked = unlockedConfigs.filter(cfg => cfg.startsWith(`${resume.id}_`));
+                                await saveResume(user.uid, resume.id, updatedData, docUnlocked.length > 0 ? docUnlocked : undefined);
                                 setResumesList(prev => prev.map(r => r.id === resume.id ? { ...r, data: updatedData } : r));
                               }
                               // Always update local list if it's there
