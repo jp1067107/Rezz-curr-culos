@@ -36,6 +36,20 @@ export interface Course {
   institution: string;
 }
 
+export interface CustomItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  date: string;
+  description: string;
+}
+
+export interface CustomSection {
+  id: string;
+  name: string;
+  items: CustomItem[];
+}
+
 export interface ResumeData {
   id?: string;
   name?: string;
@@ -44,6 +58,7 @@ export interface ResumeData {
   education: Education[];
   skills: Skill[];
   courses?: Course[];
+  customSections?: CustomSection[];
   coverLetter?: string;
 }
 

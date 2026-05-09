@@ -92,8 +92,9 @@ REGRAS DE CONTEÚDO E FORMATAÇÃO (CRÍTICAS):
    - Otimizou o processo Y com eficácia.
    - Treinou novos funcionários."
 3. Habilidades: Limite a no máximo 6-8 habilidades importantes, nomes curtos (ex: "Excel Avançado").
-4. Criatividade e Expansão: Se as descrições ou informações do usuário forem muito curtas, genéricas ou vagas, VOCÊ TEM TOTAL PERMISSÃO PARA INVENTAR e INFERIR dados lógicos (experiências adicionais compatíveis com a área, habilidades esperadas ou descrições ricas) para tornar o currículo mais forte e completo.
-5. Omitir 'id' de arrays.
+4. Fidelidade aos dados factuais: NUNCA altere ou invente Nomes de Instituições, Empresas ou Cargos. Transcreva com fidelidade. Sua liberdade está em MELHORAR as DESCRIÇÕES de atividades para deixá-las corporativas e persuasivas.
+5. Seções Extras (Customizadas): Se o currículo possuir outras categorias (ex: Idiomas, Projetos, Publicações, Soft Skills, Certificações de TI), agrupe no campo "customSections", cada seção deve ter "name" (como 'Idiomas') e em 'items', coloque 'title' (o idioma/curso/projeto) e, se aplicável, 'description' (nível ou detalhe).
+6. Omitir 'id' de arrays.
 
 Preencha as informações necessárias com textos enxutos. Certifique-se de que o texto não transborde, mantendo harmonia em 1 página. Retorne em português perfeito.
 Responda OBRIGATORIAMENTE com um JSON válido correspondente a este schema:
@@ -102,7 +103,11 @@ Responda OBRIGATORIAMENTE com um JSON válido correspondente a este schema:
   "experience": [{ "company": "", "position": "", "startDate": "", "endDate": "", "description": "" }],
   "education": [{ "institution": "", "degree": "", "startDate": "", "endDate": "" }],
   "courses": [{ "name": "", "institution": "" }],
-  "skills": [{ "name": "" }]
+  "skills": [{ "name": "" }],
+  "customSections": [{
+    "name": "Idiomas",
+    "items": [{ "title": "Inglês", "subtitle": "Avançado", "description": "Comunicação e leitura técnica" }]
+  }]
 }`;
 
 export async function extractResumeDataFromFiles(files: FileList | File[]): Promise<ResumeData> {
@@ -253,6 +258,17 @@ function normalizeResponse(rawData: any): ResumeData {
     skills: Array.isArray(rawData.skills) ? rawData.skills.map((skill: any) => ({
       id: uuidv4(),
       name: skill.name || '',
+    })) : [],
+    customSections: Array.isArray(rawData.customSections) ? rawData.customSections.map((sec: any) => ({
+      id: uuidv4(),
+      name: sec.name || '',
+      items: Array.isArray(sec.items) ? sec.items.map((item: any) => ({
+        id: uuidv4(),
+        title: item.title || '',
+        subtitle: item.subtitle || '',
+        date: item.date || '',
+        description: item.description || ''
+      })) : []
     })) : [],
     coverLetter: rawData.coverLetter || '',
   };

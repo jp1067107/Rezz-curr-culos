@@ -150,6 +150,29 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
             </div>
           </div>
         )}
+
+        {(data.customSections || []).map((section) => (
+          <div key={section.id} className="mb-8">
+            <h2 className="text-xl font-bold text-[#1e293b] mb-4 flex items-center gap-2">
+               <span className="w-8 h-px bg-[#2563eb] inline-block"></span> {section.name}
+            </h2>
+            <div className="space-y-4">
+              {section.items.map((item) => (
+                <div key={item.id} className="page-break-avoid w-full">
+                  <div className="flex justify-between items-baseline mb-1">
+                    <h3 className="font-bold text-[#1e293b]">{item.title} {item.subtitle && <span className="font-normal text-[#64748b]">| {item.subtitle}</span>}</h3>
+                    {item.date && (
+                      <span className="text-xs font-semibold text-[#2563eb] break-keep">{item.date}</span>
+                    )}
+                  </div>
+                  {item.description && (
+                    <p className="text-sm text-[#4b5563] leading-relaxed whitespace-pre-line mt-1">{item.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -234,6 +257,27 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           </div>
         </div>
       )}
+
+      {(data.customSections || []).map((section) => (
+        <div key={section.id} className="mb-8 page-break-avoid w-full">
+          <h2 className="text-xl font-bold uppercase border-b border-[#d1d5db] mb-4 pb-1">{section.name}</h2>
+          <div className="space-y-4">
+            {section.items.map((item) => (
+              <div key={item.id} className="w-full">
+                <div className="flex justify-between items-baseline mb-1">
+                  <h3 className="font-bold text-lg">{item.title} {item.subtitle && <span className="font-medium italic text-[#4b5563] text-base">| {item.subtitle}</span>}</h3>
+                  {item.date && (
+                    <span className="text-sm italic text-[#4b5563]">{item.date}</span>
+                  )}
+                </div>
+                {item.description && (
+                  <p className="text-sm leading-relaxed whitespace-pre-line mt-1">{item.description}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 
@@ -324,6 +368,28 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
               </div>
             </div>
           )}
+
+          {(data.customSections || []).map((section) => (
+            <div key={section.id} className="pt-4">
+              <h2 className="text-xs font-bold text-[#9ca3af] uppercase mb-6">{section.name}</h2>
+              <div className="space-y-8">
+                {section.items.map((item) => (
+                  <div key={item.id} className="relative pl-6 border-l border-[#e5e7eb] page-break-avoid w-full">
+                    <div className="absolute w-2 h-2 bg-[#111827] rounded-full -left-[4.5px] top-1.5 ring-4 ring-white"></div>
+                    {item.date && (
+                      <div className="text-xs text-[#9ca3af] font-medium mb-1">{item.date}</div>
+                    )}
+                    <h3 className="text-lg font-bold text-[#111827]">
+                      {item.title} {item.subtitle && <span className="font-normal text-[#6b7280]">| {item.subtitle}</span>}
+                    </h3>
+                    {item.description && (
+                      <p className="text-sm text-[#4b5563] leading-relaxed whitespace-pre-line mt-2">{item.description}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

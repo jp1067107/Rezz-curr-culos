@@ -10,12 +10,63 @@ interface ResumeFormProps {
 }
 
 export function ResumeForm({ data, onChange }: ResumeFormProps) {
-  const [activeTab, setActiveTab] = useState<'personal' | 'experience' | 'education' | 'skills' | 'courses'>('personal');
+  const [activeTab, setActiveTab] = useState<'personal' | 'experience' | 'education' | 'skills' | 'courses' | 'customSections'>('personal');
 
   const updatePersonalInfo = (field: keyof ResumeData['personalInfo'], value: string | null) => {
     onChange({
       ...data,
       personalInfo: { ...data.personalInfo, [field]: value }
+    });
+  };
+
+  const addCustomSection = () => {
+    onChange({
+      ...data,
+      customSections: [...(data.customSections || []), { id: uuidv4(), name: '', items: [] }]
+    });
+  };
+
+  const updateCustomSection = (id: string, name: string) => {
+    onChange({
+      ...data,
+      customSections: (data.customSections || []).map(sec => sec.id === id ? { ...sec, name } : sec)
+    });
+  };
+
+  const removeCustomSection = (id: string) => {
+    onChange({
+      ...data,
+      customSections: (data.customSections || []).filter(sec => sec.id !== id)
+    });
+  };
+
+  const addCustomItem = (sectionId: string) => {
+    onChange({
+      ...data,
+      customSections: (data.customSections || []).map(sec => sec.id === sectionId ? {
+        ...sec,
+        items: [...sec.items, { id: uuidv4(), title: '', subtitle: '', date: '', description: '' }]
+      } : sec)
+    });
+  };
+
+  const updateCustomItem = (sectionId: string, itemId: string, field: string, value: string) => {
+    onChange({
+      ...data,
+      customSections: (data.customSections || []).map(sec => sec.id === sectionId ? {
+        ...sec,
+        items: sec.items.map(item => item.id === itemId ? { ...item, [field]: value } : item)
+      } : sec)
+    });
+  };
+
+  const removeCustomItem = (sectionId: string, itemId: string) => {
+    onChange({
+      ...data,
+      customSections: (data.customSections || []).map(sec => sec.id === sectionId ? {
+        ...sec,
+        items: sec.items.filter(item => item.id !== itemId)
+      } : sec)
     });
   };
 
@@ -137,20 +188,21 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
       }`}>
         {index}
       </span>
-      <span className="text-xs sm:text-sm font-semibold hidden md:inline">{label}</span>
+      <span className="text-xs sm:text-sm font-semibold">{label}</span>
     </button>
   );
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 sm:gap-6 h-full w-full">
-      {/* Sidebar Navigation */}
-      <aside className="w-full md:w-48 lg:w-56 flex flex-row md:flex-col gap-2 shrink-0 overflow-x-auto hide-scrollbar">
-        <div className="p-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl md:rounded-2xl flex flex-row md:flex-col gap-1 w-max md:w-auto mx-auto md:mx-0">
+    <div className="flex flex-col gap-4 sm:gap-6 h-full w-full overflow-hidden">
+      {/* Top Navigation */}
+      <aside className="w-full shrink-0 overflow-x-auto hide-scrollbar">
+        <div className="p-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl md:rounded-2xl flex flex-row gap-1 w-max min-w-full">
           {renderTabButton('personal', 'Dados Pessoais', 1)}
           {renderTabButton('experience', 'Experiência', 2)}
           {renderTabButton('education', 'Formação', 3)}
           {renderTabButton('skills', 'Habilidades', 4)}
           {renderTabButton('courses', 'Cursos', 5)}
+          {renderTabButton('customSections', 'Seções Extras', 6)}
         </div>
       </aside>
 
@@ -464,6 +516,106 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
               className="w-full py-4 border-2 border-dashed border-white/20 rounded-xl text-indigo-400 font-bold hover:border-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" /> Adicionar Curso
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'customSections' && (
+          <div className="space-y-8">
+            <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
+              <p className="text-sm text-indigo-200">
+                Adicione seções arbitrárias ao seu currículo (ex: <b>Idiomas</b>, <b>Trabalho Voluntário</b>, <b>Projetos Pessoais</b>, etc).
+              </p>
+            </div>
+            {(data.customSections || []).map((section) => (
+              <div key={section.id} className="space-y-4 p-5 bg-white/5 border border-white/10 rounded-3xl relative group/section">
+                <button 
+                  onClick={() => removeCustomSection(section.id)}
+                  className="absolute right-4 top-4 text-slate-400 hover:text-red-400 opacity-0 group-hover/section:opacity-100 transition-opacity p-2 bg-white/5 rounded-lg"
+                  title="Remover sessão"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+                <div>
+                  <label className={labelClass}>Nome da Seção (ex: Projetos)</label>
+                  <input 
+                    type="text" 
+                    value={section.name}
+                    onChange={(e) => updateCustomSection(section.id, e.target.value)}
+                    className={inputClass}
+                    placeholder="Nome da Seção"
+                  />
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-white/10">
+                  {section.items.map((item) => (
+                    <div key={item.id} className="p-4 bg-white/5 rounded-xl border border-white/5 relative group/item">
+                      <button 
+                        onClick={() => removeCustomItem(section.id, item.id)}
+                        className="absolute right-3 top-3 text-slate-400 hover:text-red-400 opacity-0 group-hover/item:opacity-100 transition-opacity p-1.5 bg-white/5 rounded-md"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3 pr-8">
+                        <div>
+                          <label className={labelClass}>Título Principal</label>
+                          <input 
+                            type="text" 
+                            value={item.title}
+                            onChange={(e) => updateCustomItem(section.id, item.id, 'title', e.target.value)}
+                            className={inputClass}
+                            placeholder="ex: Inglês"
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClass}>Subtítulo / Tipo</label>
+                          <input 
+                            type="text" 
+                            value={item.subtitle}
+                            onChange={(e) => updateCustomItem(section.id, item.id, 'subtitle', e.target.value)}
+                            className={inputClass}
+                            placeholder="ex: Fluente"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className={labelClass}>Data (opcional)</label>
+                          <input 
+                            type="text" 
+                            value={item.date}
+                            onChange={(e) => updateCustomItem(section.id, item.id, 'date', e.target.value)}
+                            className={inputClass}
+                            placeholder="Ex: 2021 - 2023"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className={labelClass}>Descrição (opcional)</label>
+                          <textarea 
+                            rows={2}
+                            value={item.description}
+                            onChange={(e) => updateCustomItem(section.id, item.id, 'description', e.target.value)}
+                            className={inputClass}
+                            placeholder="Detalhes adicionais..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <button 
+                    onClick={() => addCustomItem(section.id)}
+                    className="w-full py-3 border-2 border-dashed border-white/10 rounded-xl text-indigo-400 text-sm font-bold hover:border-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" /> Adicionar Item em {section.name || 'Nova Seção'}
+                  </button>
+                </div>
+              </div>
+            ))}
+            <button 
+              onClick={addCustomSection}
+              className="w-full py-4 border-2 border-dashed border-white/20 rounded-xl text-indigo-400 font-bold hover:border-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center justify-center gap-2"
+            >
+              <Plus className="w-5 h-5" /> Adicionar Nova Seção
             </button>
           </div>
         )}
