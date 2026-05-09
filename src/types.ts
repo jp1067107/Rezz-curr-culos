@@ -30,6 +30,12 @@ export interface Skill {
   name: string;
 }
 
+export interface Course {
+  id: string;
+  name: string;
+  institution: string;
+}
+
 export interface ResumeData {
   id?: string;
   name?: string;
@@ -37,6 +43,7 @@ export interface ResumeData {
   experience: Experience[];
   education: Education[];
   skills: Skill[];
+  courses?: Course[];
   coverLetter?: string;
 }
 

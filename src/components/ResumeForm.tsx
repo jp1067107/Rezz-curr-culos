@@ -10,7 +10,7 @@ interface ResumeFormProps {
 }
 
 export function ResumeForm({ data, onChange }: ResumeFormProps) {
-  const [activeTab, setActiveTab] = useState<'personal' | 'experience' | 'education' | 'skills'>('personal');
+  const [activeTab, setActiveTab] = useState<'personal' | 'experience' | 'education' | 'skills' | 'courses'>('personal');
 
   const updatePersonalInfo = (field: keyof ResumeData['personalInfo'], value: string | null) => {
     onChange({
@@ -98,6 +98,27 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
     });
   };
 
+  const addCourse = () => {
+    onChange({
+      ...data,
+      courses: [...(data.courses || []), { id: uuidv4(), name: '', institution: '' }]
+    });
+  };
+
+  const updateCourse = (id: string, field: 'name' | 'institution', value: string) => {
+    onChange({
+      ...data,
+      courses: (data.courses || []).map(course => course.id === id ? { ...course, [field]: value } : course)
+    });
+  };
+
+  const removeCourse = (id: string) => {
+    onChange({
+      ...data,
+      courses: (data.courses || []).filter(course => course.id !== id)
+    });
+  };
+
   // Helper for input classes
   const inputClass = "w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all text-slate-100 placeholder:text-slate-500";
   const labelClass = "block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1";
@@ -129,6 +150,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
           {renderTabButton('experience', 'Experiência', 2)}
           {renderTabButton('education', 'Formação', 3)}
           {renderTabButton('skills', 'Habilidades', 4)}
+          {renderTabButton('courses', 'Cursos', 5)}
         </div>
       </aside>
 
@@ -395,6 +417,53 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
               className="w-full py-3 border-2 border-dashed border-white/20 rounded-xl text-indigo-400 font-bold hover:border-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" /> Adicionar Habilidade
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'courses' && (
+          <div className="space-y-6">
+            <div className="space-y-4">
+              {(data.courses || []).map((course) => (
+                <div key={course.id} className="p-4 sm:p-5 bg-white/5 border border-white/10 rounded-2xl relative group">
+                  <button 
+                    onClick={() => removeCourse(course.id)}
+                    className="absolute right-4 top-4 text-slate-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-2 bg-white/5 rounded-lg"
+                    title="Remover curso"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-10">
+                    <div>
+                      <label className={labelClass}>Nome do Curso</label>
+                      <input 
+                        type="text" 
+                        value={course.name}
+                        onChange={(e) => updateCourse(course.id, 'name', e.target.value)}
+                        className={inputClass}
+                        placeholder="Power BI Avançado"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Instituição / Escola</label>
+                      <input 
+                        type="text" 
+                        value={course.institution}
+                        onChange={(e) => updateCourse(course.id, 'institution', e.target.value)}
+                        className={inputClass}
+                        placeholder="Alura"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button 
+              onClick={addCourse}
+              className="w-full py-4 border-2 border-dashed border-white/20 rounded-xl text-indigo-400 font-bold hover:border-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center justify-center gap-2"
+            >
+              <Plus className="w-5 h-5" /> Adicionar Curso
             </button>
           </div>
         )}

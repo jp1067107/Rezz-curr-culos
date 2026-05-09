@@ -101,6 +101,7 @@ Responda OBRIGATORIAMENTE com um JSON válido correspondente a este schema:
   "personalInfo": { "fullName": "", "jobTitle": "", "email": "", "phone": "", "location": "", "summary": "" },
   "experience": [{ "company": "", "position": "", "startDate": "", "endDate": "", "description": "" }],
   "education": [{ "institution": "", "degree": "", "startDate": "", "endDate": "" }],
+  "courses": [{ "name": "", "institution": "" }],
   "skills": [{ "name": "" }]
 }`;
 
@@ -243,6 +244,11 @@ function normalizeResponse(rawData: any): ResumeData {
       degree: edu.degree || '',
       startDate: edu.startDate || '',
       endDate: edu.endDate || '',
+    })) : [],
+    courses: Array.isArray(rawData.courses) ? rawData.courses.map((course: any) => ({
+      id: uuidv4(),
+      name: course.name || '',
+      institution: course.institution || '',
     })) : [],
     skills: Array.isArray(rawData.skills) ? rawData.skills.map((skill: any) => ({
       id: uuidv4(),

@@ -76,6 +76,20 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
             </div>
           </div>
         )}
+
+        {(data.courses || []).length > 0 && (
+          <div className="mb-8 page-break-avoid w-full">
+            <h2 className="text-sm font-bold text-[#94a3b8] uppercase mb-4">Cursos</h2>
+            <div className="space-y-4">
+              {data.courses!.map((course, index) => (
+                <div key={index}>
+                  <div className="text-sm font-bold text-white mb-0.5">{course.name}</div>
+                  <div className="text-xs text-[#94a3b8]">{course.institution}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main Content */}
@@ -199,11 +213,25 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
       )}
 
       {skills.length > 0 && (
-        <div className="page-break-avoid w-full">
+        <div className="page-break-avoid w-full mb-8">
           <h2 className="text-xl font-bold uppercase border-b border-[#d1d5db] mb-4 pb-1">Habilidades</h2>
           <p className="text-sm leading-relaxed">
             {skills.map(s => s.name).join(' • ')}
           </p>
+        </div>
+      )}
+
+      {(data.courses || []).length > 0 && (
+        <div className="mb-8 page-break-avoid w-full">
+          <h2 className="text-xl font-bold uppercase border-b border-[#d1d5db] mb-4 pb-1">Cursos Complementares</h2>
+          <div className="space-y-4">
+            {data.courses!.map((course, index) => (
+              <div key={index} className="w-full">
+                <div className="font-bold text-lg mb-1">{course.name}</div>
+                <div className="text-sm italic text-[#4b5563]">{course.institution}</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -246,7 +274,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           )}
           
           {education.length > 0 && (
-            <div>
+            <div className="mb-8">
               <h2 className="text-xs font-bold text-[#9ca3af] uppercase mb-3">Formação</h2>
               <div className="space-y-3">
                 {education.map((edu, index) => (
@@ -256,6 +284,20 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
                     <div className="text-xs text-[#9ca3af]">
                       {edu.startDate} {edu.startDate && edu.endDate ? '—' : ''} {edu.endDate}
                     </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(data.courses || []).length > 0 && (
+            <div>
+              <h2 className="text-xs font-bold text-[#9ca3af] uppercase mb-3">Cursos</h2>
+              <div className="space-y-3">
+                {data.courses!.map((course, index) => (
+                  <div key={index} className="page-break-avoid w-full">
+                    <div className="text-sm font-bold">{course.name}</div>
+                    <div className="text-xs text-[#6b7280]">{course.institution}</div>
                   </div>
                 ))}
               </div>
