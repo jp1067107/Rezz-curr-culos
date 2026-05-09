@@ -171,3 +171,13 @@ export const loadResumes = async (userId: string): Promise<ResumeDoc[]> => {
     return [];
   }
 };
+
+export const deleteResume = async (userId: string, resumeId: string) => {
+  const path = `users/${userId}/resumes/${resumeId}`;
+  try {
+    await deleteDoc(doc(db, 'users', userId, 'resumes', resumeId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+};
+

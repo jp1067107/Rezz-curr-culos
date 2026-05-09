@@ -9,9 +9,9 @@ import { ResumeForm } from './components/ResumeForm';
 import { ResumePreview } from './components/ResumePreview';
 import { CoverLetterGenerator } from './components/CoverLetterGenerator';
 import { extractResumeDataFromFiles } from './services/aiService';
-import { auth, signInWithGoogle, signOut, saveResume, loadResumes, ResumeDoc } from './lib/firebase';
+import { auth, signInWithGoogle, signOut, saveResume, loadResumes, deleteResume, ResumeDoc } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown } from 'lucide-react';
+import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown, Trash2 } from 'lucide-react';
 
 import { v4 as uuidv4 } from 'uuid';
 
@@ -292,6 +292,9 @@ function MainApp() {
               });
               await Promise.all(promises);
             }
+            // Clear local purchased resumes after successful sync so they don't duplicate or leak to other accounts
+            localStorage.removeItem('rezz_local_purchased');
+            setLocalPurchasedResumes([]);
           }
         } catch (err) {
           console.error("Failed to sync local resumes to cloud", err);
@@ -608,7 +611,14 @@ function MainApp() {
                     <UserCircle className="w-4 h-4" />
                   </div>
                   <span className="text-xs sm:text-sm font-medium text-slate-300 truncate max-w-[100px] sm:max-w-none">{user.displayName?.split(' ')[0] || 'Usuário'}</span>
-                  <button onClick={() => signOut()} className="ml-1 sm:ml-2 text-slate-500 hover:text-red-400" title="Sair da conta">
+                  <button onClick={() => {
+                    signOut();
+                    setLocalPurchasedResumes([]);
+                    setUnlockedConfigs([]);
+                    localStorage.removeItem('rezz_local_purchased');
+                    localStorage.removeItem('rezz_unlocked');
+                    setResumesList([]);
+                  }} className="ml-1 sm:ml-2 text-slate-500 hover:text-red-400" title="Sair da conta">
                     <LogOut className="w-4 h-4" />
                   </button>
                 </div>
@@ -1129,12 +1139,36 @@ function MainApp() {
                       <span className="text-xs text-slate-500">
                         {resume.updatedAt ? new Date(typeof resume.updatedAt === 'string' ? resume.updatedAt : (typeof resume.updatedAt.toMillis === 'function' ? resume.updatedAt.toMillis() : (resume.updatedAt.seconds ? resume.updatedAt.seconds * 1000 : resume.updatedAt))).toLocaleDateString() : 'Recente'}
                       </span>
-                      <button
-                        onClick={() => handleLoadResume(resume)}
-                        className={`px-4 py-2 ${currentResumeId === resume.id ? 'bg-slate-700 text-slate-300' : 'bg-indigo-600 hover:bg-indigo-500 text-white'} text-sm font-bold rounded-lg transition-all`}
-                      >
-                        {currentResumeId === resume.id ? 'Aberto' : 'Abrir'}
-                      </button>
+                      <div className="flex gap-2">
+                        {user?.email === 'jp1067107@gmail.com' && (
+                          <button
+                            onClick={async () => {
+                              if (window.confirm("Certeza que deseja excluir este currículo?")) {
+                                if (user) {
+                                  await deleteResume(user.uid, resume.id);
+                                  setResumesList(prev => prev.filter(r => r.id !== resume.id));
+                                }
+                                setLocalPurchasedResumes(prev => prev.filter(r => r.id !== resume.id));
+                                if (currentResumeId === resume.id) {
+                                  const initial = getInitialData();
+                                  setData(initial);
+                                  setCurrentResumeId(initial.id || uuidv4());
+                                }
+                              }
+                            }}
+                            className="p-2 bg-red-900/40 hover:bg-red-800 text-red-200 rounded-lg transition-all"
+                            title="Excluir"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleLoadResume(resume)}
+                          className={`px-4 py-2 ${currentResumeId === resume.id ? 'bg-slate-700 text-slate-300' : 'bg-indigo-600 hover:bg-indigo-500 text-white'} text-sm font-bold rounded-lg transition-all`}
+                        >
+                          {currentResumeId === resume.id ? 'Aberto' : 'Abrir'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1361,6 +1395,7 @@ function MainApp() {
                  Voltar e editar mais
                </button>
                
+              {user?.email === 'jp1067107@gmail.com' && (
                <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col items-center gap-3">
                  <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-500">
                    <input
@@ -1386,6 +1421,7 @@ function MainApp() {
                    (Botão Fake de Dev) Simular que já pagou
                  </button>
                </div>
+              )}
             </div>
           </div>
         )}
