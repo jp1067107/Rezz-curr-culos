@@ -1011,11 +1011,11 @@ function MainApp() {
 
           <main className="flex-1 overflow-hidden flex flex-col lg:flex-row p-4 gap-6 items-center lg:items-start justify-center relative bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-fixed">
             <div className="absolute inset-0 bg-slate-950/80 pointer-events-none"></div>
-            <div className={`w-full lg:w-1/2 max-w-[800px] h-full overflow-y-auto bg-slate-900/90 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl flex flex-col transition-all z-10 ${isPurchasedEditing ? 'hidden lg:flex' : 'hidden'} ${mobileView === 'editor' ? '!flex lg:hidden' : ''}`}>
+            <div className={`w-full lg:w-1/2 max-w-[800px] h-full overflow-y-auto bg-slate-900/90 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl flex-col transition-all z-10 ${isPurchasedEditing ? 'lg:flex' : 'lg:hidden'} ${mobileView === 'editor' ? 'flex' : 'hidden'}`}>
                <ResumeForm data={data} onChange={setData} />
             </div>
 
-            <div className={`h-full w-full max-w-[1000px] flex flex-col transition-all z-10 ${!isPurchasedEditing ? 'lg:flex-1' : 'lg:w-1/2'} ${mobileView === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
+            <div className={`h-full w-full max-w-[1000px] flex-col transition-all z-10 ${!isPurchasedEditing ? 'lg:flex-1' : 'lg:w-1/2'} ${mobileView === 'preview' ? 'flex' : 'hidden'} lg:flex`}>
               <div className="flex justify-center mb-6 gap-2 shrink-0">
                 <div className="bg-slate-900/80 backdrop-blur-md p-1.5 rounded-xl border border-white/10 shadow-xl flex gap-1">
                   {purchasedTemplates.map(t => (
