@@ -195,8 +195,8 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
   return (
     <div className="flex flex-col gap-4 sm:gap-6 h-full w-full overflow-hidden">
       {/* Top Navigation */}
-      <aside className="w-full shrink-0 overflow-x-auto hide-scrollbar pb-2">
-        <div className="p-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl md:rounded-2xl flex flex-row gap-1 w-max min-w-full">
+      <aside className="w-full shrink-0 overflow-x-auto hide-scrollbar pb-1">
+        <div className="p-2 sm:p-3 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl md:rounded-2xl flex flex-row sm:flex-wrap gap-1 sm:gap-2 w-max min-w-full sm:w-auto justify-start sm:justify-center">
           {renderTabButton('personal', 'Dados Pessoais', 1)}
           {renderTabButton('experience', 'Experiência', 2)}
           {renderTabButton('education', 'Formação', 3)}
