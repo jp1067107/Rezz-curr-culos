@@ -104,22 +104,40 @@ Responda OBRIGATORIAMENTE com um JSON válido correspondente a este schema:
   "skills": [{ "name": "" }]
 }`;
 
-export async function extractResumeDataFromFile(file: File): Promise<ResumeData> {
-  const mimeType = file.type;
-  if (!mimeType.includes('pdf') && !mimeType.includes('image')) {
-    throw new Error('Please upload a PDF or an image file.');
+export async function extractResumeDataFromFiles(files: FileList | File[]): Promise<ResumeData> {
+  const fileArray = Array.from(files);
+  if (fileArray.length === 0) throw new Error('Nenhum arquivo providenciado.');
+
+  for (const file of fileArray) {
+    const mimeType = file.type;
+    if (!mimeType.includes('pdf') && !mimeType.includes('image')) {
+      throw new Error(`Tipo de arquivo não suportado: ${file.name}. Envie apenas PDF ou imagem.`);
+    }
   }
 
-  let messages: any[] = [];
+  let hasImage = false;
+  let allPdfText = "";
+  const base64Images: { mimeType: string, data: string }[] = [];
+
+  for (const file of fileArray) {
+    if (file.type.includes('pdf')) {
+      const text = await extractTextFromPdf(file);
+      allPdfText += `[Conteúdo do arquivo PDF ${file.name}]:\n${text}\n\n`;
+    } else if (file.type.includes('image')) {
+      hasImage = true;
+      const base64Data = await fileToBase64(file);
+      base64Images.push({ mimeType: file.type, data: base64Data });
+    }
+  }
+
   let modelToUse = "llama-3.3-70b-versatile";
 
-  if (mimeType.includes('pdf')) {
-    const text = await extractTextFromPdf(file);
-    messages = [
+  if (!hasImage) {
+    const messages = [
       { role: "system", content: SYSTEM_PROMPT },
       { 
         role: "user", 
-        content: `Analise o seguinte texto extraído de um currículo e transforme-o no JSON solicitado. Reescreva e otimize as informações ativamente com linguagem corporativa persuasiva e focada em resultados. Adicione verbos de ação:\n\n${text}`
+        content: `Analise o(s) seguinte(s) texto(s) extraído(s) de currículo(s) ou perfil(is) e transforme-os no JSON solicitado. Você precisará consolidar as informações caso haja mais de um arquivo. Reescreva e otimize as informações ativamente com linguagem corporativa persuasiva e focada em resultados. Adicione verbos de ação:\n\n${allPdfText}`
       }
     ];
 
@@ -137,17 +155,23 @@ export async function extractResumeDataFromFile(file: File): Promise<ResumeData>
       const rawData = parseJsonResponse(parsedText);
       return normalizeResponse(rawData);
     } catch (error: any) {
-      console.error("Error generating resume from file:", error);
-      throw new Error(`Falha ao ler o arquivo: ${error.message || 'Houve um erro na inteligência artificial ao extrair os dados.'}`);
+      console.error("Error generating resume from files:", error);
+      throw new Error(`Falha ao ler os arquivos: ${error.message || 'Houve um erro na inteligência artificial ao extrair os dados.'}`);
     }
   } else {
-    // It's an image - Groq model is deprecated, use Gemini instead
+    // Has images - use Gemini 
     try {
-      const base64Data = await fileToBase64(file);
-      
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
       if (!apiKey) {
         throw new Error("Chave da API Gemini não encontrada. Adicione GEMINI_API_KEY nas configurações ou secrets.");
+      }
+
+      const parts: any[] = [
+        { text: `${SYSTEM_PROMPT}\n\nAnalise as imagens e textos fornecidos (podem ser currículos, perfis do linkedin, certificados). Extraia e consolide as informações, mas não apenas transcreva. REESCREVA E OTIMIZE ativamente as informações utilizando uma linguagem corporativa profunda, persuasiva e orientada para resultados. Transforme o conteúdo consolidado no formato JSON estrito.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}` }
+      ];
+
+      for (const img of base64Images) {
+        parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
       }
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
@@ -157,15 +181,13 @@ export async function extractResumeDataFromFile(file: File): Promise<ResumeData>
           contents: [
             {
               role: "user",
-              parts: [
-                { text: `${SYSTEM_PROMPT}\n\nAnalise a imagem de currículo fornecida. Extraia as informações, mas não apenas transcreva. REESCREVA E OTIMIZE ativamente as informações utilizando uma linguagem corporativa profunda, persuasiva e orientada para resultados. Transforme o conteúdo no formato JSON estrito.` },
-                { inlineData: { mimeType: "image/jpeg", data: base64Data } }
-              ]
+              parts: parts
             }
           ],
           generationConfig: {
             temperature: 0.5,
-            responseMimeType: "application/json"
+            responseMimeType: "application/json",
+            maxOutputTokens: 8192
           }
         })
       });
@@ -180,8 +202,8 @@ export async function extractResumeDataFromFile(file: File): Promise<ResumeData>
       const rawData = parseJsonResponse(textResponse);
       return normalizeResponse(rawData);
     } catch (error: any) {
-      console.error("Error reading image with Gemini:", error);
-      throw new Error(`Falha ao processar a imagem: ${error.message}`);
+      console.error("Error reading mixed files with Gemini:", error);
+      throw new Error(`Falha ao processar as imagens/arquivos: ${error.message}`);
     }
   }
 }

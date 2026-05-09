@@ -8,7 +8,7 @@ import { ResumeData, TemplateType } from './types';
 import { ResumeForm } from './components/ResumeForm';
 import { ResumePreview } from './components/ResumePreview';
 import { CoverLetterGenerator } from './components/CoverLetterGenerator';
-import { extractResumeDataFromFile } from './services/aiService';
+import { extractResumeDataFromFiles } from './services/aiService';
 import { auth, signInWithGoogle, signOut, saveResume, loadResumes, ResumeDoc } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown } from 'lucide-react';
@@ -357,7 +357,7 @@ function MainApp() {
   };
 
   const isResumeWellFormed = () => {
-    const hasName = data.personalInfo.fullName?.trim().length > 0;
+    const hasName = (data.name?.trim()?.length ?? 0) > 0 || (data.personalInfo.fullName?.trim()?.length ?? 0) > 0;
     const hasContact = (data.personalInfo.email?.trim()?.length ?? 0) > 0 || (data.personalInfo.phone?.trim()?.length ?? 0) > 0;
     const hasExperience = data.experience && data.experience.length > 0 && data.experience.some(e => e.position?.trim() || e.company?.trim());
     const hasEducation = data.education && data.education.length > 0 && data.education.some(e => e.institution?.trim() || e.degree?.trim());
@@ -374,6 +374,7 @@ function MainApp() {
     }
 
     if (!hasPaid) {
+      setSimulateOrderBump(false);
       setIsPaymentModalOpen(true);
       return;
     }
@@ -511,12 +512,12 @@ function MainApp() {
   }, [mobileView]);
 
   const handleAiImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     try {
       setIsProcessing(true);
-      const extractedData = await extractResumeDataFromFile(file);
+      const extractedData = await extractResumeDataFromFiles(files);
       setData(extractedData);
       setCurrentResumeId(uuidv4());
       setLastEnhancedLength(null);
@@ -731,7 +732,7 @@ function MainApp() {
               <Wand2 className="w-8 h-8" />
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
-              Magia Pura no seu Currículo
+              Tecnologia Pura no seu Currículo
             </h2>
             <div className="text-lg text-slate-300 leading-relaxed max-w-xl mx-auto text-left space-y-4">
               <p className="text-center mb-6">A nossa IA transforma qualquer foto ou currículo antigo em material de <strong className="text-white">altíssimo nível</strong>.</p>
@@ -753,6 +754,7 @@ function MainApp() {
             <div className="pt-6 flex flex-col sm:flex-row gap-4 justify-center items-center">
               <input 
                 type="file" 
+                multiple
                 ref={fileInputRef} 
                 onChange={handleAiImport} 
                 onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
@@ -771,7 +773,7 @@ function MainApp() {
                 className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-purple-600 shadow-xl shadow-purple-600/30 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-lg font-bold rounded-2xl transition-all"
               >
                 {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5 rotate-180" />}
-                {isProcessing ? "Analisando Arquivo..." : "Enviar Arquivo"}
+                {isProcessing ? "Analisando Arquivo(s)..." : "Enviar Arquivo(s)"}
               </button>
               <button
                 onClick={() => setAppState('onboarding')}
@@ -951,10 +953,11 @@ function MainApp() {
               {/* Mobile Download Button (Visible only on small screens) */}
               <button
                 onClick={handleDownloadClick}
-                className="flex lg:hidden items-center gap-1.5 px-3 py-2 text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white rounded-xl transition-all"
+                className="flex lg:hidden items-center justify-center gap-2 px-5 py-2 bg-emerald-600 shadow-md shadow-emerald-500/30 font-bold text-white hover:bg-emerald-500 rounded-xl transition-all"
                 title="Exportar PDF"
               >
                 <Download className="w-4 h-4" />
+                <span className="text-sm">Exportar</span>
               </button>
             </div>
 
@@ -1169,22 +1172,14 @@ function MainApp() {
             
           </div>
 
-          <div className="flex lg:hidden items-center gap-3 sm:gap-6 flex-1 justify-end">
-            <div className="flex bg-slate-800 p-1 rounded-xl shrink-0 border border-white/5 shadow-inner">
-              <button
-                onClick={() => setMobileView('editor')}
-                className={`py-1.5 px-3 sm:px-4 rounded-lg transition-all text-xs sm:text-sm font-medium flex items-center justify-center gap-2 ${mobileView === 'editor' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
-              >
-                <Edit2 className="w-4 h-4" /> <span className="hidden min-[380px]:inline">Editar</span>
-              </button>
-              <button
-                onClick={() => setMobileView('preview')}
-                className={`py-1.5 px-3 sm:px-4 rounded-lg transition-all text-xs sm:text-sm font-medium flex items-center justify-center gap-2 ${mobileView === 'preview' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
-              >
-                <Eye className="w-4 h-4" /> <span className="hidden min-[380px]:inline">Ver</span>
-              </button>
-            </div>
-          </div>
+          <button
+            onClick={handleDownloadClick}
+            className="flex lg:hidden items-center justify-center gap-2 px-5 py-2 bg-emerald-600 shadow-md shadow-emerald-500/30 font-bold text-white hover:bg-emerald-500 rounded-xl transition-all"
+            title="Exportar PDF"
+          >
+            <Download className="w-4 h-4" />
+            <span className="text-sm">Exportar</span>
+          </button>
         </div>
         
         <div className="flex flex-col sm:flex-row gap-3 items-center w-full lg:w-auto pt-2 lg:pt-0">
@@ -1218,25 +1213,22 @@ function MainApp() {
               </button>
             )}
 
+            <button
+              onClick={() => setMobileView(mobileView === 'editor' ? 'preview' : 'editor')}
+              className="flex lg:hidden flex-1 sm:flex-none justify-center items-center gap-2 px-3 sm:px-4 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-bold rounded-xl transition-all border border-white/5"
+            >
+              {mobileView === 'editor' ? <Eye className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
+              <span className="inline">{mobileView === 'editor' ? 'Ver PDF' : 'Editar Dados'}</span>
+            </button>
+
             <div className="w-px h-6 bg-white/10 mx-1 hidden sm:block"></div>
 
             <button
               onClick={handleDownloadClick}
-              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2 text-sm font-bold rounded-xl transition-all shrink-0 ${hasActiveResume ? 'bg-indigo-500 shadow-md shadow-indigo-500/20 hover:bg-indigo-400 text-white' : 'bg-slate-800 border border-white/5 hover:border-indigo-500/50 text-slate-300'}`}
+              className={`hidden lg:flex items-center justify-center gap-2 px-6 py-2 text-sm font-bold rounded-xl transition-all shrink-0 ${hasActiveResume ? 'bg-indigo-500 shadow-md shadow-indigo-500/20 hover:bg-indigo-400 text-white' : 'bg-slate-800 border border-white/5 hover:border-indigo-500/50 text-slate-300'}`}
             >
               <Download className="w-4 h-4" /> <span className="whitespace-nowrap">Exportar PDF</span>
             </button>
-            
-            {hasCoverLetter && (
-              <button
-                onClick={() => setAppState('cover-letter')}
-                disabled={!hasActiveResume}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-all shrink-0 ${hasActiveResume ? 'bg-purple-600 shadow-md shadow-purple-600/20 hover:bg-purple-500 text-white' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
-                title="Criar Carta de Apresentação"
-              >
-                <Wand2 className="w-4 h-4" /> <span className="hidden sm:inline whitespace-nowrap">Gerar Carta</span>
-              </button>
-            )}
           </div>
         </div>
       </header>
@@ -1255,6 +1247,7 @@ function MainApp() {
             <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
               <input 
                 type="file" 
+                multiple
                 ref={fileInputRef} 
                 onChange={handleAiImport} 
                 onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
