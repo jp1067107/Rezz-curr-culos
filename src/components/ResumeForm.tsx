@@ -195,7 +195,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
   return (
     <div className="flex flex-col gap-4 sm:gap-6 h-full w-full overflow-hidden">
       {/* Top Navigation */}
-      <aside className="w-full shrink-0 overflow-x-auto hide-scrollbar">
+      <aside className="w-full shrink-0 overflow-x-auto hide-scrollbar pb-2">
         <div className="p-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl md:rounded-2xl flex flex-row gap-1 w-max min-w-full">
           {renderTabButton('personal', 'Dados Pessoais', 1)}
           {renderTabButton('experience', 'Experiência', 2)}
@@ -283,7 +283,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
           <div className="space-y-6">
             {data.experience.map((exp, index) => (
               <div key={exp.id} className="p-4 bg-white/5 rounded-xl border border-white/10 relative group">
-                <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute top-4 right-4 flex items-center gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                   <button 
                     onClick={() => moveExperience(index, 'up')}
                     disabled={index === 0}
@@ -370,7 +370,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
           <div className="space-y-6">
             {data.education.map((edu, index) => (
               <div key={edu.id} className="p-4 bg-white/5 rounded-xl border border-white/10 relative group">
-                <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute top-4 right-4 flex items-center gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                   <button 
                     onClick={() => moveEducation(index, 'up')}
                     disabled={index === 0}
@@ -457,7 +457,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                   />
                   <button 
                     onClick={() => removeSkill(skill.id)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-white/5 rounded-md"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-400 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity p-1.5 bg-white/5 rounded-md"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -480,7 +480,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                 <div key={course.id} className="p-4 sm:p-5 bg-white/5 border border-white/10 rounded-2xl relative group">
                   <button 
                     onClick={() => removeCourse(course.id)}
-                    className="absolute right-4 top-4 text-slate-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-2 bg-white/5 rounded-lg"
+                    className="absolute right-4 top-4 text-slate-400 hover:text-red-400 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity p-2 bg-white/5 rounded-lg"
                     title="Remover curso"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -531,7 +531,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
               <div key={section.id} className="space-y-4 p-5 bg-white/5 border border-white/10 rounded-3xl relative group/section">
                 <button 
                   onClick={() => removeCustomSection(section.id)}
-                  className="absolute right-4 top-4 text-slate-400 hover:text-red-400 opacity-0 group-hover/section:opacity-100 transition-opacity p-2 bg-white/5 rounded-lg"
+                  className="absolute right-4 top-4 text-slate-400 hover:text-red-400 opacity-100 lg:opacity-0 lg:group-hover/section:opacity-100 transition-opacity p-2 bg-white/5 rounded-lg"
                   title="Remover sessão"
                 >
                   <Trash2 className="w-5 h-5" />
@@ -552,7 +552,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                     <div key={item.id} className="p-4 bg-white/5 rounded-xl border border-white/5 relative group/item">
                       <button 
                         onClick={() => removeCustomItem(section.id, item.id)}
-                        className="absolute right-3 top-3 text-slate-400 hover:text-red-400 opacity-0 group-hover/item:opacity-100 transition-opacity p-1.5 bg-white/5 rounded-md"
+                        className="absolute right-3 top-3 text-slate-400 hover:text-red-400 opacity-100 lg:opacity-0 lg:group-hover/item:opacity-100 transition-opacity p-1.5 bg-white/5 rounded-md"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

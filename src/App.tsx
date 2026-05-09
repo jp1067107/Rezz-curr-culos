@@ -1284,7 +1284,7 @@ function MainApp() {
         </div>
         
         {/* Live Preview Area */}
-        <section className={`w-full lg:w-1/2 flex flex-col shrink-0 overflow-hidden ${mobileView !== 'preview' ? 'hidden lg:flex' : 'flex'}`}>
+        <section className={`w-full lg:w-[450px] xl:w-[550px] 2xl:w-[700px] flex flex-col shrink-0 overflow-hidden ${mobileView !== 'preview' ? 'hidden lg:flex' : 'flex'}`}>
           <div className="flex justify-between items-center mb-2 px-2 shrink-0 hidden lg:flex">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Visualização Real</span>
             <div className="flex gap-1">

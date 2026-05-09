@@ -45,20 +45,20 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         <div className="mb-8 space-y-3">
           <h2 className="text-sm font-bold text-[#94a3b8] uppercase mb-4">Contato</h2>
           {personalInfo.email && (
-            <div className="flex items-center gap-2 text-sm">
-              <Mail className="w-4 h-4 text-[#94a3b8]" />
+            <div className="flex items-start gap-2 text-sm">
+              <Mail className="w-4 h-4 text-[#94a3b8] shrink-0 mt-0.5" />
               <span className="break-all">{personalInfo.email}</span>
             </div>
           )}
           {personalInfo.phone && (
-            <div className="flex items-center gap-2 text-sm">
-              <Phone className="w-4 h-4 text-[#94a3b8]" />
+            <div className="flex items-start gap-2 text-sm">
+              <Phone className="w-4 h-4 text-[#94a3b8] shrink-0 mt-0.5" />
               <span>{personalInfo.phone}</span>
             </div>
           )}
           {personalInfo.location && (
-            <div className="flex items-center gap-2 text-sm">
-              <MapPin className="w-4 h-4 text-[#94a3b8]" />
+            <div className="flex items-start gap-2 text-sm">
+              <MapPin className="w-4 h-4 text-[#94a3b8] shrink-0 mt-0.5" />
               <span>{personalInfo.location}</span>
             </div>
           )}
@@ -116,9 +116,9 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
             <div className="space-y-5">
               {experience.map((exp, index) => (
                 <div key={index} className="page-break-avoid">
-                  <div className="flex justify-between items-baseline mb-1">
-                    <h3 className="font-bold text-[#1e293b]">{exp.position}</h3>
-                    <span className="text-xs font-semibold text-[#2563eb]">
+                  <div className="flex justify-between items-start mb-1 gap-4">
+                    <h3 className="font-bold text-[#1e293b] break-words">{exp.position}</h3>
+                    <span className="text-xs font-semibold text-[#2563eb] whitespace-nowrap shrink-0 mt-1">
                       {exp.startDate} {exp.startDate && exp.endDate ? '-' : ''} {exp.endDate}
                     </span>
                   </div>
@@ -138,9 +138,9 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
             <div className="space-y-4">
               {education.map((edu, index) => (
                 <div key={index} className="page-break-avoid w-full">
-                  <div className="flex justify-between items-baseline mb-1">
-                    <h3 className="font-bold text-[#1e293b]">{edu.degree}</h3>
-                    <span className="text-xs font-semibold text-[#2563eb]">
+                  <div className="flex justify-between items-start mb-1 gap-4">
+                    <h3 className="font-bold text-[#1e293b] break-words">{edu.degree}</h3>
+                    <span className="text-xs font-semibold text-[#2563eb] whitespace-nowrap shrink-0 mt-1">
                       {edu.startDate} {edu.startDate && edu.endDate ? '-' : ''} {edu.endDate}
                     </span>
                   </div>
@@ -159,10 +159,10 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
             <div className="space-y-4">
               {section.items.map((item) => (
                 <div key={item.id} className="page-break-avoid w-full">
-                  <div className="flex justify-between items-baseline mb-1">
-                    <h3 className="font-bold text-[#1e293b]">{item.title} {item.subtitle && <span className="font-normal text-[#64748b]">| {item.subtitle}</span>}</h3>
+                  <div className="flex justify-between items-start mb-1 gap-4">
+                    <h3 className="font-bold text-[#1e293b] break-words">{item.title} {item.subtitle && <span className="font-normal text-[#64748b]">| {item.subtitle}</span>}</h3>
                     {item.date && (
-                      <span className="text-xs font-semibold text-[#2563eb] break-keep">{item.date}</span>
+                      <span className="text-xs font-semibold text-[#2563eb] whitespace-nowrap shrink-0 mt-1">{item.date}</span>
                     )}
                   </div>
                   {item.description && (
@@ -202,9 +202,9 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           <div className="space-y-6">
             {experience.map((exp, index) => (
               <div key={index} className="page-break-avoid w-full">
-                <div className="flex justify-between items-baseline mb-1">
-                  <h3 className="font-bold text-lg">{exp.company}</h3>
-                  <span className="text-sm italic text-[#4b5563]">
+                <div className="flex justify-between items-start mb-1 gap-4">
+                  <h3 className="font-bold text-lg break-words">{exp.company}</h3>
+                  <span className="text-sm italic text-[#4b5563] whitespace-nowrap shrink-0 mt-1">
                     {exp.startDate} {exp.startDate && exp.endDate ? '—' : ''} {exp.endDate}
                   </span>
                 </div>
@@ -222,9 +222,9 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           <div className="space-y-4">
             {education.map((edu, index) => (
               <div key={index} className="page-break-avoid w-full">
-                <div className="flex justify-between items-baseline">
-                  <h3 className="font-bold">{edu.institution}</h3>
-                  <span className="text-sm italic text-[#4b5563]">
+                <div className="flex justify-between items-start gap-4">
+                  <h3 className="font-bold break-words">{edu.institution}</h3>
+                  <span className="text-sm italic text-[#4b5563] whitespace-nowrap shrink-0 mt-1">
                     {edu.startDate} {edu.startDate && edu.endDate ? '—' : ''} {edu.endDate}
                   </span>
                 </div>
@@ -264,10 +264,10 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           <div className="space-y-4">
             {section.items.map((item) => (
               <div key={item.id} className="w-full">
-                <div className="flex justify-between items-baseline mb-1">
-                  <h3 className="font-bold text-lg">{item.title} {item.subtitle && <span className="font-medium italic text-[#4b5563] text-base">| {item.subtitle}</span>}</h3>
+                <div className="flex justify-between items-start mb-1 gap-4">
+                  <h3 className="font-bold text-lg break-words">{item.title} {item.subtitle && <span className="font-medium italic text-[#4b5563] text-base">| {item.subtitle}</span>}</h3>
                   {item.date && (
-                    <span className="text-sm italic text-[#4b5563]">{item.date}</span>
+                    <span className="text-sm italic text-[#4b5563] whitespace-nowrap shrink-0 mt-1">{item.date}</span>
                   )}
                 </div>
                 {item.description && (
