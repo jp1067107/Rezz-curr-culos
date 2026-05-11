@@ -6,9 +6,10 @@ import { Loader2, Wand2, Copy } from 'lucide-react';
 interface Props {
   data: ResumeData;
   setData: React.Dispatch<React.SetStateAction<ResumeData>>;
+  onDownloadPdf: () => void;
 }
 
-export function CoverLetterGenerator({ data, setData }: Props) {
+export function CoverLetterGenerator({ data, setData, onDownloadPdf }: Props) {
   const [targetJob, setTargetJob] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [recruiterName, setRecruiterName] = useState('');
@@ -148,14 +149,25 @@ export function CoverLetterGenerator({ data, setData }: Props) {
           className="w-full flex-1 bg-slate-900 border border-purple-500/30 rounded-xl p-4 text-white focus:outline-none min-h-[400px] resize-none leading-relaxed text-sm"
         />
         
-        <button 
-          onClick={copyToClipboard}
-          disabled={!data.coverLetter}
-          className="mt-4 w-full px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-xl transition-colors border border-white/5 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Copy className="w-4 h-4" />
-          <span>Copiar Carta de Apresentação</span>
-        </button>
+        <div className="mt-4 flex flex-col sm:flex-row items-center gap-3 w-full">
+          <button 
+            onClick={copyToClipboard}
+            disabled={!data.coverLetter}
+            className="w-full sm:w-1/2 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-xl transition-colors border border-white/5 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Copy className="w-4 h-4" />
+            <span>Copiar Carta de Apresentação</span>
+          </button>
+          
+          <button 
+            onClick={onDownloadPdf}
+            disabled={!data.coverLetter}
+            className="w-full sm:w-1/2 px-6 py-3 bg-purple-600 hover:bg-purple-500 shadow-lg shadow-purple-600/30 text-white font-medium rounded-xl transition-colors active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Wand2 className="w-4 h-4" />
+            <span>Baixar PDF Premium</span>
+          </button>
+        </div>
       </div>
     </div>
   );

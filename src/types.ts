@@ -60,6 +60,8 @@ export interface ResumeData {
   courses?: Course[];
   customSections?: CustomSection[];
   coverLetter?: string;
+  keywords?: string[];
+  showHighlights?: boolean;
 }
 
 export type TemplateType = 'modern' | 'classic' | 'minimal';

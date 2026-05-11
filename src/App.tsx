@@ -8,10 +8,11 @@ import { ResumeData, TemplateType } from './types';
 import { ResumeForm } from './components/ResumeForm';
 import { ResumePreview } from './components/ResumePreview';
 import { CoverLetterGenerator } from './components/CoverLetterGenerator';
+import { CoverLetterPreview } from './components/CoverLetterPreview';
 import { extractResumeDataFromFiles } from './services/aiService';
 import { auth, signInWithGoogle, signOut, saveResume, loadResumes, deleteResume, ResumeDoc } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown, Trash2 } from 'lucide-react';
+import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown, Trash2, Highlighter } from 'lucide-react';
 
 import { v4 as uuidv4 } from 'uuid';
 
@@ -116,6 +117,7 @@ function MainApp() {
     localStorage.setItem('rezz_template', template);
   }, [template]);
   const componentRef = useRef<HTMLDivElement>(null);
+  const coverLetterRef = useRef<HTMLDivElement>(null);
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
   
   const [user, setUser] = useState<User | null>(null);
@@ -195,7 +197,17 @@ function MainApp() {
         }
       });
     }
-  }, [data, currentResumeId, template, unlockedConfigs]);
+
+    // Auto-save to Firebase if logged in
+    if (user) {
+      const timeoutId = setTimeout(() => {
+        const docUnlocked = unlockedConfigs.filter(cfg => cfg.startsWith(`${currentResumeId}_`));
+        saveResume(user.uid, currentResumeId, data, docUnlocked.length > 0 ? docUnlocked : undefined)
+          .catch(err => console.error("Auto-save failed", err));
+      }, 2000); // 2 segundos debounce
+      return () => clearTimeout(timeoutId);
+    }
+  }, [data, currentResumeId, template, unlockedConfigs, user]);
   
   const signature = `${currentResumeId}_${template}`;
   const hasPaid = unlockedConfigs.includes(signature);
@@ -384,6 +396,110 @@ function MainApp() {
     await generatePdf();
   };
 
+  const generateCoverLetterPdf = async () => {
+    if (!coverLetterRef.current) return;
+    
+    // Dynamically import
+    const html2canvas = (await import('html2canvas-pro')).default;
+    const { jsPDF } = await import('jspdf');
+
+    await document.fonts.ready;
+
+    setIsProcessing(true);
+    
+    try {
+      const wrapperElement = coverLetterRef.current.parentElement;
+      const originalTransform = wrapperElement?.style.transform || '';
+      const originalTransition = wrapperElement?.style.transition || '';
+      const originalHeight = wrapperElement?.style.height || '';
+      const originalWidth = wrapperElement?.style.width || '';
+      const originalPosition = wrapperElement?.style.position || '';
+      
+      if (wrapperElement) {
+        // Prepare for capture: fix width to exactly 210mm (~794px) and remove scaling
+        wrapperElement.style.transition = 'none';
+        wrapperElement.style.transform = 'scale(1)';
+        wrapperElement.style.width = '794px';
+        wrapperElement.style.height = 'auto';
+        wrapperElement.style.position = 'relative';
+      }
+      
+      // Force a synchronous reflow
+      void coverLetterRef.current.offsetHeight;
+
+      // Small delay to ensure the DOM paints at 100% scale and images are ready
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      const element = coverLetterRef.current;
+
+      const canvas = await html2canvas(element, {
+        scale: 2, // High resolution
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: 794,
+        onclone: (clonedDoc) => {
+          const allElements = clonedDoc.querySelectorAll('*');
+          allElements.forEach((el) => {
+            const htmlEl = el as HTMLElement;
+            htmlEl.style.fontVariantLigatures = 'none';
+            htmlEl.style.textRendering = 'optimizeLegibility';
+            htmlEl.style.wordBreak = 'break-word';
+          });
+        }
+      });
+
+      // Restore the original layout
+      if (wrapperElement) {
+        wrapperElement.style.transform = originalTransform;
+        wrapperElement.style.height = originalHeight;
+        wrapperElement.style.width = originalWidth;
+        wrapperElement.style.position = originalPosition;
+        setTimeout(() => {
+          if (wrapperElement) wrapperElement.style.transition = originalTransition;
+        }, 50);
+      }
+
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      let heightLeft = pdfHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+
+      // Adiciona nova página apenas se sobrar um conteúdo significativo (evitar página extra em branco)
+      while (heightLeft > 2) {
+        position = position - pageHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
+      
+      const fileName = data.personalInfo.fullName 
+        ? `${data.personalInfo.fullName.replace(/\s+/g, '_')}_Carta_Apresentacao.pdf` 
+        : 'Carta_Apresentacao.pdf';
+        
+      pdf.save(fileName);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Erro ao gerar PDF. Tente novamente mais tarde.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const generatePdf = async () => {
     if (!componentRef.current || !containerRef.current) return;
     
@@ -536,6 +652,23 @@ function MainApp() {
     }
   };
 
+  const handleToggleHighlights = async () => {
+    try {
+      setIsPrompting(true);
+      if (!data.keywords || data.keywords.length === 0) {
+        const { extractKeywordsFromResume } = await import('./services/aiService');
+        const keywords = await extractKeywordsFromResume(data);
+        setData({ ...data, keywords, showHighlights: !data.showHighlights });
+      } else {
+        setData({ ...data, showHighlights: !data.showHighlights });
+      }
+    } catch (err: any) {
+      alert("Erro ao destacar palavras-chave");
+    } finally {
+      setIsPrompting(false);
+    }
+  };
+
   const handleEnhanceWithAI = async () => {
     try {
       setIsPrompting(true); // We can still use isPrompting to show the loading state
@@ -617,6 +750,11 @@ function MainApp() {
                     setUnlockedConfigs([]);
                     localStorage.removeItem('rezz_local_purchased');
                     localStorage.removeItem('rezz_unlocked');
+                    localStorage.removeItem('rezz_draft_data');
+                    localStorage.removeItem('rezz_current_id');
+                    const initial = getInitialData();
+                    setData(initial);
+                    setCurrentResumeId(initial.id || uuidv4());
                     setResumesList([]);
                   }} className="ml-1 sm:ml-2 text-slate-500 hover:text-red-400" title="Sair da conta">
                     <LogOut className="w-4 h-4" />
@@ -928,8 +1066,11 @@ function MainApp() {
             </button>
           </header>
 
-          <main className="flex-1 overflow-y-auto w-full mx-auto p-4 sm:p-8 flex flex-col gap-6 pb-20">
-            <CoverLetterGenerator data={data} setData={setData} />
+          <main className="flex-1 overflow-y-auto w-full mx-auto p-4 sm:p-8 flex flex-col gap-6 pb-20 relative">
+            <CoverLetterGenerator data={data} setData={setData} onDownloadPdf={generateCoverLetterPdf} />
+            <div className="absolute top-[-9999px] left-[-9999px]">
+               <CoverLetterPreview data={data} template={template} ref={coverLetterRef} />
+            </div>
           </main>
         </div>
       )}
@@ -951,9 +1092,9 @@ function MainApp() {
                   <ArrowLeft className="w-4 h-4" />
                 </button>
                 <div className="flex flex-col">
-                  <h1 className="text-lg sm:text-xl font-bold text-white leading-tight truncate max-w-[150px] sm:max-w-xs">
+                  <h2 className="text-lg sm:text-xl font-bold text-white leading-tight truncate max-w-[150px] sm:max-w-xs">
                     {data.name || (data.personalInfo.fullName ? data.personalInfo.fullName.split(' ')[0] : '') || 'Currículo Adquirido'}
-                  </h1>
+                  </h2>
                   <span className="text-[10px] sm:text-xs text-emerald-400 font-bold px-1.5 sm:px-2 py-0.5 bg-emerald-500/10 rounded-md border border-emerald-500/20 uppercase tracking-widest flex items-center gap-1 w-fit mt-1">
                     <CheckCircle className="w-3 h-3" /> Comprado
                   </span>
@@ -1199,9 +1340,9 @@ function MainApp() {
               R
             </div>
             <div className="flex items-baseline gap-2">
-              <h1 className="text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">
+              <span className="text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">
                 Rezz
-              </h1>
+              </span>
             </div>
             
           </div>
@@ -1289,10 +1430,24 @@ function MainApp() {
                 className="hidden" 
               />
               <button
+                onClick={handleToggleHighlights}
+                disabled={isPrompting || isProcessing || !hasActiveResume}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-all shadow-sm shrink-0 ${
+                  !hasActiveResume ? 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50' :
+                  data.showHighlights ? 'bg-blue-500 hover:bg-blue-400 text-white shadow-md shadow-blue-500/20' : 'bg-blue-500/20 border border-blue-500/50 hover:bg-blue-500/40 text-blue-200 cursor-pointer'
+                }`}
+                title="Destacar Palavras-Chave"
+                aria-label="Destacar Palavras-chave"
+              >
+                {isPrompting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Highlighter className="w-4 h-4 shrink-0" />}
+                <span className="whitespace-nowrap">{isPrompting ? "Destacando..." : data.showHighlights ? "Ocultar Destaques" : "Destacar com IA"}</span>
+              </button>
+              <button
                 onClick={handleEnhanceWithAI}
                 disabled={isPrompting || isProcessing || !canEnhance}
                 className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-all shadow-sm shrink-0 ${canEnhance ? 'bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
-                title={canEnhance ? "Aprimorar textos para uma linguagem profissional usando IA" : (hasActiveResume ? "Limite de aprimoramento atingido para esses dados" : "Preencha o currículo primeiro")}
+                title={canEnhance ? "Aprimorar textos para uma linguagem profissional usando IA" : (hasActiveResume ? "Você já aprimorou esses dados. Faça algumas edições manuais antes de aprimorar novamente." : "Preencha o currículo primeiro")}
+                aria-label="Aprimorar textos com Inteligência Artificial"
               >
                 {isPrompting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Wand2 className="w-4 h-4 shrink-0" />}
                 <span className="whitespace-nowrap">{isPrompting ? "Aprimorando..." : "Aprimorar com IA"}</span>
@@ -1341,12 +1496,26 @@ function MainApp() {
             ))}
           </div>
 
-          <div className="lg:hidden w-full mb-4 px-2">
+          <div className="lg:hidden w-full mb-4 px-2 space-y-2">
+            <button
+              onClick={handleToggleHighlights}
+              disabled={isPrompting || isProcessing || !hasActiveResume}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl transition-all shadow-sm ${
+                !hasActiveResume ? 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50' :
+                data.showHighlights ? 'bg-blue-500 hover:bg-blue-400 text-white shadow-md shadow-blue-500/20' : 'bg-blue-500/20 border border-blue-500/50 hover:bg-blue-500/40 text-blue-200 cursor-pointer'
+              }`}
+              title="Destacar Palavras-Chave"
+              aria-label="Destacar Palavras-chave"
+            >
+              {isPrompting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Highlighter className="w-4 h-4 shrink-0" />}
+              <span className="whitespace-nowrap">{isPrompting ? "Destacando..." : data.showHighlights ? "Ocultar Destaques" : "Destacar com IA"}</span>
+            </button>
             <button
               onClick={handleEnhanceWithAI}
               disabled={isPrompting || isProcessing || !canEnhance}
               className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl transition-all shadow-sm ${canEnhance ? 'bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
-              title={canEnhance ? "Aprimorar textos para uma linguagem profissional usando IA" : (hasActiveResume ? "Limite de aprimoramento atingido para esses dados" : "Preencha o currículo primeiro")}
+              title={canEnhance ? "Aprimorar textos para uma linguagem profissional usando IA" : (hasActiveResume ? "Você já aprimorou esses dados. Faça algumas edições manuais antes de aprimorar novamente." : "Preencha o currículo primeiro")}
+              aria-label="Aprimorar textos com Inteligência Artificial"
             >
               {isPrompting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Wand2 className="w-4 h-4 shrink-0" />}
               <span className="whitespace-nowrap">{isPrompting ? "Aprimorando..." : "Aprimorar com IA"}</span>

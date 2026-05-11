@@ -317,6 +317,39 @@ ${JSON.stringify(dataForAi, null, 2)}
   };
 }
 
+export async function extractKeywordsFromResume(currentData: ResumeData): Promise<string[]> {
+  const modelPrompt = `
+Você é um especialista em recrutamento e análise de currículos (ATS).
+Sua tarefa é extrair até 15 palavras-chave ou termos curtos MAIS IMPORTANTES deste currículo para destaque automático (tecnologias, cargos principais, metodologias, ferramentas, certificações).
+A resposta OBRIGATORIAMENTE DEVE SER UM OBJETO JSON COM A CHAVE "keywords" contendo um array de strings.
+Exemplo: {"keywords": ["React", "Liderança de Equipes", "JavaScript", "Gestão Ágil"]}
+
+Currículo:
+${JSON.stringify({
+  summary: currentData.personalInfo.summary,
+  experience: currentData.experience.map(e => e.description + ' ' + e.position),
+  skills: currentData.skills.map(s => s.name)
+})}
+`;
+
+  try {
+    const response = await getGroq().chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "user", content: modelPrompt }
+      ],
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+    });
+
+    const parsedText = response.choices[0]?.message?.content || '{"keywords":[]}';
+    const data = JSON.parse(parsedText);
+    return Array.isArray(data.keywords) ? data.keywords : [];
+  } catch (e) {
+    console.error("Erro ao extrair keywords", e);
+    return [];
+  }
+}
 export async function generateCustomCoverLetter(resumeData: ResumeData, answers: any): Promise<string> {
   const dataForAi = {
     ...resumeData,

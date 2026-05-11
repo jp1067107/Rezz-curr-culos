@@ -7,6 +7,34 @@ interface ResumePreviewProps {
   template: TemplateType;
 }
 
+const HighlightText = ({ text, keywords, showHighlights }: { text: string, keywords?: string[], showHighlights?: boolean }) => {
+  if (!text) return null;
+  if (!showHighlights || !keywords || keywords.length === 0) {
+    return <>{text}</>;
+  }
+
+  const escapedKeywords = keywords.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  escapedKeywords.sort((a, b) => b.length - a.length);
+  
+  const regex = new RegExp(`(${escapedKeywords.join('|')})`, 'gi');
+  const parts = text.split(regex);
+
+  return (
+    <>
+      {parts.map((part, i) => {
+        const isMatch = keywords.some(k => k.toLowerCase() === part.toLowerCase());
+        return isMatch ? (
+          <span key={i} className="font-bold text-blue-700 bg-blue-100/60 px-1 rounded-sm print:text-blue-800 print:bg-blue-100/60">
+            {part}
+          </span>
+        ) : (
+          <React.Fragment key={i}>{part}</React.Fragment>
+        );
+      })}
+    </>
+  );
+};
+
 export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ data, template }, ref) => {
   const { personalInfo, experience, education, skills } = data;
 
@@ -104,7 +132,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
             <h2 className="text-xl font-bold text-[#1e293b] mb-3 flex items-center gap-2">
               <span className="w-8 h-px bg-[#2563eb] inline-block"></span> Perfil
             </h2>
-            <p className="text-sm text-[#4b5563] leading-relaxed whitespace-pre-line">{personalInfo.summary}</p>
+            <p className="text-sm text-[#4b5563] leading-relaxed whitespace-pre-line"><HighlightText text={personalInfo.summary} keywords={data.keywords} showHighlights={data.showHighlights} /></p>
           </div>
         )}
 
@@ -123,7 +151,9 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
                     </span>
                   </div>
                   <div className="text-sm font-medium text-[#64748b] mb-2">{exp.company}</div>
-                  <p className="text-sm text-[#4b5563] leading-relaxed whitespace-pre-line">{exp.description}</p>
+                  <p className="text-sm text-[#4b5563] leading-relaxed whitespace-pre-line">
+                    <HighlightText text={exp.description} keywords={data.keywords} showHighlights={data.showHighlights} />
+                  </p>
                 </div>
               ))}
             </div>
@@ -192,7 +222,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
 
       {personalInfo.summary && (
         <div className="mb-8">
-          <p className="text-sm leading-relaxed">{personalInfo.summary}</p>
+          <p className="text-sm leading-relaxed whitespace-pre-line"><HighlightText text={personalInfo.summary} keywords={data.keywords} showHighlights={data.showHighlights} /></p>
         </div>
       )}
 
@@ -209,7 +239,9 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
                   </span>
                 </div>
                 <div className="font-medium italic mb-2">{exp.position}</div>
-                <p className="text-sm leading-relaxed whitespace-pre-line">{exp.description}</p>
+                <p className="text-sm leading-relaxed whitespace-pre-line">
+                  <HighlightText text={exp.description} keywords={data.keywords} showHighlights={data.showHighlights} />
+                </p>
               </div>
             ))}
           </div>
@@ -302,7 +334,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           {personalInfo.summary && (
             <div>
               <h2 className="text-xs font-bold text-[#9ca3af] uppercase mb-3">Sobre</h2>
-              <p className="text-sm leading-relaxed">{personalInfo.summary}</p>
+              <p className="text-sm leading-relaxed"><HighlightText text={personalInfo.summary} keywords={data.keywords} showHighlights={data.showHighlights} /></p>
             </div>
           )}
 
@@ -362,7 +394,9 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
                     </div>
                     <h3 className="text-lg font-bold text-[#111827]">{exp.position}</h3>
                     <div className="text-sm font-medium text-[#6b7280] mb-3">{exp.company}</div>
-                    <p className="text-sm text-[#4b5563] leading-relaxed whitespace-pre-line">{exp.description}</p>
+                    <p className="text-sm text-[#4b5563] leading-relaxed whitespace-pre-line">
+                      <HighlightText text={exp.description} keywords={data.keywords} showHighlights={data.showHighlights} />
+                    </p>
                   </div>
                 ))}
               </div>

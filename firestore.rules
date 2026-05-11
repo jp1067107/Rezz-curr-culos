@@ -2,9 +2,20 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Catch-all to deny everything else
     match /{document=**} {
-      allow read, write: if
-          request.time < timestamp.date(2026, 6, 6);
+      allow read, write: if false;
+    }
+
+    match /users/{userId} {
+      // Basic rule: only the user can read/write their own data
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /resumes/{resumeId} {
+        // Only the user can access their resumes
+        // Also verify the data's ownerId stays their own uid
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
   }
 }

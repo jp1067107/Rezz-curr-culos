@@ -301,6 +301,8 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                   <button 
                     onClick={() => removeExperience(exp.id)}
                     className="p-1 text-slate-400 hover:text-red-400 bg-white/5 rounded-md"
+                    aria-label={`Excluir experiência em ${exp.company || 'empresa'}`}
+                    title={`Excluir experiência em ${exp.company || 'empresa'}`}
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
@@ -388,6 +390,8 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                   <button 
                     onClick={() => removeEducation(edu.id)}
                     className="p-1 text-slate-400 hover:text-red-400 bg-white/5 rounded-md"
+                    aria-label={`Excluir formação em ${edu.institution || 'instituição'}`}
+                    title={`Excluir formação em ${edu.institution || 'instituição'}`}
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
@@ -458,6 +462,8 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                   <button 
                     onClick={() => removeSkill(skill.id)}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-400 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity p-1.5 bg-white/5 rounded-md"
+                    aria-label={`Excluir habilidade ${skill.name}`}
+                    title={`Excluir habilidade ${skill.name}`}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -481,6 +487,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                   <button 
                     onClick={() => removeCourse(course.id)}
                     className="absolute right-4 top-4 text-slate-400 hover:text-red-400 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity p-2 bg-white/5 rounded-lg"
+                    aria-label={`Excluir curso secundário ${course.name || ''}`}
                     title="Remover curso"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -532,6 +539,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                 <button 
                   onClick={() => removeCustomSection(section.id)}
                   className="absolute right-4 top-4 text-slate-400 hover:text-red-400 opacity-100 lg:opacity-0 lg:group-hover/section:opacity-100 transition-opacity p-2 bg-white/5 rounded-lg"
+                  aria-label={`Excluir seção ${section.name}`}
                   title="Remover sessão"
                 >
                   <Trash2 className="w-5 h-5" />
@@ -553,6 +561,8 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                       <button 
                         onClick={() => removeCustomItem(section.id, item.id)}
                         className="absolute right-3 top-3 text-slate-400 hover:text-red-400 opacity-100 lg:opacity-0 lg:group-hover/item:opacity-100 transition-opacity p-1.5 bg-white/5 rounded-md"
+                        aria-label={`Excluir item ${item.title}`}
+                        title={`Excluir item ${item.title}`}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
