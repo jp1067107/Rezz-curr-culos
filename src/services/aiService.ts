@@ -374,7 +374,7 @@ INSTRUÇÕES:
 1. Escreva uma Carta de Apresentação (Cover Letter) focada no cargo e empresa informados.
 2. Utilize o tom/estilo solicitado.
 3. Destaque os pontos mencionados, conectando a experiência com a vaga.
-4. Caso a empresa não tenha sido informada, use espaços em branco como "[Nome da Empresa]".
+4. Caso a empresa não tenha sido informada, crie uma carta genérica que sirva para qualquer empresa (mencione "sua empresa" ou "nesta organização" em vez de deixar espaços em branco ou placeholders).
 5. Inicie com uma saudação formal.
 6. A formatação deve ser um texto limpo, com 3 a 4 parágrafos, sem utilizar formatações markdown (sem **, sem #, etc.).
 
