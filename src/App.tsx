@@ -94,7 +94,31 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 }
 
 function MainApp() {
-  const [appState, setAppState] = useState<'onboarding' | 'ai-info' | 'editor' | 'payment-success' | 'affiliate' | 'cover-letter' | 'my-resumes' | 'purchased-view'>('onboarding');
+  const [appState, setAppStateInternal] = useState<'onboarding' | 'ai-info' | 'editor' | 'payment-success' | 'affiliate' | 'cover-letter' | 'my-resumes' | 'purchased-view'>(() => {
+    return (window.history.state?.appState) || 'onboarding';
+  });
+
+  const setAppState = (newState: typeof appState) => {
+    if (newState !== appState) {
+      window.history.pushState({ appState: newState }, '', '');
+      setAppStateInternal(newState);
+    }
+  };
+
+  useEffect(() => {
+    if (!window.history.state?.appState) {
+      window.history.replaceState({ appState: 'onboarding' }, '', '');
+    }
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && event.state.appState) {
+        setAppStateInternal(event.state.appState);
+      } else {
+        setAppStateInternal('onboarding');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
   const [isPurchasedEditing, setIsPurchasedEditing] = useState(false);
   const [data, setData] = useState<ResumeData>(() => {
     const saved = localStorage.getItem('rezz_draft_data');
@@ -788,50 +812,27 @@ function MainApp() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
                 
-                {/* Meus Currículos - Featured */}
+                {/* Criar Novo (IA) - Featured */}
                 <button
-                  onClick={() => {
-                    if (!user && purchasedResumes.length === 0) {
-                       signInWithGoogle().then(() => setAppState('my-resumes'));
-                    } else {
-                       setAppState('my-resumes');
-                    }
-                  }}
-                  className="col-span-1 md:col-span-2 flex flex-col sm:flex-row items-center text-center sm:text-left gap-4 sm:gap-6 p-6 sm:p-8 bg-gradient-to-br from-slate-800/80 to-slate-800/40 hover:from-slate-700/80 hover:to-slate-800/80 border border-white/10 hover:border-indigo-500/40 rounded-3xl transition-all group shadow-xl"
+                  onClick={() => setAppState('ai-info')}
+                  className="col-span-1 md:col-span-2 flex flex-col sm:flex-row items-center text-center sm:text-left gap-4 sm:gap-6 p-6 sm:p-8 bg-gradient-to-br from-slate-800/80 to-slate-800/40 hover:from-slate-700/80 hover:to-slate-800/80 border border-white/10 hover:border-purple-500/40 rounded-3xl transition-all group shadow-xl"
                 >
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-400 group-hover:scale-110 group-hover:bg-indigo-500/20 transition-all shrink-0">
-                    <FolderOpen className="w-8 h-8 sm:w-10 sm:h-10" />
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-400 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all shrink-0">
+                    <Sparkles className="w-8 h-8 sm:w-10 sm:h-10" />
                   </div>
                   <div>
                     <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 flex flex-col sm:flex-row items-center gap-3">
-                      Meus Currículos
-                      <span className="px-2.5 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">
-                        {purchasedResumes.length > 0 ? `${purchasedResumes.length} salvos` : (user ? 'Nuvem' : 'Acesse seus currículos')}
-                      </span>
+                      Criar Novo com IA
                     </h2>
                     <p className="text-slate-400 text-sm sm:text-base">
-                      Acesse, edite ou exporte os currículos que você já criou. Tudo salvo com segurança na sua conta.
+                      Transforme uma foto ou PDF antigo em um currículo de alto nível em segundos usando inteligência artificial.
                     </p>
                   </div>
                   <div className="hidden sm:flex ml-auto pl-4">
-                     <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-indigo-500/20 transition-all">
-                       <ArrowLeft className="w-5 h-5 text-slate-400 group-hover:text-indigo-400 rotate-180" />
+                     <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-purple-500/20 transition-all">
+                       <ArrowLeft className="w-5 h-5 text-slate-400 group-hover:text-purple-400 rotate-180" />
                      </div>
                   </div>
-                </button>
-
-                {/* Criar Novo (IA) */}
-                <button
-                  onClick={() => setAppState('ai-info')}
-                  className="flex flex-col text-center sm:text-left items-center sm:items-start p-6 sm:p-8 bg-slate-800/40 hover:bg-slate-800/80 border border-white/5 hover:border-purple-500/30 rounded-3xl transition-all group"
-                >
-                  <div className="w-14 h-14 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-400 mb-6 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all">
-                    <Sparkles className="w-7 h-7" />
-                  </div>
-                  <h2 className="text-lg sm:text-xl font-bold text-white mb-2">Criar Novo com IA</h2>
-                  <p className="text-slate-400 text-sm">
-                    Transforme uma foto ou PDF antigo em um currículo de alto nível em segundos usando inteligência artificial.
-                  </p>
                 </button>
 
                 {/* Editor Manual */}
@@ -847,6 +848,33 @@ function MainApp() {
                   <h2 className="text-lg sm:text-xl font-bold text-white mb-2">Editor Manual</h2>
                   <p className="text-slate-400 text-sm">
                     Acesse o editor avançado. O seu progresso é salvo automaticamente no navegador enquanto você preenche os dados.
+                  </p>
+                </button>
+
+                {/* Meus Currículos */}
+                <button
+                  onClick={() => {
+                    if (!user && purchasedResumes.length === 0) {
+                       signInWithGoogle().then(() => setAppState('my-resumes'));
+                    } else {
+                       setAppState('my-resumes');
+                    }
+                  }}
+                  className="flex flex-col text-center sm:text-left items-center sm:items-start p-6 sm:p-8 bg-slate-800/40 hover:bg-slate-800/80 border border-white/5 hover:border-indigo-500/30 rounded-3xl transition-all group h-full"
+                >
+                  <div className="w-14 h-14 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-400 mb-6 group-hover:scale-110 group-hover:bg-indigo-500/20 transition-all">
+                    <FolderOpen className="w-7 h-7" />
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-bold text-white mb-2 flex flex-col sm:flex-row items-center sm:items-start gap-2">
+                    Meus Currículos
+                  </h2>
+                  <div className="mb-3">
+                    <span className="px-2.5 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">
+                      {purchasedResumes.length > 0 ? `${purchasedResumes.length} salvos` : (user ? 'Nuvem' : 'Acesse seus currículos')}
+                    </span>
+                  </div>
+                  <p className="text-slate-400 text-sm">
+                    Acesse, edite ou exporte os currículos que você já criou. Tudo salvo com segurança na sua conta.
                   </p>
                 </button>
 
