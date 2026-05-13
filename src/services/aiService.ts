@@ -136,6 +136,26 @@ export async function extractResumeDataFromFiles(files: FileList | File[]): Prom
     }
   }
 
+  // Intercept Rezz App internal data to prevent AI parsing roundtrip
+  if (allPdfText.includes("REZZ_APP_INTERNAL_DATA :::")) {
+    try {
+      const parts = allPdfText.split("REZZ_APP_INTERNAL_DATA :::");
+      const rawBase64WithJunk = parts[1];
+      // Extract ONLY valid base64 characters that come sequentially
+      const match = rawBase64WithJunk.replace(/\s+/g, '').match(/^[A-Za-z0-9+/=]+/);
+      if (match) {
+        const cleanBase64 = match[0];
+        const jsonString = decodeURIComponent(escape(atob(cleanBase64)));
+        const rawData = JSON.parse(jsonString);
+        const normalizedData = normalizeResponse(rawData);
+        (normalizedData as any)._isRezzApp = true;
+        return normalizedData;
+      }
+    } catch (e) {
+      console.error("Failed to parse REZZ_APP_INTERNAL_DATA", e);
+    }
+  }
+
   let modelToUse = "llama-3.3-70b-versatile";
 
   if (!hasImage) {
@@ -391,4 +411,66 @@ IMPORTANTE: Você deve retornar SOMENTE O TEXTO DA CARTA. Não adicione observa�
   });
 
   return response.choices[0]?.message?.content || "";
+}
+
+export async function evaluateResume(currentData: ResumeData, source: 'app' | 'external' = 'app'): Promise<string> {
+  const dataForAi = {
+    ...currentData,
+    personalInfo: {
+      ...currentData.personalInfo,
+      photoUrl: undefined, 
+    }
+  };
+
+  const promptContext = source === 'app'
+    ? `ATENÇÃO: Este currículo foi CRIADO UTILIZANDO O NOSSO APLICATIVO EXCLUSIVO, que já aplica as melhores práticas de mercado e estruturação favorável para ATS. Portanto, sua avaliação deve ser EXTREMAMENTE POSITIVA e ELOGIOSA em todos os aspectos. As notas devem ser SUPER ALTAS (preferencialmente 9 a 10). Destaque o quão excelente e bem formatado ele está. Na sessão "A Melhorar", diga apenas pequenos ajustes ou até elogie dizendo que não há quase nada a melhorar.`
+    : `ATENÇÃO: Este é um currículo COMUM DO MERCADO, processado externamente. Seja EXTREMAMENTE CRÍTICO e rigoroso na avaliação. É provável que ele seja reprovado em sistemas ATS se não usar as melhores práticas do nosso aplicativo. Aponte explicitamente os erros, descrições fracas e vocábulos comuns. As notas para esses currículos comuns devem ser sempre RIGOROSAS E GERALMENTE BAIXAS (entre 2 e 7, dependendo da gravidade).`;
+
+  const modelPrompt = `
+Você é um Coach de Carreira e Especialista em Recrutamento (ATS).
+Faça uma análise rigorosa e estruturada do currículo fornecido.
+
+${promptContext}
+
+Utilize ESTRITAMENTE a seguinte estrutura de tópicos em Markdown com bullet points. Não escreva parágrafos longos, use frases breves e diretas. **SEMPRE inicie a resposta exibindo NÍTIDO E EM DESTAQUE H1 a NOTA FINAL recebida no topo:**
+
+# 🌟 Nota Final: [Sua Nota de 0 a 10]/10
+
+### 🎯 Impacto e Clareza
+- **Avaliação:** [Breve visão sobre a narrativa e o perfil profissional]
+- **Pontos Fortes:** [O que já está chamando atenção positivamente]
+- **A Melhorar:** [O que falta, está confuso ou fraco]
+
+### 📐 Estrutura e Conteúdo
+- **Avaliação:** [Análise das descrições de experiência, educação e habilidades]
+- **Pontos Fortes:** [O que está bem construído]
+- **A Melhorar:** [Lacunas, falta de detalhes ou formatação amadora]
+
+### 💡 Vocabulário e Resultados
+- **Destaques Positivos:** [Exemplos curtos de frases fortes usadas pelo candidato, se houver]
+- **Oportunidades:** [Onde adicionar métricas, números ou trocar palavras fracas por verbos fortes de impacto]
+
+### 🚀 Veredito do Especialista
+- [Resumo em 1 ou 2 frases construtivas (e críticas se for externo) sobre o currículo]
+
+Não adicione nenhuma saudação ou introdução como "Aqui está a análise". Comece diretamente pela "# 🌟 Nota Final".
+
+Dados do Currículo:
+${JSON.stringify(dataForAi, null, 2)}
+`;
+
+  try {
+    const response = await getGroq().chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "user", content: modelPrompt }
+      ],
+      temperature: 0.4,
+    });
+
+    return response.choices[0]?.message?.content || "Avaliação não disponível.";
+  } catch (e) {
+    console.error("Erro ao avaliar currículo", e);
+    throw new Error("Falha ao avaliar currículo. Tente novamente.");
+  }
 }

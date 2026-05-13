@@ -12,7 +12,8 @@ import { CoverLetterPreview } from './components/CoverLetterPreview';
 import { extractResumeDataFromFiles } from './services/aiService';
 import { auth, signInWithGoogle, signOut, saveResume, loadResumes, deleteResume, ResumeDoc } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown, Trash2, Highlighter } from 'lucide-react';
+import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown, Trash2, Highlighter, BarChart } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 import { v4 as uuidv4 } from 'uuid';
 
@@ -499,6 +500,13 @@ function MainApp() {
 
       let heightLeft = pdfHeight;
       let position = 0;
+      
+      // Hidden data to make it detectable by our ATS scanner/evaluator
+      pdf.setFontSize(2);
+      pdf.setTextColor(255, 255, 255);
+      const textToEmbed = "REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+      const textLines = pdf.splitTextToSize(textToEmbed, pdfWidth - 2);
+      pdf.text(textLines, 1, 1);
 
       pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
       heightLeft -= pageHeight;
@@ -603,6 +611,13 @@ function MainApp() {
 
       let heightLeft = pdfHeight;
       let position = 0;
+      
+      // Hidden data to make it detectable by our ATS scanner/evaluator
+      pdf.setFontSize(2);
+      pdf.setTextColor(255, 255, 255);
+      const textToEmbed = "REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+      const textLines = pdf.splitTextToSize(textToEmbed, pdfWidth - 2);
+      pdf.text(textLines, 1, 1);
 
       pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
       heightLeft -= pageHeight;
@@ -632,10 +647,51 @@ function MainApp() {
   const [scale, setScale] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const evaluateFileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [isPrompting, setIsPrompting] = useState(false);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evaluationResult, setEvaluationResult] = useState<string | null>(null);
   const [lastEnhancedLength, setLastEnhancedLength] = useState<number | null>(null);
+
+  const handleEvaluateFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    
+    setIsEvaluating(true);
+    
+    try {
+      const resumeData = await extractResumeDataFromFiles(files);
+      const isRezzApp = (resumeData as any)._isRezzApp;
+      
+      const { evaluateResume } = await import('./services/aiService');
+      const result = await evaluateResume(resumeData, isRezzApp ? 'app' : 'external');
+      setEvaluationResult(result);
+    } catch (error) {
+      console.error('Error in evaluate file process:', error);
+      alert('Houve um erro ao processar o arquivo para avaliação. Formato não suportado ou instabilidade na IA.');
+    } finally {
+      setIsEvaluating(false);
+      // Reset input
+      if (evaluateFileInputRef.current) {
+        evaluateFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleEvaluateResume = async () => {
+    try {
+      setIsEvaluating(true);
+      const { evaluateResume } = await import('./services/aiService');
+      const result = await evaluateResume(data, 'app');
+      setEvaluationResult(result);
+    } catch (err: any) {
+      alert("Erro ao avaliar currículo");
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
 
   React.useEffect(() => {
     const updateScale = () => {
@@ -742,6 +798,40 @@ function MainApp() {
 
   return (
     <div className="w-full min-h-screen bg-slate-900 flex flex-col">
+      {/* Evaluation Results Modal */}
+      {evaluationResult && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm shadow-2xl z-[100] flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-white/10 p-6 sm:p-8 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col relative animate-in fade-in zoom-in-95 duration-200">
+            <button 
+              onClick={() => setEvaluationResult(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6 shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                <BarChart className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white">Análise do Currículo</h2>
+                <p className="text-slate-400 text-sm">Feedback construtivo com Inteligência Artificial.</p>
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto mb-6 pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+               <div className="prose prose-invert prose-emerald max-w-none text-sm leading-relaxed whitespace-pre-line break-words">
+                 <ReactMarkdown>{evaluationResult}</ReactMarkdown>
+               </div>
+            </div>
+            
+            <div className="shrink-0 flex justify-end">
+               <button onClick={() => setEvaluationResult(null)} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">Entendido</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {appState === 'onboarding' && (
         <div key="onboarding" className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black text-slate-100 flex flex-col font-sans relative overflow-hidden">
           {/* Header */}
@@ -895,9 +985,39 @@ function MainApp() {
                   <ArrowLeft className="hidden sm:block w-5 h-5 text-emerald-500/50 rotate-180 group-hover:translate-x-1 transition-all" />
                 </button>
 
+                {/* Avaliar com IA - Featured */}
+                <button
+                  onClick={() => {
+                    if (evaluateFileInputRef.current) {
+                      evaluateFileInputRef.current.click();
+                    }
+                  }}
+                  disabled={isEvaluating}
+                  className={`col-span-1 md:col-span-2 flex flex-col sm:flex-row items-center justify-between text-center sm:text-left p-6 sm:p-8 bg-sky-900/10 hover:bg-sky-900/20 border border-sky-500/10 hover:border-sky-500/30 rounded-3xl transition-all group gap-4 mt-2`}
+                >
+                  <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 bg-sky-500/10 rounded-2xl flex items-center justify-center text-sky-400 group-hover:scale-110 group-hover:bg-sky-500/20 transition-all shrink-0">
+                      {isEvaluating ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" /> : <BarChart className="w-7 h-7 sm:w-8 sm:h-8" />}
+                    </div>
+                    <div>
+                      <h3 className="text-lg sm:text-xl font-bold text-sky-50 mb-1">Avaliar Currículo com IA</h3>
+                      <p className="text-sky-500/70 text-sm font-medium">
+                        {isEvaluating ? 'Avaliando, por favor aguarde...' : 'Envie seu currículo em PDF ou foto e receba feedback detalhado'}
+                      </p>
+                    </div>
+                  </div>
+                  <ArrowLeft className="hidden sm:block w-5 h-5 text-sky-500/50 rotate-180 group-hover:translate-x-1 transition-all" />
+                </button>
               </div>
             </div>
           </div>
+          <input 
+            type="file" 
+            ref={evaluateFileInputRef} 
+            onChange={handleEvaluateFileChange} 
+            accept="application/pdf,image/*" 
+            className="hidden" 
+          />
         </div>
       )}
 
