@@ -770,7 +770,8 @@ function MainApp() {
   const templateNames = {
     modern: 'Moderno',
     classic: 'Clássico',
-    minimal: 'Minimalista'
+    minimal: 'Minimalista',
+    creative: 'Criativo'
   };
 
   const purchasedResumes = (() => {
