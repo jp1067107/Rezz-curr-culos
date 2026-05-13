@@ -218,7 +218,7 @@ function MainApp() {
            }
            return prev;
         } else {
-           return [...prev, { id: currentResumeId, data, updatedAt: new Date().toISOString() }];
+            return [...prev, { id: currentResumeId, ownerId: 'local', data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ResumeDoc];
         }
       });
     }
@@ -273,7 +273,7 @@ function MainApp() {
       setLocalPurchasedResumes(prev => {
         const exists = prev.find(r => r.id === currentResumeId);
         if (exists) return prev;
-        const newResumes = [...prev, { id: currentResumeId, data, updatedAt: new Date().toISOString() }];
+        const newResumes = [...prev, { id: currentResumeId, ownerId: 'local', data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ResumeDoc];
         localStorage.setItem('rezz_local_purchased', JSON.stringify(newResumes));
         return newResumes;
       });
@@ -651,6 +651,7 @@ function MainApp() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [isPrompting, setIsPrompting] = useState(false);
+  const [dataBeforeAI, setDataBeforeAI] = useState<ResumeData | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState<string | null>(null);
   const [lastEnhancedLength, setLastEnhancedLength] = useState<number | null>(null);
@@ -750,10 +751,20 @@ function MainApp() {
   };
 
   const handleEnhanceWithAI = async () => {
+    if (dataBeforeAI) {
+      if (confirm('Deseja desfazer as alterações da IA e voltar ao currículo original?')) {
+        setData(dataBeforeAI);
+        setDataBeforeAI(null);
+        setLastEnhancedLength(null);
+      }
+      return;
+    }
+
     try {
       setIsPrompting(true); // We can still use isPrompting to show the loading state
       const { enhanceResumeData } = await import('./services/aiService');
       const newData = await enhanceResumeData(data);
+      setDataBeforeAI(data);
       setData(newData);
       setLastEnhancedLength(JSON.stringify(newData).length);
     } catch (error: any) {
@@ -1225,7 +1236,7 @@ function MainApp() {
       )}
 
       {appState === 'purchased-view' && (() => {
-        const purchasedTemplates = (['modern', 'classic', 'minimal'] as TemplateType[]).filter(t => unlockedConfigs.includes(`${currentResumeId}_${t}`));
+        const purchasedTemplates = (['modern', 'classic', 'minimal', 'creative'] as TemplateType[]).filter(t => unlockedConfigs.includes(`${currentResumeId}_${t}`));
         
         return (
         <div key="purchased-view" className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
@@ -1593,13 +1604,13 @@ function MainApp() {
               </button>
               <button
                 onClick={handleEnhanceWithAI}
-                disabled={isPrompting || isProcessing || !canEnhance}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-all shadow-sm shrink-0 ${canEnhance ? 'bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
-                title={canEnhance ? "Aprimorar textos para uma linguagem profissional usando IA" : (hasActiveResume ? "Você já aprimorou esses dados. Faça algumas edições manuais antes de aprimorar novamente." : "Preencha o currículo primeiro")}
-                aria-label="Aprimorar textos com Inteligência Artificial"
+                disabled={isPrompting || isProcessing || (!canEnhance && !dataBeforeAI)}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-all shadow-sm shrink-0 ${dataBeforeAI ? 'bg-orange-500/20 border border-orange-500/50 hover:bg-orange-500/40 text-orange-200 cursor-pointer' : canEnhance ? 'bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
+                title={dataBeforeAI ? "Desfazer aprimoramento da IA" : canEnhance ? "Aprimorar textos para uma linguagem profissional usando IA" : (hasActiveResume ? "Você já aprimorou esses dados. Faça algumas edições manuais antes de aprimorar novamente." : "Preencha o currículo primeiro")}
+                aria-label={dataBeforeAI ? "Desfazer IA" : "Aprimorar textos com Inteligência Artificial"}
               >
                 {isPrompting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Wand2 className="w-4 h-4 shrink-0" />}
-                <span className="whitespace-nowrap">{isPrompting ? "Aprimorando..." : "Aprimorar com IA"}</span>
+                <span className="whitespace-nowrap">{isPrompting ? "Aprimorando..." : dataBeforeAI ? "Desfazer IA" : "Aprimorar com IA"}</span>
               </button>
               <button
                 onClick={() => {
@@ -1632,8 +1643,8 @@ function MainApp() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-1 bg-slate-900 border border-white/10 rounded-xl shrink-0 w-full mb-4">
-            {(['modern', 'classic', 'minimal'] as const).map(t => (
+          <div className="flex items-center justify-between p-1 bg-slate-900 border border-white/10 rounded-xl shrink-0 w-full mb-4 overflow-x-auto">
+            {(['modern', 'classic', 'minimal', 'creative'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTemplate(t as TemplateType)}
@@ -1661,13 +1672,13 @@ function MainApp() {
             </button>
             <button
               onClick={handleEnhanceWithAI}
-              disabled={isPrompting || isProcessing || !canEnhance}
-              className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl transition-all shadow-sm ${canEnhance ? 'bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
-              title={canEnhance ? "Aprimorar textos para uma linguagem profissional usando IA" : (hasActiveResume ? "Você já aprimorou esses dados. Faça algumas edições manuais antes de aprimorar novamente." : "Preencha o currículo primeiro")}
-              aria-label="Aprimorar textos com Inteligência Artificial"
+              disabled={isPrompting || isProcessing || (!canEnhance && !dataBeforeAI)}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl transition-all shadow-sm ${dataBeforeAI ? 'bg-orange-500/20 border border-orange-500/50 hover:bg-orange-500/40 text-orange-200 cursor-pointer' : canEnhance ? 'bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
+              title={dataBeforeAI ? "Desfazer aprimoramento da IA" : canEnhance ? "Aprimorar textos para uma linguagem profissional usando IA" : (hasActiveResume ? "Você já aprimorou esses dados. Faça algumas edições manuais antes de aprimorar novamente." : "Preencha o currículo primeiro")}
+              aria-label={dataBeforeAI ? "Desfazer IA" : "Aprimorar textos com Inteligência Artificial"}
             >
               {isPrompting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Wand2 className="w-4 h-4 shrink-0" />}
-              <span className="whitespace-nowrap">{isPrompting ? "Aprimorando..." : "Aprimorar com IA"}</span>
+              <span className="whitespace-nowrap">{isPrompting ? "Aprimorando..." : dataBeforeAI ? "Desfazer IA" : "Aprimorar com IA"}</span>
             </button>
           </div>
           

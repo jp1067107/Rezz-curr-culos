@@ -19,7 +19,7 @@ export const CoverLetterPreview = forwardRef<HTMLDivElement, Props>(({ data, tem
       <div className="px-10 pt-16 pb-8 border-b-2 border-slate-100 flex items-center justify-between">
         <div className="flex-1">
           <h1 className="text-4xl font-bold text-[#0f172a] mb-2">{personalInfo.fullName || 'Seu Nome'}</h1>
-          {(personalInfo.title || targetJobLabel) && <p className="text-[#3b82f6] font-semibold text-lg uppercase tracking-wider">{personalInfo.title || targetJobLabel}</p>}
+          {(personalInfo.jobTitle || targetJobLabel) && <p className="text-[#3b82f6] font-semibold text-lg uppercase tracking-wider">{personalInfo.jobTitle || targetJobLabel}</p>}
         </div>
       </div>
 
@@ -47,7 +47,7 @@ export const CoverLetterPreview = forwardRef<HTMLDivElement, Props>(({ data, tem
     <div className="w-[794px] h-[1122.52px] bg-[#f8fafc] shadow-2xl flex mx-auto text-left" style={{ pageBreakAfter: 'always' }}>
       <div className="w-1/3 bg-[#1e293b] text-white p-8 flex flex-col">
         <h1 className="text-4xl font-bold uppercase mb-2 w-full">{personalInfo.fullName || 'Seu Nome'}</h1>
-        <p className="text-[#94a3b8] tracking-widest text-sm uppercase mb-10">{personalInfo.title || targetJobLabel}</p>
+        <p className="text-[#94a3b8] tracking-widest text-sm uppercase mb-10">{personalInfo.jobTitle || targetJobLabel}</p>
         
         <div className="mb-10">
           <h2 className="text-lg font-bold border-b border-[#334155] pb-2 mb-4 uppercase tracking-wider text-[#e2e8f0]">Contato</h2>
@@ -71,7 +71,7 @@ export const CoverLetterPreview = forwardRef<HTMLDivElement, Props>(({ data, tem
     <div className="w-[794px] h-[1122.52px] bg-white shadow-2xl p-12 mx-auto flex flex-col text-left" style={{ pageBreakAfter: 'always' }}>
       <header className="text-center mb-10 pb-8 border-b border-gray-200">
         <h1 className="text-5xl font-extrabold mb-2">{personalInfo.fullName || 'Seu Nome'}</h1>
-        <p className="text-lg text-gray-500 uppercase tracking-[0.2em]">{personalInfo.title || targetJobLabel}</p>
+        <p className="text-lg text-gray-500 uppercase tracking-[0.2em]">{personalInfo.jobTitle || targetJobLabel}</p>
         <div className="mt-4 flex flex-wrap justify-center gap-4 text-sm text-gray-600">
           {personalInfo.phone && <span>{personalInfo.phone}</span>}
           {personalInfo.email && <span>• {personalInfo.email}</span>}
