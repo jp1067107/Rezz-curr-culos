@@ -480,6 +480,7 @@ function MainApp() {
         logging: false,
         backgroundColor: '#ffffff',
         width: 794,
+        windowWidth: 1024,
         onclone: (clonedDoc) => {
           const allElements = clonedDoc.querySelectorAll('*');
           allElements.forEach((el) => {
@@ -589,6 +590,7 @@ function MainApp() {
         logging: false,
         backgroundColor: '#ffffff',
         width: 794,
+        windowWidth: 1024,
         onclone: (clonedDoc) => {
           const allElements = clonedDoc.querySelectorAll('*');
           allElements.forEach((el) => {
@@ -674,6 +676,7 @@ function MainApp() {
         logging: false,
         backgroundColor: '#ffffff',
         width: 794,
+        windowWidth: 1024,
         onclone: (clonedDoc) => {
           const allElements = clonedDoc.querySelectorAll('*');
           allElements.forEach((el) => {

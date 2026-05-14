@@ -65,7 +65,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
   };
 
   const renderModern = () => (
-    <div className="font-sans text-[#1f2937] bg-white w-[210mm] min-h-[297mm] shadow-lg rounded-sm mx-auto overflow-hidden flex print:shadow-none print:rounded-none print:h-[297mm] print:overflow-hidden">
+    <div className="font-sans text-[#1f2937] bg-white w-[794px] min-h-[1123px] shadow-lg rounded-sm mx-auto overflow-hidden flex print:shadow-none print:rounded-none print:h-[1123px] print:overflow-hidden">
       {/* Sidebar */}
       <div className="w-1/3 bg-[#1e293b] text-white p-8 flex flex-col">
         {renderPhoto("w-32 h-32 rounded-full overflow-hidden border-4 border-[#475569] mx-auto mb-6")}
@@ -208,7 +208,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
   );
 
   const renderClassic = () => (
-    <div className="font-serif text-[#111827] bg-white w-[210mm] min-h-[297mm] shadow-lg rounded-sm mx-auto p-12 print:shadow-none print:rounded-none print:h-[297mm] print:overflow-hidden">
+    <div className="font-serif text-[#111827] bg-white w-[794px] min-h-[1123px] shadow-lg rounded-sm mx-auto p-12 print:shadow-none print:rounded-none print:h-[1123px] print:overflow-hidden">
       <div className="flex flex-col items-center text-center border-b-2 border-[#111827] pb-6 mb-8 relative">
         {renderPhoto("w-24 h-24 rounded-full overflow-hidden border border-[#d1d5db] mb-4")}
         <h1 className="text-4xl font-bold uppercase mb-2 w-full">{personalInfo.fullName || 'Seu Nome'}</h1>
@@ -314,7 +314,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
   );
 
   const renderMinimal = () => (
-    <div className="font-display text-[#1f2937] bg-white w-[210mm] min-h-[297mm] shadow-lg rounded-sm mx-auto p-12 flex flex-col print:shadow-none print:rounded-none print:h-[297mm] print:overflow-hidden">
+    <div className="font-display text-[#1f2937] bg-white w-[794px] min-h-[1123px] shadow-lg rounded-sm mx-auto p-12 flex flex-col print:shadow-none print:rounded-none print:h-[1123px] print:overflow-hidden">
       <div className="flex items-start justify-between mb-12">
         <div className="max-w-md">
           <h1 className="text-5xl font-extrabold mb-2">{personalInfo.fullName || 'Seu Nome'}</h1>
@@ -430,7 +430,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
   );
 
   const renderCreative = () => (
-    <div className="font-sans text-[#1f2937] bg-white w-[210mm] min-h-[297mm] shadow-lg rounded-sm mx-auto overflow-hidden flex print:shadow-none print:rounded-none print:h-[297mm] print:overflow-hidden relative">
+    <div className="font-sans text-[#1f2937] bg-white w-[794px] min-h-[1123px] shadow-lg rounded-sm mx-auto overflow-hidden flex print:shadow-none print:rounded-none print:h-[1123px] print:overflow-hidden relative">
       <div className="w-[35%] bg-[#374151] text-white pt-8 pb-6 px-6 flex flex-col relative z-20 overflow-hidden">
         {/* Geometric elements on left sidebar */}
         <div className="absolute top-0 left-[-20%] w-[140%] h-64 bg-[#fbbf24] z-0 opacity-10" style={{ transform: 'rotate(-10deg) translateY(-20px)' }}></div>
