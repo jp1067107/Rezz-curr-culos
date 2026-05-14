@@ -187,7 +187,11 @@ function MainApp() {
   });
 
   useEffect(() => {
-    localStorage.setItem('rezz_local_purchased', JSON.stringify(localPurchasedResumes));
+    try {
+      localStorage.setItem('rezz_local_purchased', JSON.stringify(localPurchasedResumes));
+    } catch (e) {
+      console.warn("Could not save purchased resumes to local storage", e);
+    }
   }, [localPurchasedResumes]);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -203,7 +207,11 @@ function MainApp() {
   });
 
   useEffect(() => {
-    localStorage.setItem('rezz_draft_data', JSON.stringify(data));
+    try {
+      localStorage.setItem('rezz_draft_data', JSON.stringify(data));
+    } catch (error) {
+      console.warn("Could not save draft data to local storage, likely due to quota exceeded.", error);
+    }
     
     // Auto-update local purchased list if currently editing a purchased resume
     const signaturePrefix = `${currentResumeId}_`;
@@ -275,7 +283,11 @@ function MainApp() {
         const exists = prev.find(r => r.id === currentResumeId);
         if (exists) return prev;
         const newResumes = [...prev, { id: currentResumeId, ownerId: 'local', data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ResumeDoc];
-        localStorage.setItem('rezz_local_purchased', JSON.stringify(newResumes));
+        try {
+          localStorage.setItem('rezz_local_purchased', JSON.stringify(newResumes));
+        } catch (e) {
+          console.warn("Could not save to local storage", e);
+        }
         return newResumes;
       });
 
