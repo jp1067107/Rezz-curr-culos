@@ -26,6 +26,15 @@
     }
   },
   "firestore": {
+    "/premium_accounts/{email}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "active": { "type": "boolean" }
+        }
+      },
+      "description": "Premium accounts configured manually in Firebase Console."
+    },
     "/users/{userId}/resumes/{resumeId}": {
       "schema": {
         "$ref": "#/entities/resume"

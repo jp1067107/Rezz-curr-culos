@@ -10,7 +10,7 @@ import { ResumePreview } from './components/ResumePreview';
 import { CoverLetterGenerator } from './components/CoverLetterGenerator';
 import { CoverLetterPreview } from './components/CoverLetterPreview';
 import { extractResumeDataFromFiles } from './services/aiService';
-import { auth, signInWithGoogle, signOut, saveResume, loadResumes, deleteResume, ResumeDoc } from './lib/firebase';
+import { auth, signInWithGoogle, signOut, saveResume, loadResumes, deleteResume, ResumeDoc, checkPremiumPrivilege } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown, Trash2, Highlighter, BarChart } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -146,6 +146,7 @@ function MainApp() {
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
   
   const [user, setUser] = useState<User | null>(null);
+  const [isPremium, setIsPremium] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
@@ -235,8 +236,8 @@ function MainApp() {
   }, [data, currentResumeId, template, unlockedConfigs, user]);
   
   const signature = `${currentResumeId}_${template}`;
-  const hasPaid = unlockedConfigs.includes(signature);
-  const hasCoverLetter = unlockedConfigs.includes(`${currentResumeId}_cover_letter`);
+  const hasPaid = isPremium || unlockedConfigs.includes(signature);
+  const hasCoverLetter = isPremium || unlockedConfigs.includes(`${currentResumeId}_cover_letter`);
 
   useEffect(() => {
     localStorage.setItem('rezz_unlocked', JSON.stringify(unlockedConfigs));
@@ -313,6 +314,8 @@ function MainApp() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
+        const premiumStatus = await checkPremiumPrivilege(currentUser.email);
+        setIsPremium(premiumStatus);
         // Sync any local purchased resumes to the cloud now that we are logged in
         try {
           const localStr = localStorage.getItem('rezz_local_purchased');
@@ -339,6 +342,7 @@ function MainApp() {
         
         fetchResumes(currentUser.uid);
       } else {
+        setIsPremium(false);
         setResumesList([]);
       }
     });
@@ -527,6 +531,89 @@ function MainApp() {
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Erro ao gerar PDF. Tente novamente mais tarde.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const generatePng = async () => {
+    if (!componentRef.current || !containerRef.current) return;
+    
+    // Dynamically import
+    const html2canvas = (await import('html2canvas-pro')).default;
+
+    await document.fonts.ready;
+    setIsProcessing(true);
+    
+    try {
+      const wrapperElement = componentRef.current.parentElement;
+      const originalTransform = wrapperElement?.style.transform || '';
+      const originalTransition = wrapperElement?.style.transition || '';
+      const originalHeight = wrapperElement?.style.height || '';
+      const originalWidth = wrapperElement?.style.width || '';
+      const originalPosition = wrapperElement?.style.position || '';
+      
+      if (wrapperElement) {
+        // Prepare for capture: fix width to exactly 210mm (~794px) and remove scaling
+        wrapperElement.style.transition = 'none';
+        wrapperElement.style.transform = 'scale(1)';
+        wrapperElement.style.width = '794px';
+        wrapperElement.style.height = 'auto';
+        wrapperElement.style.position = 'relative';
+      }
+      
+      // Force a synchronous reflow
+      void componentRef.current.offsetHeight;
+
+      // Small delay to ensure the DOM paints at 100% scale and images are ready
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      const element = componentRef.current;
+
+      const canvas = await html2canvas(element, {
+        scale: 2, // High resolution
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: 794,
+        onclone: (clonedDoc) => {
+          const allElements = clonedDoc.querySelectorAll('*');
+          allElements.forEach((el) => {
+            const htmlEl = el as HTMLElement;
+            htmlEl.style.fontVariantLigatures = 'none';
+            htmlEl.style.textRendering = 'optimizeLegibility';
+            htmlEl.style.wordBreak = 'break-word';
+          });
+        }
+      });
+
+      // Restore the original layout
+      if (wrapperElement) {
+        wrapperElement.style.transform = originalTransform;
+        wrapperElement.style.height = originalHeight;
+        wrapperElement.style.width = originalWidth;
+        wrapperElement.style.position = originalPosition;
+        setTimeout(() => {
+          if (wrapperElement) wrapperElement.style.transition = originalTransition;
+        }, 50);
+      }
+
+      const imgData = canvas.toDataURL('image/png');
+      
+      const fileName = data.personalInfo.fullName 
+        ? `${data.personalInfo.fullName.replace(/\s+/g, '_')}_Curriculo.png` 
+        : 'Curriculo.png';
+        
+      const link = document.createElement('a');
+      link.href = imgData;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error generating PNG:', error);
+      alert('Erro ao gerar PNG. Tente novamente mais tarde.');
     } finally {
       setIsProcessing(false);
     }
@@ -1236,7 +1323,8 @@ function MainApp() {
       )}
 
       {appState === 'purchased-view' && (() => {
-        const purchasedTemplates = (['modern', 'classic', 'minimal', 'creative'] as TemplateType[]).filter(t => unlockedConfigs.includes(`${currentResumeId}_${t}`));
+        const _templates: TemplateType[] = ['modern', 'classic', 'minimal', 'creative'];
+        const purchasedTemplates = isPremium ? _templates : _templates.filter(t => unlockedConfigs.includes(`${currentResumeId}_${t}`));
         
         return (
         <div key="purchased-view" className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
@@ -1317,6 +1405,18 @@ function MainApp() {
                 <Download className="w-4 h-4" />
                 <span className="hidden sm:inline">Exportar PDF</span>
               </button>
+              
+              {isPremium && (
+                <button
+                  onClick={async () => {
+                    await generatePng();
+                  }}
+                  className="hidden lg:flex items-center gap-2 px-4 sm:px-6 py-2 bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/30 text-white text-sm font-bold rounded-xl transition-all"
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Exportar PNG (Admin)</span>
+                </button>
+              )}
             </div>
           </header>
 
@@ -1564,6 +1664,17 @@ function MainApp() {
             >
               <Download className="w-4 h-4" /> <span className="whitespace-nowrap">Exportar PDF</span>
             </button>
+
+            {isPremium && (
+              <button
+                onClick={async () => {
+                  await generatePng();
+                }}
+                className={`hidden lg:flex items-center justify-center gap-2 px-6 py-2 text-sm font-bold rounded-xl transition-all shrink-0 ${hasActiveResume ? 'bg-blue-600 shadow-md shadow-blue-500/20 hover:bg-blue-500 text-white' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
+              >
+                <Download className="w-4 h-4" /> <span className="whitespace-nowrap">Exportar PNG (Admin)</span>
+              </button>
+            )}
           </div>
         </div>
       </header>

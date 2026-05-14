@@ -160,6 +160,23 @@ export const saveResume = async (userId: string, resumeId: string, resumeData: R
   }
 };
 
+export const checkPremiumPrivilege = async (email: string | null): Promise<boolean> => {
+  if (!email) return false;
+  
+  // Specific hardcoded email as requested, plus check from Firebase Console table
+  if (email === 'jp1067103@gmail.com') return true;
+  if (email === 'jp1067107@gmail.com') return true; // Including this one as well just in case
+
+  try {
+    const docRef = doc(db, 'premium_accounts', email);
+    const snap = await getDocFromServer(docRef);
+    return snap.exists();
+  } catch (error) {
+    console.error("Error checking premium status", error);
+    return false;
+  }
+};
+
 export const loadResumes = async (userId: string): Promise<ResumeDoc[]> => {
   const path = `users/${userId}/resumes`;
   try {
