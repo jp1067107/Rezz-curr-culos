@@ -434,6 +434,11 @@ function MainApp() {
       setIsPaymentModalOpen(true);
       return;
     }
+
+    if (user && hasActiveResume) {
+      handleSaveResume();
+    }
+
     await generatePdf();
   };
 
@@ -557,6 +562,10 @@ function MainApp() {
 
     await document.fonts.ready;
     setIsProcessing(true);
+
+    if (user && hasActiveResume) {
+      handleSaveResume();
+    }
     
     try {
       const wrapperElement = componentRef.current.parentElement;
@@ -854,11 +863,9 @@ function MainApp() {
 
   const handleEnhanceWithAI = async () => {
     if (dataBeforeAI) {
-      if (confirm('Deseja desfazer as alterações da IA e voltar ao currículo original?')) {
-        setData(dataBeforeAI);
-        setDataBeforeAI(null);
-        setLastEnhancedLength(null);
-      }
+      setData(dataBeforeAI);
+      setDataBeforeAI(null);
+      setLastEnhancedLength(null);
       return;
     }
 

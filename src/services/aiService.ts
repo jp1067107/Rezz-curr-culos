@@ -1,23 +1,10 @@
 import { ResumeData } from "../types";
 import { v4 as uuidv4 } from "uuid";
-import Groq from "groq-sdk";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.min.mjs";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { GoogleGenAI } from "@google/genai";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
-
-let groqClient: Groq | null = null;
-
-function getGroq(): Groq {
-  if (!groqClient) {
-    const apiKey = import.meta.env.VITE_GROQ_API_KEY || process.env.GROQ_API_KEY;
-    if (!apiKey) {
-      throw new Error("A chave da API Groq (GROQ_API_KEY) não foi encontrada ou está vazia. Adicione-a no painel de Segredos (Secrets).");
-    }
-    groqClient = new Groq({ apiKey, dangerouslyAllowBrowser: true });
-  }
-  return groqClient;
-}
 
 
 function fileToBase64(file: File): Promise<string> {
@@ -176,8 +163,23 @@ export async function extractResumeDataFromFiles(files: FileList | File[]): Prom
     };
 
     try {
-      const response = await getGroq().chat.completions.create(options);
-      let parsedText = response.choices[0]?.message?.content || "{}";
+      const response = await fetch('/api/groq', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(options)
+      });
+      if (!response.ok) {
+        let errText = 'Erro desconhecido';
+        try {
+          const errBody = await response.json();
+          errText = errBody.error || await response.text();
+        } catch {
+          errText = await response.text();
+        }
+        throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
+      }
+      const rawResult = await response.json();
+      let parsedText = rawResult.choices?.[0]?.message?.content || "{}";
       const rawData = parseJsonResponse(parsedText);
       return normalizeResponse(rawData);
     } catch (error: any) {
@@ -185,50 +187,36 @@ export async function extractResumeDataFromFiles(files: FileList | File[]): Prom
       throw new Error(`Falha ao ler os arquivos: ${error.message || 'Houve um erro na inteligência artificial ao extrair os dados.'}`);
     }
   } else {
-    // Has images - use Gemini 
+    // Has images - use Gemini (Groq discontinued vision models)
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-      if (!apiKey) {
-        throw new Error("Chave da API Gemini não encontrada. Adicione GEMINI_API_KEY nas configurações ou secrets.");
-      }
-
-      const parts: any[] = [
-        { text: `${SYSTEM_PROMPT}\n\nAnalise as imagens e textos fornecidos (podem ser currículos, perfis do linkedin, certificados). Extraia e consolide as informações, mas não apenas transcreva. REESCREVA E OTIMIZE ativamente as informações utilizando uma linguagem corporativa profunda, persuasiva e orientada para resultados. Transforme o conteúdo consolidado no formato JSON estrito.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}` }
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const contentParts: any[] = [
+        { text: `Analise as imagens e textos fornecidos (podem ser currículos, perfis do linkedin, certificados). Extraia e consolide as informações, mas não apenas transcreva. REESCREVA E OTIMIZE ativamente as informações utilizando uma linguagem corporativa profunda, persuasiva e orientada para resultados. Transforme o conteúdo consolidado no formato JSON estrito.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}` }
       ];
 
       for (const img of base64Images) {
-        parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+        contentParts.push({ 
+          inlineData: { mimeType: img.mimeType, data: img.data } 
+        });
       }
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: parts
-            }
-          ],
-          generationConfig: {
-            temperature: 0.5,
-            responseMimeType: "application/json",
-            maxOutputTokens: 8192
-          }
-        })
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-pro-preview",
+        contents: { parts: contentParts },
+        config: {
+          systemInstruction: SYSTEM_PROMPT,
+          temperature: 0.5
+        }
       });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
-      }
-
-      const rawResult = await response.json();
-      const textResponse = rawResult.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-      const rawData = parseJsonResponse(textResponse);
+      const textResponse = response.text;
+      const rawData = parseJsonResponse(textResponse || "{}");
       return normalizeResponse(rawData);
     } catch (error: any) {
-      console.error("Error reading mixed files with Gemini:", error);
+      console.error("Error reading mixed files with Gemini Vision:", error);
+      if (error.message && (error.message.includes("API_KEY") || error.message.includes("chave da API"))) {
+         throw new Error(`O Groq descontinuou o suporte à leitura de imagens. Para ler currículos em formato de imagem/foto, você precisa adicionar uma chave do Google Gemini (GEMINI_API_KEY) no menu de configurações/secrets.`);
+      }
       throw new Error(`Falha ao processar as imagens/arquivos: ${error.message}`);
     }
   }
@@ -314,17 +302,25 @@ Dados Atuais do Currículo:
 ${JSON.stringify(dataForAi, null, 2)}
 `;
 
-  const response = await getGroq().chat.completions.create({
-    model: "llama-3.3-70b-versatile",
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: modelPrompt }
-    ],
-    temperature: 0.5,
-    response_format: { type: "json_object" },
+  const response = await fetch('/api/groq', {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: modelPrompt }
+      ],
+      temperature: 0.5,
+      response_format: { type: "json_object" },
+    })
   });
 
-  const parsedText = response.choices[0]?.message?.content || "{}";
+  if (!response.ok) {
+    throw new Error("Erro ao aprimorar dados");
+  }
+  const rawResult = await response.json();
+  const parsedText = rawResult.choices?.[0]?.message?.content || "{}";
   const rawData = parseJsonResponse(parsedText);
   
   return {
@@ -353,16 +349,21 @@ ${JSON.stringify({
 `;
 
   try {
-    const response = await getGroq().chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "user", content: modelPrompt }
-      ],
-      temperature: 0.2,
-      response_format: { type: "json_object" },
+    const response = await fetch('/api/groq', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "user", content: modelPrompt }
+        ],
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+      })
     });
-
-    const parsedText = response.choices[0]?.message?.content || '{"keywords":[]}';
+    if (!response.ok) throw new Error("Erro");
+    const rawResult = await response.json();
+    const parsedText = rawResult.choices?.[0]?.message?.content || '{"keywords":[]}';
     const data = JSON.parse(parsedText);
     return Array.isArray(data.keywords) ? data.keywords : [];
   } catch (e) {
@@ -401,16 +402,22 @@ INSTRUÇÕES:
 IMPORTANTE: Você deve retornar SOMENTE O TEXTO DA CARTA. Não adicione observações, conselhos, introdução ou conclusão para o usuário. Apenas a carta redigida.
 `;
 
-  const response = await getGroq().chat.completions.create({
-    model: "llama-3.3-70b-versatile",
-    messages: [
-      { role: "system", content: "Você é um assistente gerador de cartas de apresentação baseadas em perfis profissionais. Responda única e exclusivamente com o conteúdo da carta final." },
-      { role: "user", content: modelPrompt }
-    ],
-    temperature: 0.6,
+  const response = await fetch('/api/groq', {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: "Você é um assistente gerador de cartas de apresentação baseadas em perfis profissionais. Responda única e exclusivamente com o conteúdo da carta final." },
+        { role: "user", content: modelPrompt }
+      ],
+      temperature: 0.6,
+    })
   });
+  if (!response.ok) throw new Error("Erro");
+  const rawResult = await response.json();
 
-  return response.choices[0]?.message?.content || "";
+  return rawResult.choices?.[0]?.message?.content || "";
 }
 
 export async function evaluateResume(currentData: ResumeData, source: 'app' | 'external' = 'app'): Promise<string> {
@@ -460,15 +467,21 @@ ${JSON.stringify(dataForAi, null, 2)}
 `;
 
   try {
-    const response = await getGroq().chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "user", content: modelPrompt }
-      ],
-      temperature: 0.4,
+    const response = await fetch('/api/groq', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "user", content: modelPrompt }
+        ],
+        temperature: 0.4,
+      })
     });
+    if (!response.ok) throw new Error("Erro");
+    const rawResult = await response.json();
 
-    return response.choices[0]?.message?.content || "Avaliação não disponível.";
+    return rawResult.choices?.[0]?.message?.content || "Avaliação não disponível.";
   } catch (e) {
     console.error("Erro ao avaliar currículo", e);
     throw new Error("Falha ao avaliar currículo. Tente novamente.");
