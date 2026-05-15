@@ -41,6 +41,38 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
   const hasPhoto = !!personalInfo.photoUrl;
   const shouldRenderPhotoArea = hasPhoto;
 
+  const getDensity = () => {
+    let textCount = 0;
+    if (personalInfo.summary) textCount += personalInfo.summary.length;
+    experience.forEach(exp => {
+      if (exp.description) textCount += exp.description.length;
+      if (exp.company) textCount += exp.company.length;
+      if (exp.position) textCount += exp.position.length;
+    });
+    education.forEach(edu => {
+      if (edu.institution) textCount += edu.institution.length;
+      if (edu.degree) textCount += edu.degree.length;
+    });
+    skills.forEach(skill => {
+      if (skill.name) textCount += skill.name.length;
+    });
+    if (data.courses) {
+      data.courses.forEach(course => {
+        if (course.name) textCount += course.name.length;
+        if (course.institution) textCount += course.institution.length;
+      });
+    }
+    if (data.customSections) {
+      data.customSections.forEach(section => {
+        section.items.forEach(item => {
+          if (item.description) textCount += item.description.length;
+          if (item.title) textCount += item.title.length;
+        });
+      });
+    }
+    return textCount;
+  };
+
   const count = getDensity();
   const isDense = count > 2000;
   const isNormal = count > 1200 && count <= 2000;
