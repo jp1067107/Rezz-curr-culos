@@ -479,7 +479,7 @@ function MainApp() {
       const element = coverLetterRef.current;
 
       const canvas = await html2canvas(element, {
-        scale: 2, // High resolution
+        scale: 1.5, // High resolution
         useCORS: true,
         allowTaint: true,
         logging: false,

@@ -12,14 +12,17 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
 
   app.post("/api/gemini", async (req, res) => {
+    let apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
     try {
       const { model, contents, config } = req.body;
-      const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
-      if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
-        return res.status(500).json({ error: "A chave da API Gemini não está configurada corretamente. Adicione uma chave válida chamada GEMINI_API_KEY no painel de Secrets." });
+      if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
+        return res.status(500).json({ 
+          error: "A chave de API configurada no painel de Secrets (GEMINI_API_KEY) está vazia ou incorreta. Vá em 'Settings > Secrets', clique na variável GEMINI_API_KEY e selecione uma chave válida na lista. Se precisar, acesse https://aistudio.google.com/app/apikey para criar uma nova chave." 
+        });
       }
 
+      console.log("Using API key in route:", apiKey);
       const { GoogleGenAI } = await import("@google/genai");
       const ai = new GoogleGenAI({ apiKey });
 
@@ -32,7 +35,13 @@ async function startServer() {
       res.json({ text: response.text });
     } catch (e: any) {
       console.error(e);
-      res.status(500).json({ error: e.message });
+      let errorMsg = e.message;
+      if (typeof errorMsg === 'string' && (errorMsg.includes("API key not valid") || errorMsg.includes("expired") || errorMsg.includes("API_KEY_INVALID"))) {
+         errorMsg = "A chave do Gemini (GEMINI_API_KEY) nos Secrets expirou ou é inválida. Vá em 'Settings > Secrets', clique em GEMINI_API_KEY e selecione uma chave válida na lista suspensa (se precisar crie uma em https://aistudio.google.com/app/apikey).";
+      } else if (typeof errorMsg === 'string' && errorMsg.includes("Quota exceeded")) {
+         errorMsg = "O limite de uso gratuito da sua chave Gemini foi excedido (Quota Exceeded). Por favor aguarde um tempo ou utilize outra chave em 'Settings > Secrets'.";
+      }
+      res.status(500).json({ error: errorMsg });
     }
   });
 
@@ -41,8 +50,8 @@ async function startServer() {
       const { messages, model, temperature, max_tokens, response_format } = req.body;
       const apiKey = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY;
 
-      if (!apiKey || apiKey === "MY_GROQ_API_KEY") {
-        return res.status(500).json({ error: "A chave da API Groq não está configurada corretamente. Por favor, adicione uma chave válida chamada GROQ_API_KEY no painel de Secrets (Segredos)." });
+      if (!apiKey || apiKey === "MY_GROQ_API_KEY" || apiKey.trim() === "") {
+        return res.status(500).json({ error: "A chave da API Groq não está configurada corretamente. Como não é possível excluí-la pela interface, gere uma chave gratuita em https://console.groq.com/keys e cole no valor de GROQ_API_KEY no painel de Secrets." });
       }
 
       const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {

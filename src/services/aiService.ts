@@ -150,9 +150,13 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
       const parts = allPdfText.split("REZZ_APP_INTERNAL_DATA :::");
       const rawBase64WithJunk = parts[1];
       // Extract ONLY valid base64 characters that come sequentially
-      const match = rawBase64WithJunk.replace(/\s+/g, '').match(/^[A-Za-z0-9+/=]+/);
+      const match = rawBase64WithJunk.replace(/[\s\r\n]+/g, '').match(/^[A-Za-z0-9+/]+={0,2}/);
       if (match) {
-        const cleanBase64 = match[0];
+        let cleanBase64 = match[0];
+        // Fix missing padding if any
+        while (cleanBase64.length % 4 !== 0) {
+          cleanBase64 += '=';
+        }
         const jsonString = decodeURIComponent(escape(atob(cleanBase64)));
         const rawData = JSON.parse(jsonString);
         const normalizedData = normalizeResponse(rawData);
@@ -166,10 +170,13 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
 
   const selectedSystemPrompt = exactMode ? EXACT_SYSTEM_PROMPT : SYSTEM_PROMPT;
 
+  const MAX_TEXT_LENGTH = 15000;
+  const truncatedPdfText = allPdfText.length > MAX_TEXT_LENGTH ? allPdfText.substring(0, MAX_TEXT_LENGTH) + "\n...[TEXTO TRUNCADO POR LIMITE DE TAMANHO]" : allPdfText;
+
   if (!hasImage) {
     const userMessage = exactMode
-      ? `Extraia EXATAMENTE as informações do currículo a seguir, organizando-as no JSON, SEM alterar nenhuma palavra ou criar informações:\n\n${allPdfText}`
-      : `Analise o(s) seguinte(s) texto(s) extraído(s) de currículo(s) ou perfil(is) e transforme-os no JSON solicitado. Você precisará consolidar as informações caso haja mais de um arquivo. Reescreva e otimize as informações ativamente com linguagem corporativa persuasiva e focada em resultados. Transforme o conteúdo consolidado no formato JSON estrito:\n\n${allPdfText}`;
+      ? `Extraia EXATAMENTE as informações do currículo a seguir, organizando-as no JSON, SEM alterar nenhuma palavra ou criar informações:\n\n${truncatedPdfText}`
+      : `Analise o(s) seguinte(s) texto(s) extraído(s) de currículo(s) ou perfil(is) e transforme-os no JSON solicitado. Você precisará consolidar as informações caso haja mais de um arquivo. Reescreva e otimize as informações ativamente com linguagem corporativa persuasiva e focada em resultados. Transforme o conteúdo consolidado no formato JSON estrito:\n\n${truncatedPdfText}`;
 
     try {
       const response = await fetch('/api/groq', {
@@ -224,7 +231,7 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
     }
 
     const requestBody = {
-      model: "gemini-3.1-pro-preview",
+      model: "gemini-2.5-flash",
       contents: { parts: contentParts },
       config: {
         systemInstruction: selectedSystemPrompt,
@@ -251,14 +258,11 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
     }
 
     const rawResult = await response.json();
-    const textResponse = rawResult.text;
-    const rawData = parseJsonResponse(textResponse || "{}");
+    const textResponse = rawResult.text || "{}";
+    const rawData = parseJsonResponse(textResponse);
     return normalizeResponse(rawData);
   } catch (error: any) {
     console.error("Error reading mixed files with Gemini:", error);
-    if (error.message && (error.message.includes("API_KEY") || error.message.includes("chave da API") || error.message.includes("Gemini"))) {
-       throw new Error(`Para utilizar a análise de imagens, você precisa adicionar uma chave do Google Gemini na variável GEMINI_API_KEY no menu de configurações/secrets.`);
-    }
     throw new Error(`Falha ao processar as informações da imagem: ${error.message}`);
   }
 }
@@ -274,9 +278,12 @@ export async function extractInternalResumeData(file: File): Promise<ResumeData 
     try {
       const parts = text.split("REZZ_APP_INTERNAL_DATA :::");
       const rawBase64WithJunk = parts[1];
-      const match = rawBase64WithJunk.replace(/\s+/g, '').match(/^[A-Za-z0-9+/=]+/);
+      const match = rawBase64WithJunk.replace(/[\s\r\n]+/g, '').match(/^[A-Za-z0-9+/]+={0,2}/);
       if (match) {
-        const cleanBase64 = match[0];
+        let cleanBase64 = match[0];
+        while (cleanBase64.length % 4 !== 0) {
+          cleanBase64 += '=';
+        }
         const jsonString = decodeURIComponent(escape(atob(cleanBase64)));
         const rawData = JSON.parse(jsonString);
         return normalizeResponse(rawData);
