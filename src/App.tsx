@@ -9,7 +9,7 @@ import { ResumeForm } from './components/ResumeForm';
 import { ResumePreview } from './components/ResumePreview';
 import { CoverLetterGenerator } from './components/CoverLetterGenerator';
 import { CoverLetterPreview } from './components/CoverLetterPreview';
-import { extractResumeDataFromFiles } from './services/aiService';
+import { extractResumeDataFromFiles, extractInternalResumeData } from './services/aiService';
 import { auth, signInWithGoogle, signOut, saveResume, loadResumes, deleteResume, ResumeDoc, checkPremiumPrivilege } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown, Trash2, Highlighter, BarChart } from 'lucide-react';
@@ -759,7 +759,41 @@ function MainApp() {
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const evaluateFileInputRef = useRef<HTMLInputElement>(null);
+  const internalPdfInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isUploadingInternalPdf, setIsUploadingInternalPdf] = useState(false);
+
+  const handleUploadInternalPdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    
+    setIsUploadingInternalPdf(true);
+    
+    try {
+      const data = await extractInternalResumeData(files[0]);
+      if (data) {
+        if (!data.id) data.id = uuidv4();
+        setData(data);
+        setCurrentResumeId(data.id);
+        setAppState('editor');
+      } else {
+        // Fallback to exact AI extraction for images or generic PDFs
+        const exactData = await extractResumeDataFromFiles(files, true);
+        if (!exactData.id) exactData.id = uuidv4();
+        setData(exactData);
+        setCurrentResumeId(exactData.id);
+        setAppState('editor');
+      }
+    } catch (error: any) {
+      console.error('Error recovering internal file:', error);
+      alert(error.message || 'Houve um erro ao processar o arquivo.');
+    } finally {
+      setIsUploadingInternalPdf(false);
+      if (internalPdfInputRef.current) {
+        internalPdfInputRef.current.value = '';
+      }
+    }
+  };
 
   const [isPrompting, setIsPrompting] = useState(false);
   const [dataBeforeAI, setDataBeforeAI] = useState<ResumeData | null>(null);
@@ -1518,6 +1552,22 @@ function MainApp() {
                 <span className="font-medium text-lg">Criar Novo Currículo</span>
               </button>
               
+              <button
+                onClick={() => {
+                   if (internalPdfInputRef.current) {
+                     internalPdfInputRef.current.click();
+                   }
+                }}
+                disabled={isUploadingInternalPdf}
+                className={`bg-slate-800/40 border border-white/10 hover:border-indigo-500/50 hover:bg-slate-800/80 border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-4 ${isUploadingInternalPdf ? 'text-indigo-400' : 'text-slate-400 hover:text-white'} min-h-[160px] group`}
+              >
+                <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-500/20 group-hover:text-indigo-400 transition-all">
+                  {isUploadingInternalPdf ? <Loader2 className="w-6 h-6 animate-spin" /> : <MonitorDown className="w-6 h-6" />}
+                </div>
+                <span className="font-medium text-lg text-center">{isUploadingInternalPdf ? 'Lendo...' : 'Editar Currículo Antigo'}</span>
+                <span className="text-xs text-slate-500 mt-[-10px] text-center">Restaure um currículo já baixado neste app ou extraia de um PDF/Imagem</span>
+              </button>
+              
               {purchasedResumes.length > 0 && purchasedResumes.map(resume => (
                   <div key={resume.id} className={`bg-slate-800/80 border ${currentResumeId === resume.id ? 'border-indigo-500 shadow-lg shadow-indigo-500/10' : 'border-white/10 hover:border-indigo-500/50'} rounded-2xl p-5 transition-all flex flex-col gap-4 relative group`}>
                     {currentResumeId === resume.id && (
@@ -1596,6 +1646,13 @@ function MainApp() {
                   </div>
                 ))}
               </div>
+            <input 
+              type="file" 
+              ref={internalPdfInputRef} 
+              onChange={handleUploadInternalPdfChange} 
+              accept="application/pdf,image/*" 
+              className="hidden" 
+            />
           </main>
         </div>
       )}

@@ -97,7 +97,29 @@ Responda OBRIGATORIAMENTE com um JSON válido correspondente a este schema:
   }]
 }`;
 
-export async function extractResumeDataFromFiles(files: FileList | File[]): Promise<ResumeData> {
+const EXACT_SYSTEM_PROMPT = `Você é um Especialista em Extração de Dados.
+Seu trabalho é extrair EXATAMENTE as informações contidas na imagem ou PDF e organizar no formato JSON solicitado.
+
+REGRAS (CRÍTICAS):
+1. NUNCA resuma, MELHORE ou altere o texto. Transcreva exatamente as descrições originais do currículo.
+2. Divida textos longos de experiência em "bullet points", mas MANTENHA as palavras EXATAS.
+3. Seções Extras (Customizadas): Se o currículo possuir outras categorias (ex: Idiomas, Projetos, Publicações, Soft Skills, Certificações de TI), agrupe no campo "customSections", cada seção deve ter "name" (como 'Idiomas') e em 'items', coloque 'title' (o idioma/curso/projeto) e 'description'.
+4. Retorne APENAS um JSON válido.
+
+Responda OBRIGATORIAMENTE com um JSON correspondente a este schema:
+{
+  "personalInfo": { "fullName": "", "jobTitle": "", "email": "", "phone": "", "location": "", "summary": "" },
+  "experience": [{ "company": "", "position": "", "startDate": "", "endDate": "", "description": "" }],
+  "education": [{ "institution": "", "degree": "", "startDate": "", "endDate": "" }],
+  "courses": [{ "name": "", "institution": "" }],
+  "skills": [{ "name": "" }],
+  "customSections": [{
+    "name": "Idiomas",
+    "items": [{ "title": "Inglês", "subtitle": "Avançado", "description": "Comunicação e leitura técnica" }]
+  }]
+}`;
+
+export async function extractResumeDataFromFiles(files: FileList | File[], exactMode: boolean = false): Promise<ResumeData> {
   const fileArray = Array.from(files);
   if (fileArray.length === 0) throw new Error('Nenhum arquivo providenciado.');
 
@@ -145,12 +167,18 @@ export async function extractResumeDataFromFiles(files: FileList | File[]): Prom
 
   let modelToUse = "llama-3.3-70b-versatile";
 
+  const selectedSystemPrompt = exactMode ? EXACT_SYSTEM_PROMPT : SYSTEM_PROMPT;
+
   if (!hasImage) {
+    const userMessage = exactMode
+      ? `Extraia EXATAMENTE as informações do currículo a seguir, organizando-as no JSON, SEM alterar nenhuma palavra ou criar informações:\n\n${allPdfText}`
+      : `Analise o(s) seguinte(s) texto(s) extraído(s) de currículo(s) ou perfil(is) e transforme-os no JSON solicitado. Você precisará consolidar as informações caso haja mais de um arquivo. Reescreva e otimize as informações ativamente com linguagem corporativa persuasiva e focada em resultados. Adicione verbos de ação:\n\n${allPdfText}`;
+
     const messages = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: selectedSystemPrompt },
       { 
         role: "user", 
-        content: `Analise o(s) seguinte(s) texto(s) extraído(s) de currículo(s) ou perfil(is) e transforme-os no JSON solicitado. Você precisará consolidar as informações caso haja mais de um arquivo. Reescreva e otimize as informações ativamente com linguagem corporativa persuasiva e focada em resultados. Adicione verbos de ação:\n\n${allPdfText}`
+        content: userMessage
       }
     ];
 
@@ -190,8 +218,12 @@ export async function extractResumeDataFromFiles(files: FileList | File[]): Prom
     // Has images - use Gemini (Groq discontinued vision models)
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const userMessage = exactMode
+        ? `Analise as imagens e textos fornecidos. Extraia EXATAMENTE as informações, NÃO as reescreva ou melhore. Apenas transcreva no formato JSON estrito.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}`
+        : `Analise as imagens e textos fornecidos (podem ser currículos, perfis do linkedin, certificados). Extraia e consolide as informações, mas não apenas transcreva. REESCREVA E OTIMIZE ativamente as informações utilizando uma linguagem corporativa profunda, persuasiva e orientada para resultados. Transforme o conteúdo consolidado no formato JSON estrito.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}`;
+
       const contentParts: any[] = [
-        { text: `Analise as imagens e textos fornecidos (podem ser currículos, perfis do linkedin, certificados). Extraia e consolide as informações, mas não apenas transcreva. REESCREVA E OTIMIZE ativamente as informações utilizando uma linguagem corporativa profunda, persuasiva e orientada para resultados. Transforme o conteúdo consolidado no formato JSON estrito.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}` }
+        { text: userMessage }
       ];
 
       for (const img of base64Images) {
@@ -204,7 +236,7 @@ export async function extractResumeDataFromFiles(files: FileList | File[]): Prom
         model: "gemini-3.1-pro-preview",
         contents: { parts: contentParts },
         config: {
-          systemInstruction: SYSTEM_PROMPT,
+          systemInstruction: selectedSystemPrompt,
           temperature: 0.5
         }
       });
@@ -220,6 +252,32 @@ export async function extractResumeDataFromFiles(files: FileList | File[]): Prom
       throw new Error(`Falha ao processar as imagens/arquivos: ${error.message}`);
     }
   }
+}
+
+export async function extractInternalResumeData(file: File): Promise<ResumeData | null> {
+  if (!file.type.includes('pdf')) {
+    return null;
+  }
+
+  const text = await extractTextFromPdf(file);
+
+  if (text.includes("REZZ_APP_INTERNAL_DATA :::")) {
+    try {
+      const parts = text.split("REZZ_APP_INTERNAL_DATA :::");
+      const rawBase64WithJunk = parts[1];
+      const match = rawBase64WithJunk.replace(/\s+/g, '').match(/^[A-Za-z0-9+/=]+/);
+      if (match) {
+        const cleanBase64 = match[0];
+        const jsonString = decodeURIComponent(escape(atob(cleanBase64)));
+        const rawData = JSON.parse(jsonString);
+        return normalizeResponse(rawData);
+      }
+    } catch (e) {
+      console.error("Failed to parse REZZ_APP_INTERNAL_DATA", e);
+    }
+  }
+
+  return null;
 }
 
 function parseJsonResponse(parsedText: string) {
