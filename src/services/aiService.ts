@@ -2,7 +2,6 @@ import { ResumeData } from "../types";
 import { v4 as uuidv4 } from "uuid";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.min.mjs";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { GoogleGenAI } from "@google/genai";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -167,8 +166,49 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
 
   const selectedSystemPrompt = exactMode ? EXACT_SYSTEM_PROMPT : SYSTEM_PROMPT;
 
+  if (!hasImage) {
+    const userMessage = exactMode
+      ? `Extraia EXATAMENTE as informações do currículo a seguir, organizando-as no JSON, SEM alterar nenhuma palavra ou criar informações:\n\n${allPdfText}`
+      : `Analise o(s) seguinte(s) texto(s) extraído(s) de currículo(s) ou perfil(is) e transforme-os no JSON solicitado. Você precisará consolidar as informações caso haja mais de um arquivo. Reescreva e otimize as informações ativamente com linguagem corporativa persuasiva e focada em resultados. Transforme o conteúdo consolidado no formato JSON estrito:\n\n${allPdfText}`;
+
+    try {
+      const response = await fetch('/api/groq', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: selectedSystemPrompt },
+            { role: "user", content: userMessage }
+          ],
+          temperature: 0.5,
+          response_format: { type: "json_object" }
+        })
+      });
+
+      if (!response.ok) {
+        let errText = 'Erro desconhecido';
+        try {
+          const errBody = await response.json();
+          errText = errBody.error || errText;
+        } catch {
+          errText = await response.text();
+        }
+        throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
+      }
+
+      const rawResult = await response.json();
+      const parsedText = rawResult.choices?.[0]?.message?.content || "{}";
+      const rawData = parseJsonResponse(parsedText);
+      return normalizeResponse(rawData);
+    } catch (error: any) {
+      console.error("Error reading PDF files with Groq:", error);
+      throw new Error(`Falha ao ler o currículo: ${error.message || 'Houve um erro na inteligência artificial ao extrair os dados.'}`);
+    }
+  }
+
+  // Se houver imagens, tenta usar o Gemini
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const userMessage = exactMode
       ? `Analise as imagens e textos fornecidos. Extraia EXATAMENTE as informações, NÃO as reescreva ou melhore. Apenas transcreva no formato JSON estrito.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}`
       : `Analise as imagens e textos fornecidos (podem ser currículos, perfis do linkedin, certificados). Extraia e consolide as informações, mas não apenas transcreva. REESCREVA E OTIMIZE ativamente as informações utilizando uma linguagem corporativa profunda, persuasiva e orientada para resultados. Transforme o conteúdo consolidado no formato JSON estrito.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}`;
@@ -183,7 +223,7 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
       });
     }
 
-    const response = await ai.models.generateContent({
+    const requestBody = {
       model: "gemini-3.1-pro-preview",
       contents: { parts: contentParts },
       config: {
@@ -191,17 +231,35 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
         temperature: 0.5,
         responseMimeType: "application/json",
       }
+    };
+
+    const response = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody)
     });
 
-    const textResponse = response.text;
+    if (!response.ok) {
+      let errText = 'Erro desconhecido';
+      try {
+        const errBody = await response.json();
+        errText = errBody.error || errText;
+      } catch {
+        errText = await response.text();
+      }
+      throw new Error(`Erro da Inteligência Artificial Gemini (${response.status}): ${errText}`);
+    }
+
+    const rawResult = await response.json();
+    const textResponse = rawResult.text;
     const rawData = parseJsonResponse(textResponse || "{}");
     return normalizeResponse(rawData);
   } catch (error: any) {
     console.error("Error reading mixed files with Gemini:", error);
-    if (error.message && (error.message.includes("API_KEY") || error.message.includes("chave da API"))) {
-       throw new Error(`Para utilizar a análise de currículos, você precisa adicionar uma chave do Google Gemini (GEMINI_API_KEY) no menu de configurações/secrets.`);
+    if (error.message && (error.message.includes("API_KEY") || error.message.includes("chave da API") || error.message.includes("Gemini"))) {
+       throw new Error(`Para utilizar a análise de imagens, você precisa adicionar uma chave do Google Gemini na variável GEMINI_API_KEY no menu de configurações/secrets.`);
     }
-    throw new Error(`Falha ao processar as informações: ${error.message}`);
+    throw new Error(`Falha ao processar as informações da imagem: ${error.message}`);
   }
 }
 
