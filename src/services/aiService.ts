@@ -165,92 +165,43 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
     }
   }
 
-  let modelToUse = "llama-3.3-70b-versatile";
-
   const selectedSystemPrompt = exactMode ? EXACT_SYSTEM_PROMPT : SYSTEM_PROMPT;
 
-  if (!hasImage) {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const userMessage = exactMode
-      ? `Extraia EXATAMENTE as informações do currículo a seguir, organizando-as no JSON, SEM alterar nenhuma palavra ou criar informações:\n\n${allPdfText}`
-      : `Analise o(s) seguinte(s) texto(s) extraído(s) de currículo(s) ou perfil(is) e transforme-os no JSON solicitado. Você precisará consolidar as informações caso haja mais de um arquivo. Reescreva e otimize as informações ativamente com linguagem corporativa persuasiva e focada em resultados. Adicione verbos de ação:\n\n${allPdfText}`;
+      ? `Analise as imagens e textos fornecidos. Extraia EXATAMENTE as informações, NÃO as reescreva ou melhore. Apenas transcreva no formato JSON estrito.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}`
+      : `Analise as imagens e textos fornecidos (podem ser currículos, perfis do linkedin, certificados). Extraia e consolide as informações, mas não apenas transcreva. REESCREVA E OTIMIZE ativamente as informações utilizando uma linguagem corporativa profunda, persuasiva e orientada para resultados. Transforme o conteúdo consolidado no formato JSON estrito.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}`;
 
-    const messages = [
-      { role: "system", content: selectedSystemPrompt },
-      { 
-        role: "user", 
-        content: userMessage
-      }
+    const contentParts: any[] = [
+      { text: userMessage }
     ];
 
-    const options: any = {
-      model: modelToUse,
-      messages: messages,
-      temperature: 0.5,
-      max_tokens: 4096,
-      response_format: { type: "json_object" }
-    };
-
-    try {
-      const response = await fetch('/api/groq', {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(options)
+    for (const img of base64Images) {
+      contentParts.push({ 
+        inlineData: { mimeType: img.mimeType, data: img.data } 
       });
-      if (!response.ok) {
-        let errText = 'Erro desconhecido';
-        try {
-          const errBody = await response.json();
-          errText = errBody.error || await response.text();
-        } catch {
-          errText = await response.text();
-        }
-        throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
-      }
-      const rawResult = await response.json();
-      let parsedText = rawResult.choices?.[0]?.message?.content || "{}";
-      const rawData = parseJsonResponse(parsedText);
-      return normalizeResponse(rawData);
-    } catch (error: any) {
-      console.error("Error generating resume from files:", error);
-      throw new Error(`Falha ao ler os arquivos: ${error.message || 'Houve um erro na inteligência artificial ao extrair os dados.'}`);
     }
-  } else {
-    // Has images - use Gemini (Groq discontinued vision models)
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const userMessage = exactMode
-        ? `Analise as imagens e textos fornecidos. Extraia EXATAMENTE as informações, NÃO as reescreva ou melhore. Apenas transcreva no formato JSON estrito.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}`
-        : `Analise as imagens e textos fornecidos (podem ser currículos, perfis do linkedin, certificados). Extraia e consolide as informações, mas não apenas transcreva. REESCREVA E OTIMIZE ativamente as informações utilizando uma linguagem corporativa profunda, persuasiva e orientada para resultados. Transforme o conteúdo consolidado no formato JSON estrito.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}`;
 
-      const contentParts: any[] = [
-        { text: userMessage }
-      ];
-
-      for (const img of base64Images) {
-        contentParts.push({ 
-          inlineData: { mimeType: img.mimeType, data: img.data } 
-        });
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-pro-preview",
+      contents: { parts: contentParts },
+      config: {
+        systemInstruction: selectedSystemPrompt,
+        temperature: 0.5,
+        responseMimeType: "application/json",
       }
+    });
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: { parts: contentParts },
-        config: {
-          systemInstruction: selectedSystemPrompt,
-          temperature: 0.5
-        }
-      });
-
-      const textResponse = response.text;
-      const rawData = parseJsonResponse(textResponse || "{}");
-      return normalizeResponse(rawData);
-    } catch (error: any) {
-      console.error("Error reading mixed files with Gemini Vision:", error);
-      if (error.message && (error.message.includes("API_KEY") || error.message.includes("chave da API"))) {
-         throw new Error(`O Groq descontinuou o suporte à leitura de imagens. Para ler currículos em formato de imagem/foto, você precisa adicionar uma chave do Google Gemini (GEMINI_API_KEY) no menu de configurações/secrets.`);
-      }
-      throw new Error(`Falha ao processar as imagens/arquivos: ${error.message}`);
+    const textResponse = response.text;
+    const rawData = parseJsonResponse(textResponse || "{}");
+    return normalizeResponse(rawData);
+  } catch (error: any) {
+    console.error("Error reading mixed files with Gemini:", error);
+    if (error.message && (error.message.includes("API_KEY") || error.message.includes("chave da API"))) {
+       throw new Error(`Para utilizar a análise de currículos, você precisa adicionar uma chave do Google Gemini (GEMINI_API_KEY) no menu de configurações/secrets.`);
     }
+    throw new Error(`Falha ao processar as informações: ${error.message}`);
   }
 }
 
@@ -360,35 +311,41 @@ Dados Atuais do Currículo:
 ${JSON.stringify(dataForAi, null, 2)}
 `;
 
-  const response = await fetch('/api/groq', {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: modelPrompt }
-      ],
-      temperature: 0.5,
-      response_format: { type: "json_object" },
-    })
-  });
+  try {
+    const response = await fetch('/api/groq', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: modelPrompt }
+        ],
+        temperature: 0.5,
+        response_format: { type: "json_object" },
+      })
+    });
 
-  if (!response.ok) {
-    throw new Error("Erro ao aprimorar dados");
-  }
-  const rawResult = await response.json();
-  const parsedText = rawResult.choices?.[0]?.message?.content || "{}";
-  const rawData = parseJsonResponse(parsedText);
-  
-  return {
-    ...normalizeResponse(rawData),
-    id: currentData.id,
-    personalInfo: {
-      ...normalizeResponse(rawData).personalInfo,
-      photoUrl: currentData.personalInfo.photoUrl,
+    if (!response.ok) {
+      throw new Error(`Erro da Inteligência Artificial: ${response.status}`);
     }
-  };
+
+    const rawResult = await response.json();
+    const parsedText = rawResult.choices?.[0]?.message?.content || "{}";
+    const rawData = parseJsonResponse(parsedText);
+    
+    return {
+      ...normalizeResponse(rawData),
+      id: currentData.id,
+      personalInfo: {
+        ...normalizeResponse(rawData).personalInfo,
+        photoUrl: currentData.personalInfo.photoUrl,
+      }
+    };
+  } catch (error: any) {
+    console.error("Error in enhanceResumeData:", error);
+    throw new Error(`Erro ao aprimorar dados com IA: ${error.message}`);
+  }
 }
 
 export async function extractKeywordsFromResume(currentData: ResumeData): Promise<string[]> {
@@ -419,7 +376,9 @@ ${JSON.stringify({
         response_format: { type: "json_object" },
       })
     });
-    if (!response.ok) throw new Error("Erro");
+    
+    if (!response.ok) throw new Error("Erro na API da Groq");
+    
     const rawResult = await response.json();
     const parsedText = rawResult.choices?.[0]?.message?.content || '{"keywords":[]}';
     const data = JSON.parse(parsedText);
@@ -460,22 +419,28 @@ INSTRUÇÕES:
 IMPORTANTE: Você deve retornar SOMENTE O TEXTO DA CARTA. Não adicione observações, conselhos, introdução ou conclusão para o usuário. Apenas a carta redigida.
 `;
 
-  const response = await fetch('/api/groq', {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: "Você é um assistente gerador de cartas de apresentação baseadas em perfis profissionais. Responda única e exclusivamente com o conteúdo da carta final." },
-        { role: "user", content: modelPrompt }
-      ],
-      temperature: 0.6,
-    })
-  });
-  if (!response.ok) throw new Error("Erro");
-  const rawResult = await response.json();
+  try {
+    const response = await fetch('/api/groq', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: "Você é um assistente gerador de cartas de apresentação baseadas em perfis profissionais. Responda única e exclusivamente com o conteúdo da carta final." },
+          { role: "user", content: modelPrompt }
+        ],
+        temperature: 0.6,
+      })
+    });
+    
+    if (!response.ok) throw new Error("Erro na API da Groq");
+    const rawResult = await response.json();
 
-  return rawResult.choices?.[0]?.message?.content || "";
+    return rawResult.choices?.[0]?.message?.content || "";
+  } catch (e) {
+    console.error("Erro ao gerar cover letter", e);
+    return "";
+  }
 }
 
 export async function evaluateResume(currentData: ResumeData, source: 'app' | 'external' = 'app'): Promise<string> {
@@ -536,12 +501,13 @@ ${JSON.stringify(dataForAi, null, 2)}
         temperature: 0.4,
       })
     });
-    if (!response.ok) throw new Error("Erro");
+    
+    if (!response.ok) throw new Error("Erro na API da Groq");
     const rawResult = await response.json();
 
     return rawResult.choices?.[0]?.message?.content || "Avaliação não disponível.";
   } catch (e) {
     console.error("Erro ao avaliar currículo", e);
-    throw new Error("Falha ao avaliar currículo. Tente novamente.");
+    throw new Error("Falha ao avaliar currículo. Verifique sua chave da API Groq e tente novamente.");
   }
 }
