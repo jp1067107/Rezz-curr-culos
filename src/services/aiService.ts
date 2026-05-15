@@ -327,7 +327,14 @@ ${JSON.stringify(dataForAi, null, 2)}
     });
 
     if (!response.ok) {
-      throw new Error(`Erro da Inteligência Artificial: ${response.status}`);
+      let errText = 'Erro desconhecido';
+      try {
+        const errBody = await response.json();
+        errText = errBody.error || errText;
+      } catch {
+        errText = await response.text();
+      }
+      throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
     }
 
     const rawResult = await response.json();
@@ -377,7 +384,16 @@ ${JSON.stringify({
       })
     });
     
-    if (!response.ok) throw new Error("Erro na API da Groq");
+    if (!response.ok) {
+      let errText = 'Erro desconhecido';
+      try {
+        const errBody = await response.json();
+        errText = errBody.error || errText;
+      } catch {
+        errText = await response.text();
+      }
+      throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
+    }
     
     const rawResult = await response.json();
     const parsedText = rawResult.choices?.[0]?.message?.content || '{"keywords":[]}';
@@ -433,7 +449,16 @@ IMPORTANTE: Você deve retornar SOMENTE O TEXTO DA CARTA. Não adicione observa�
       })
     });
     
-    if (!response.ok) throw new Error("Erro na API da Groq");
+    if (!response.ok) {
+      let errText = 'Erro desconhecido';
+      try {
+        const errBody = await response.json();
+        errText = errBody.error || errText;
+      } catch {
+        errText = await response.text();
+      }
+      throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
+    }
     const rawResult = await response.json();
 
     return rawResult.choices?.[0]?.message?.content || "";
@@ -502,7 +527,16 @@ ${JSON.stringify(dataForAi, null, 2)}
       })
     });
     
-    if (!response.ok) throw new Error("Erro na API da Groq");
+    if (!response.ok) {
+      let errText = 'Erro desconhecido';
+      try {
+        const errBody = await response.json();
+        errText = errBody.error || errText;
+      } catch {
+        errText = await response.text();
+      }
+      throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
+    }
     const rawResult = await response.json();
 
     return rawResult.choices?.[0]?.message?.content || "Avaliação não disponível.";
