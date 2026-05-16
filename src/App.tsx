@@ -12,7 +12,7 @@ import { CoverLetterPreview } from './components/CoverLetterPreview';
 import { extractResumeDataFromFiles, extractInternalResumeData } from './services/aiService';
 import { auth, signInWithGoogle, signOut, saveResume, loadResumes, deleteResume, ResumeDoc, checkPremiumPrivilege } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown, Trash2, Highlighter, BarChart } from 'lucide-react';
+import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown, Trash2, Highlighter, BarChart, Upload } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 import { v4 as uuidv4 } from 'uuid';
@@ -442,7 +442,15 @@ function MainApp() {
     await generatePdf();
   };
 
-  const generateCoverLetterPdf = async () => {
+    const handleDownloadDraftClick = async () => {
+    if (!isResumeWellFormed()) {
+      setIsInsufficientDataModalOpen(true);
+      return;
+    }
+    await generatePdf(true);
+  };
+
+  const generateCoverLetterPdf = async (isDraft: boolean = false) => {
     if (!coverLetterRef.current) return;
     
     // Dynamically import
@@ -478,24 +486,62 @@ function MainApp() {
 
       const element = coverLetterRef.current;
 
-      const canvas = await html2canvas(element, {
-        scale: 1.5, // High resolution
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: 794,
-        windowWidth: 1024,
-        onclone: (clonedDoc) => {
-          const allElements = clonedDoc.querySelectorAll('*');
-          allElements.forEach((el) => {
-            const htmlEl = el as HTMLElement;
-            htmlEl.style.fontVariantLigatures = 'none';
-            htmlEl.style.textRendering = 'optimizeLegibility';
-            htmlEl.style.wordBreak = 'break-word';
-          });
+      const fileName = data.personalInfo.fullName 
+        ? `${data.personalInfo.fullName.replace(/\s+/g, '_')}_Carta_Apresentacao.pdf` 
+        : 'Carta_Apresentacao.pdf';
+
+      const html2pdf = (await import('html2pdf.js')).default;
+      const opt = {
+        margin: 0,
+        filename:     fileName,
+        image:        { type: 'jpeg', quality: 1 },
+        html2canvas:  { 
+          scale: 2, 
+          useCORS: true, 
+          allowTaint: false, 
+          logging: false,
+          width: 794,
+          windowWidth: 1024,
+          onclone: (clonedDoc: any) => {
+            const allElements = clonedDoc.querySelectorAll('*');
+            allElements.forEach((el: any) => {
+              if (el instanceof window.HTMLElement) {
+                el.style.fontVariantLigatures = 'none';
+                /* Removed optimizeLegibility */
+                // word break
+                if (el.tagName.toLowerCase() !== 'i' && el.tagName.toLowerCase() !== 'svg') {
+                  el.style.wordBreak = 'break-word';
+                }
+              }
+            });
+          }
+        },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: ['css', 'legacy'], avoid: '.page-break-avoid' }
+      };
+
+      await html2pdf().from(element).set(opt).toPdf().get('pdf').then((pdf: any) => {
+        pdf.setFontSize(0.1);
+        pdf.setTextColor(255, 255, 255);
+        const textToEmbed = "REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+        const textLines = pdf.splitTextToSize(textToEmbed, pdf.internal.pageSize.getWidth() - 2);
+        pdf.text(textLines, -5000, -5000);
+
+        if (isDraft) {
+          const totalPages = pdf.internal.getNumberOfPages();
+          for (let i = 1; i <= totalPages; i++) {
+            pdf.setPage(i);
+            pdf.saveGraphicsState();
+            pdf.setGState(new pdf.GState({opacity: 0.25}));
+            pdf.setTextColor(100, 100, 100);
+            pdf.setFontSize(80);
+            pdf.text("AMOSTRA", 105, 140, { angle: 45, align: "center" });
+            pdf.setFontSize(40);
+            pdf.text("NÃO É A VERSÃO FINAL", 105, 170, { angle: 45, align: "center" });
+            pdf.restoreGraphicsState();
+          }
         }
-      });
+      }).save(isDraft ? "Amostra_" + fileName : fileName);
 
       // Restore the original layout
       if (wrapperElement) {
@@ -507,46 +553,6 @@ function MainApp() {
           if (wrapperElement) wrapperElement.style.transition = originalTransition;
         }, 50);
       }
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.8);
-      
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      const pageHeight = pdf.internal.pageSize.getHeight();
-
-      let heightLeft = pdfHeight;
-      let position = 0;
-      
-      // Hidden data to make it detectable by our ATS scanner/evaluator
-      pdf.setFontSize(2);
-      pdf.setTextColor(255, 255, 255);
-      const textToEmbed = "REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-      const textLines = pdf.splitTextToSize(textToEmbed, pdfWidth - 2);
-      pdf.text(textLines, 1, 1);
-
-      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pageHeight;
-
-      // Adiciona nova página apenas se sobrar um conteúdo significativo (evitar página extra em branco)
-      while (heightLeft > 2) {
-        position = position - pageHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
-      }
-      
-      const fileName = data.personalInfo.fullName 
-        ? `${data.personalInfo.fullName.replace(/\s+/g, '_')}_Carta_Apresentacao.pdf` 
-        : 'Carta_Apresentacao.pdf';
-        
-      pdf.save(fileName);
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Erro ao gerar PDF. Tente novamente mais tarde.');
@@ -596,7 +602,7 @@ function MainApp() {
       const canvas = await html2canvas(element, {
         scale: 2, // High resolution
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
         logging: false,
         backgroundColor: '#ffffff',
         width: 794,
@@ -604,10 +610,12 @@ function MainApp() {
         onclone: (clonedDoc) => {
           const allElements = clonedDoc.querySelectorAll('*');
           allElements.forEach((el) => {
-            const htmlEl = el as HTMLElement;
-            htmlEl.style.fontVariantLigatures = 'none';
-            htmlEl.style.textRendering = 'optimizeLegibility';
-            htmlEl.style.wordBreak = 'break-word';
+            if (el instanceof HTMLElement) {
+              const htmlEl = el as HTMLElement;
+              htmlEl.style.fontVariantLigatures = 'none';
+              htmlEl.style.textRendering = 'optimizeLegibility';
+              htmlEl.style.wordBreak = 'break-word';
+            }
           });
         }
       });
@@ -643,7 +651,7 @@ function MainApp() {
     }
   };
 
-  const generatePdf = async () => {
+  const generatePdf = async (isDraft: boolean = false) => {
     if (!componentRef.current || !containerRef.current) return;
     
     // Dynamically import
@@ -679,24 +687,63 @@ function MainApp() {
 
       const element = componentRef.current;
 
-      const canvas = await html2canvas(element, {
-        scale: 2, // High resolution
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: 794,
-        windowWidth: 1024,
-        onclone: (clonedDoc) => {
-          const allElements = clonedDoc.querySelectorAll('*');
-          allElements.forEach((el) => {
-            const htmlEl = el as HTMLElement;
-            htmlEl.style.fontVariantLigatures = 'none';
-            htmlEl.style.textRendering = 'optimizeLegibility';
-            htmlEl.style.wordBreak = 'break-word';
-          });
+      const fileName = data.personalInfo.fullName 
+        ? `${data.personalInfo.fullName.replace(/\s+/g, '_')}_Curriculo.pdf` 
+        : 'Curriculo.pdf';
+
+      // Use html2pdf instead of manual slicing
+      const html2pdf = (await import('html2pdf.js')).default;
+      const opt = {
+        margin: 0,
+        filename:     fileName,
+        image:        { type: 'jpeg', quality: 1 },
+        html2canvas:  { 
+          scale: 2, 
+          useCORS: true, 
+          allowTaint: false, 
+          logging: false,
+          width: 794,
+          windowWidth: 1024,
+          onclone: (clonedDoc: any) => {
+            const allElements = clonedDoc.querySelectorAll('*');
+            allElements.forEach((el: any) => {
+              if (el instanceof window.HTMLElement) {
+                el.style.fontVariantLigatures = 'none';
+                /* Removed optimizeLegibility */
+                // word break
+                if (el.tagName.toLowerCase() !== 'i' && el.tagName.toLowerCase() !== 'svg') {
+                  el.style.wordBreak = 'break-word';
+                }
+              }
+            });
+          }
+        },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: ['css', 'legacy'], avoid: '.page-break-avoid' }
+      };
+
+      await html2pdf().from(element).set(opt).toPdf().get('pdf').then((pdf: any) => {
+        pdf.setFontSize(0.1);
+        pdf.setTextColor(255, 255, 255);
+        const textToEmbed = "REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+        const textLines = pdf.splitTextToSize(textToEmbed, pdf.internal.pageSize.getWidth() - 2);
+        pdf.text(textLines, -5000, -5000);
+
+        if (isDraft) {
+          const totalPages = pdf.internal.getNumberOfPages();
+          for (let i = 1; i <= totalPages; i++) {
+            pdf.setPage(i);
+            pdf.saveGraphicsState();
+            pdf.setGState(new pdf.GState({opacity: 0.25}));
+            pdf.setTextColor(100, 100, 100);
+            pdf.setFontSize(80);
+            pdf.text("AMOSTRA", 105, 140, { angle: 45, align: "center" });
+            pdf.setFontSize(40);
+            pdf.text("NÃO É A VERSÃO FINAL", 105, 170, { angle: 45, align: "center" });
+            pdf.restoreGraphicsState();
+          }
         }
-      });
+      }).save(isDraft ? "Amostra_" + fileName : fileName);
 
       // Restore the original layout
       if (wrapperElement) {
@@ -708,49 +755,9 @@ function MainApp() {
           if (wrapperElement) wrapperElement.style.transition = originalTransition;
         }, 50);
       }
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.8);
-      
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      const pageHeight = pdf.internal.pageSize.getHeight();
-
-      let heightLeft = pdfHeight;
-      let position = 0;
-      
-      // Hidden data to make it detectable by our ATS scanner/evaluator
-      pdf.setFontSize(2);
-      pdf.setTextColor(255, 255, 255);
-      const textToEmbed = "REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-      const textLines = pdf.splitTextToSize(textToEmbed, pdfWidth - 2);
-      pdf.text(textLines, 1, 1);
-
-      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pageHeight;
-
-      // Adiciona nova página apenas se sobrar um conteúdo significativo (evitar página extra em branco)
-      while (heightLeft > 2) {
-        position = position - pageHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
-      }
-      
-      const fileName = data.personalInfo.fullName 
-        ? `${data.personalInfo.fullName.replace(/\s+/g, '_')}_Curriculo.pdf` 
-        : 'Curriculo.pdf';
-        
-      pdf.save(fileName);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating PDF:', error);
-      alert('Erro ao gerar PDF. Tente novamente mais tarde.');
+      alert('Erro ao gerar Currículo (PDF): ' + (error?.message || String(error)));
     } finally {
       setIsProcessing(false);
     }
@@ -758,6 +765,7 @@ function MainApp() {
 
   // Calculate scaling for the preview to fit nicely on the screen
   const [scale, setScale] = useState(1);
+  const [previewHeight, setPreviewHeight] = useState(1123);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const evaluateFileInputRef = useRef<HTMLInputElement>(null);
@@ -802,6 +810,13 @@ function MainApp() {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState<string | null>(null);
   const [lastEnhancedLength, setLastEnhancedLength] = useState<number | null>(null);
+  
+  const [isAiEditModalOpen, setIsAiEditModalOpen] = useState(false);
+  const [aiEditPrompt, setAiEditPrompt] = useState('');
+  const [aiEditFiles, setAiEditFiles] = useState<FileList | null>(null);
+  const aiEditFileInputRef = useRef<HTMLInputElement>(null);
+  const [isAiEditing, setIsAiEditing] = useState(false);
+  const isAdmin = user?.email === 'jp1067107@gmail.com';
 
   const handleEvaluateFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -855,8 +870,24 @@ function MainApp() {
     window.addEventListener('resize', updateScale);
     // Add a slight delay to recalculate after layout changes (e.g. mobile view toggle)
     setTimeout(updateScale, 50);
-    return () => window.removeEventListener('resize', updateScale);
-  }, [mobileView]);
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (componentRef.current) {
+      resizeObserver = new ResizeObserver((entries) => {
+        for (let entry of entries) {
+          setPreviewHeight(Math.max(1123, entry.contentRect.height));
+        }
+      });
+      resizeObserver.observe(componentRef.current);
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateScale);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
+  }, [mobileView, data, template]);
 
   const handleAiImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -919,15 +950,33 @@ function MainApp() {
     }
   };
 
+  const handleAiEditSubmit = async () => {
+    if (!aiEditPrompt.trim()) return;
+    try {
+      setIsAiEditing(true);
+      const { editResumeWithAI } = await import('./services/aiService');
+      const newData = await editResumeWithAI(data, aiEditPrompt, aiEditFiles);
+      setData(newData);
+      setIsAiEditModalOpen(false);
+      setAiEditPrompt('');
+      setAiEditFiles(null);
+    } catch (error: any) {
+      alert(error.message || 'Falha ao editar currículo com IA.');
+    } finally {
+      setIsAiEditing(false);
+    }
+  };
+
   const returnToEditor = () => {
     setAppState(unlockedConfigs.some(cfg => cfg.startsWith(`${currentResumeId}_`)) ? 'purchased-view' : 'editor');
   };
 
   const templateNames = {
     modern: 'Moderno',
-    classic: 'Clássico',
+    classic: 'ATS (RH)',
     minimal: 'Minimalista',
-    creative: 'Criativo'
+    creative: 'Criativo',
+    executive: 'Executivo (Única Coluna)'
   };
 
   const purchasedResumes = (() => {
@@ -1381,7 +1430,7 @@ function MainApp() {
       )}
 
       {appState === 'purchased-view' && (() => {
-        const _templates: TemplateType[] = ['modern', 'classic', 'minimal', 'creative'];
+        const _templates: TemplateType[] = ['modern', 'classic', 'minimal', 'creative', 'executive'];
         const purchasedTemplates = isPremium ? _templates : _templates.filter(t => unlockedConfigs.includes(`${currentResumeId}_${t}`));
         
         return (
@@ -1408,14 +1457,23 @@ function MainApp() {
               </div>
 
               {/* Mobile Download Button (Visible only on small screens) */}
-              <button
-                onClick={handleDownloadClick}
-                className="flex lg:hidden items-center justify-center gap-2 px-5 py-2 bg-emerald-600 shadow-md shadow-emerald-500/30 font-bold text-white hover:bg-emerald-500 rounded-xl transition-all"
-                title="Exportar PDF"
-              >
-                <Download className="w-4 h-4" />
-                <span className="text-sm">Exportar</span>
-              </button>
+              <div className="flex lg:hidden items-center gap-2">
+                <button
+                  onClick={handleDownloadDraftClick}
+                  className="flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 border border-white/10 text-slate-300 hover:bg-slate-700 font-bold rounded-xl transition-all"
+                  title="Baixar Amostra"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleDownloadClick}
+                  className="flex items-center justify-center gap-2 px-5 py-2 bg-emerald-600 shadow-md shadow-emerald-500/30 font-bold text-white hover:bg-emerald-500 rounded-xl transition-all"
+                  title="Exportar PDF"
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="text-sm">Exportar</span>
+                </button>
+              </div>
             </div>
 
             <div className="flex w-full lg:w-auto items-center justify-between lg:justify-end gap-2 sm:gap-3 relative z-10">
@@ -1455,6 +1513,15 @@ function MainApp() {
                   <span className="inline">Carta Profissional</span>
                 </button>
               )}
+
+                            <button
+                onClick={handleDownloadDraftClick}
+                className="hidden lg:flex items-center gap-2 px-4 sm:px-6 py-2 bg-slate-800 border border-white/10 hover:border-white/20 text-slate-300 text-sm font-bold rounded-xl transition-all"
+                title="Baixar versão de amostra com marca d'água para mostrar ao cliente"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Baixar Amostra</span>
+              </button>
 
               <button
                 onClick={handleDownloadClick}
@@ -1502,7 +1569,7 @@ function MainApp() {
 
 
               <div className="flex-1 overflow-y-auto flex items-start justify-center pb-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent rounded-lg" ref={containerRef}>
-                <div style={{ height: 1122.52 * scale, width: 794 * scale }} className="flex justify-center transition-all duration-300">
+                <div style={{ height: previewHeight * scale, width: 794 * scale }} className="flex justify-center transition-all duration-300">
                   <div 
                     style={{ transform: `scale(${scale})`, transformOrigin: 'top center' }}
                     className="shadow-2xl rounded-sm transition-all duration-300 bg-white text-slate-900 ring-1 ring-black/5 shrink-0"
@@ -1688,14 +1755,23 @@ function MainApp() {
             
           </div>
 
-          <button
-            onClick={handleDownloadClick}
-            className="flex lg:hidden items-center justify-center gap-2 px-5 py-2 bg-emerald-600 shadow-md shadow-emerald-500/30 font-bold text-white hover:bg-emerald-500 rounded-xl transition-all"
-            title="Exportar PDF"
-          >
-            <Download className="w-4 h-4" />
-            <span className="text-sm">Exportar</span>
-          </button>
+          <div className="flex lg:hidden items-center gap-2">
+            <button
+              onClick={handleDownloadDraftClick}
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 border border-white/10 text-slate-300 hover:bg-slate-700 font-bold rounded-xl transition-all"
+              title="Baixar Amostra"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleDownloadClick}
+              className="flex items-center justify-center gap-2 px-5 py-2 bg-emerald-600 shadow-md shadow-emerald-500/30 font-bold text-white hover:bg-emerald-500 rounded-xl transition-all"
+              title="Exportar PDF"
+            >
+              <Download className="w-4 h-4" />
+              <span className="text-sm">Exportar</span>
+            </button>
+          </div>
         </div>
         
         <div className="flex flex-col sm:flex-row gap-3 items-center w-full lg:w-auto pt-2 lg:pt-0">
@@ -1738,6 +1814,14 @@ function MainApp() {
             </button>
 
             <div className="w-px h-6 bg-white/10 mx-1 hidden sm:block"></div>
+
+            <button
+              onClick={handleDownloadDraftClick}
+              className="hidden lg:flex items-center justify-center gap-2 px-6 py-2 bg-slate-800 border border-white/10 hover:border-white/20 text-slate-300 text-sm font-bold rounded-xl transition-all shrink-0"
+              title="Baixar versão de amostra para cliente"
+            >
+              <Download className="w-4 h-4" /> <span className="whitespace-nowrap">Baixar Amostra</span>
+            </button>
 
             <button
               onClick={handleDownloadClick}
@@ -1804,6 +1888,17 @@ function MainApp() {
                 {isPrompting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Wand2 className="w-4 h-4 shrink-0" />}
                 <span className="whitespace-nowrap">{isPrompting ? "Aprimorando..." : dataBeforeAI ? "Desfazer IA" : "Aprimorar com IA"}</span>
               </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setIsAiEditModalOpen(true)}
+                  disabled={!hasActiveResume}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-pink-500/20 border border-pink-500/50 hover:bg-pink-500/40 text-pink-200 text-sm font-bold rounded-xl transition-all shadow-sm shrink-0"
+                  title="Editar currículo usando IA (Apenas Admins)"
+                >
+                  <Edit2 className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">Editar (Admin)</span>
+                </button>
+              )}
               <button
                 onClick={() => {
                   if (fileInputRef.current) {
@@ -1836,7 +1931,7 @@ function MainApp() {
           </div>
 
           <div className="flex items-center justify-between p-1 bg-slate-900 border border-white/10 rounded-xl shrink-0 w-full mb-4 overflow-x-auto">
-            {(['modern', 'classic', 'minimal', 'creative'] as const).map(t => (
+            {(['modern', 'classic', 'minimal', 'creative', 'executive'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTemplate(t as TemplateType)}
@@ -1872,10 +1967,21 @@ function MainApp() {
               {isPrompting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Wand2 className="w-4 h-4 shrink-0" />}
               <span className="whitespace-nowrap">{isPrompting ? "Aprimorando..." : dataBeforeAI ? "Desfazer IA" : "Aprimorar com IA"}</span>
             </button>
+            {isAdmin && (
+              <button
+                onClick={() => setIsAiEditModalOpen(true)}
+                disabled={!hasActiveResume}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-pink-500/20 border border-pink-500/50 hover:bg-pink-500/40 text-pink-200 text-sm font-bold rounded-xl transition-all shadow-sm mt-2"
+                title="Editar currículo usando IA (Apenas Admins)"
+              >
+                <Edit2 className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">Editar (Admin)</span>
+              </button>
+            )}
           </div>
           
           <div className="flex-1 overflow-y-auto flex justify-center items-start pt-2 lg:pt-0 pb-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent rounded-lg" ref={containerRef}>
-            <div style={{ height: 1122.52 * scale, width: 794 * scale }} className="flex justify-center transition-all duration-300">
+            <div style={{ height: previewHeight * scale, width: 794 * scale }} className="flex justify-center transition-all duration-300">
               <div 
                 style={{ 
                   transform: `scale(${scale})`, 
@@ -1978,6 +2084,96 @@ function MainApp() {
                >
                  Continuar Editando
                </button>
+            </div>
+          </div>
+        )}
+
+        {isAiEditModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col p-6 animate-in fade-in zoom-in duration-300">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <Edit2 className="w-5 h-5 text-pink-500" /> Editar via Prompt (Admin)
+                </h3>
+                <button onClick={() => {
+                  setIsAiEditModalOpen(false);
+                  setAiEditFiles(null);
+                }} className="text-slate-400 hover:text-slate-600">
+                  ✕
+                </button>
+              </div>
+              <p className="text-sm text-slate-600 mb-4">
+                Descreva exatamente o que deseja alterar, adicionar ou remover do currículo atual. Apenas Admins possuem acesso a essa função.
+              </p>
+              <textarea
+                value={aiEditPrompt}
+                onChange={(e) => setAiEditPrompt(e.target.value)}
+                placeholder="Exemplo: Adicione 'Inglês Fluente' na seção de Idiomas, ou converta o resumo profissional para Espanhol..."
+                className="w-full h-32 p-3 text-sm border border-slate-300 rounded-lg resize-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none mb-4 text-slate-800"
+                disabled={isAiEditing}
+              ></textarea>
+              
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Informações Adicionais (Opcional)</label>
+                <div 
+                  onClick={() => !isAiEditing && aiEditFileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center transition-colors cursor-pointer
+                    ${aiEditFiles && aiEditFiles.length > 0 ? 'border-pink-500/50 bg-pink-50/50' : 'border-slate-300 hover:border-pink-400 hover:bg-slate-50'}
+                    ${isAiEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <input 
+                    type="file" 
+                    ref={aiEditFileInputRef} 
+                    className="hidden" 
+                    multiple
+                    accept=".pdf,image/*" 
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        setAiEditFiles(e.target.files);
+                      }
+                    }} 
+                    disabled={isAiEditing}
+                  />
+                  {aiEditFiles && aiEditFiles.length > 0 ? (
+                    <div className="text-center">
+                      <p className="text-sm font-bold text-pink-600">{aiEditFiles.length} arquivo(s) selecionado(s)</p>
+                      <p className="text-xs text-slate-500 mt-1 truncate max-w-[200px]">{Array.from(aiEditFiles).map(f => f.name).join(', ')}</p>
+                      <button onClick={(e) => {
+                        e.stopPropagation();
+                        setAiEditFiles(null);
+                        if(aiEditFileInputRef.current) aiEditFileInputRef.current.value = '';
+                      }} className="text-xs text-slate-400 hover:text-slate-600 mt-2 font-medium">Remover Arquivos</button>
+                    </div>
+                  ) : (
+                    <div className="text-center text-slate-500">
+                      <Upload className="w-6 h-6 mx-auto mb-2 text-slate-400" />
+                      <p className="text-sm font-medium">Anexar imagens ou PDF</p>
+                      <p className="text-xs mt-1">Para embasar a alteração</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setIsAiEditModalOpen(false);
+                    setAiEditFiles(null);
+                  }}
+                  disabled={isAiEditing}
+                  className="px-4 py-2 font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleAiEditSubmit}
+                  disabled={isAiEditing || !aiEditPrompt.trim()}
+                  className="flex items-center gap-2 px-6 py-2 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-all shadow-md"
+                >
+                  {isAiEditing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {isAiEditing ? 'Aplicando...' : 'Aplicar Alterações'}
+                </button>
+              </div>
             </div>
           </div>
         )}

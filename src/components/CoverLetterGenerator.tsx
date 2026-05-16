@@ -6,7 +6,7 @@ import { Loader2, Wand2, Copy } from 'lucide-react';
 interface Props {
   data: ResumeData;
   setData: React.Dispatch<React.SetStateAction<ResumeData>>;
-  onDownloadPdf: () => void;
+  onDownloadPdf: (isDraft?: boolean) => void;
 }
 
 export function CoverLetterGenerator({ data, setData, onDownloadPdf }: Props) {
@@ -153,19 +153,28 @@ export function CoverLetterGenerator({ data, setData, onDownloadPdf }: Props) {
           <button 
             onClick={copyToClipboard}
             disabled={!data.coverLetter}
-            className="w-full sm:w-1/2 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-xl transition-colors border border-white/5 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-xl transition-colors border border-white/5 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Copy className="w-4 h-4" />
-            <span>Copiar Carta de Apresentação</span>
+            <span className="whitespace-nowrap">Copiar Carta</span>
           </button>
           
           <button 
-            onClick={onDownloadPdf}
+            onClick={() => onDownloadPdf(true)}
             disabled={!data.coverLetter}
-            className="w-full sm:w-1/2 px-6 py-3 bg-purple-600 hover:bg-purple-500 shadow-lg shadow-purple-600/30 text-white font-medium rounded-xl transition-colors active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:flex-1 px-4 py-3 bg-slate-800 border border-white/10 hover:border-white/20 text-slate-300 font-medium rounded-xl transition-colors active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Wand2 className="w-4 h-4" />
-            <span>Baixar PDF Premium</span>
+            <span className="whitespace-nowrap">Baixar Amostra</span>
+          </button>
+
+          <button 
+            onClick={() => onDownloadPdf()}
+            disabled={!data.coverLetter}
+            className="w-full sm:flex-1 px-4 py-3 bg-purple-600 hover:bg-purple-500 shadow-lg shadow-purple-600/30 text-white font-medium rounded-xl transition-colors active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Wand2 className="w-4 h-4" />
+            <span className="whitespace-nowrap text-xs sm:text-sm">Baixar PDF Premium</span>
           </button>
         </div>
       </div>

@@ -196,11 +196,12 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
 
       if (!response.ok) {
         let errText = 'Erro desconhecido';
+        const rawErrText = await response.text();
         try {
-          const errBody = await response.json();
-          errText = errBody.error || errText;
+          const errBody = JSON.parse(rawErrText);
+          errText = errBody.error || rawErrText;
         } catch {
-          errText = await response.text();
+          errText = rawErrText;
         }
         throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
       }
@@ -233,7 +234,7 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
 
     const requestBody = {
       model: "gemini-2.5-flash",
-      contents: { parts: contentParts },
+      contents: [{ role: "user", parts: contentParts }],
       config: {
         systemInstruction: selectedSystemPrompt,
         temperature: 0.5,
@@ -249,11 +250,12 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
 
     if (!response.ok) {
       let errText = 'Erro desconhecido';
+      const rawErrText = await response.text();
       try {
-        const errBody = await response.json();
-        errText = errBody.error || errText;
+        const errBody = JSON.parse(rawErrText);
+        errText = errBody.error || rawErrText;
       } catch {
-        errText = await response.text();
+        errText = rawErrText;
       }
       throw new Error(`Erro da Inteligência Artificial Gemini (${response.status}): ${errText}`);
     }
@@ -395,11 +397,12 @@ ${JSON.stringify(dataForAi, null, 2)}
 
     if (!response.ok) {
       let errText = 'Erro desconhecido';
+      const rawErrText = await response.text();
       try {
-        const errBody = await response.json();
-        errText = errBody.error || errText;
+        const errBody = JSON.parse(rawErrText);
+        errText = errBody.error || rawErrText;
       } catch {
-        errText = await response.text();
+        errText = rawErrText;
       }
       throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
     }
@@ -454,11 +457,12 @@ ${JSON.stringify({
     
     if (!response.ok) {
       let errText = 'Erro desconhecido';
+      const rawErrText = await response.text();
       try {
-        const errBody = await response.json();
-        errText = errBody.error || errText;
+        const errBody = JSON.parse(rawErrText);
+        errText = errBody.error || rawErrText;
       } catch {
-        errText = await response.text();
+        errText = rawErrText;
       }
       throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
     }
@@ -520,11 +524,12 @@ IMPORTANTE: Você deve retornar SOMENTE O TEXTO DA CARTA. Não adicione observa�
     
     if (!response.ok) {
       let errText = 'Erro desconhecido';
+      const rawErrText = await response.text();
       try {
-        const errBody = await response.json();
-        errText = errBody.error || errText;
+        const errBody = JSON.parse(rawErrText);
+        errText = errBody.error || rawErrText;
       } catch {
-        errText = await response.text();
+        errText = rawErrText;
       }
       throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
     }
@@ -599,11 +604,12 @@ ${JSON.stringify(dataForAi, null, 2)}
     
     if (!response.ok) {
       let errText = 'Erro desconhecido';
+      const rawErrText = await response.text();
       try {
-        const errBody = await response.json();
-        errText = errBody.error || errText;
+        const errBody = JSON.parse(rawErrText);
+        errText = errBody.error || rawErrText;
       } catch {
-        errText = await response.text();
+        errText = rawErrText;
       }
       throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
     }
@@ -613,5 +619,143 @@ ${JSON.stringify(dataForAi, null, 2)}
   } catch (e) {
     console.error("Erro ao avaliar currículo", e);
     throw new Error("Falha ao avaliar currículo. Verifique sua chave da API Groq e tente novamente.");
+  }
+}
+
+export async function editResumeWithAI(currentData: ResumeData, editPrompt: string, files?: FileList | File[] | null): Promise<ResumeData> {
+  let hasImage = false;
+  let allPdfText = "";
+  const base64Images: { mimeType: string, data: string }[] = [];
+
+  if (files && files.length > 0) {
+    const fileArray = Array.from(files);
+    for (const file of fileArray) {
+      if (file.type.includes('pdf')) {
+        allPdfText += `[Conteúdo do arquivo PDF ${file.name}]:\n${await extractTextFromPdf(file)}\n\n`;
+      } else if (file.type.includes('image')) {
+        hasImage = true;
+        const base64Data = await fileToBase64(file);
+        base64Images.push({ mimeType: file.type, data: base64Data });
+      } else {
+        throw new Error(`Tipo de arquivo não suportado: ${file.name}. Envie apenas PDF ou imagem.`);
+      }
+    }
+  }
+
+  const MAX_TEXT_LENGTH = 15000;
+  const truncatedPdfText = allPdfText.length > MAX_TEXT_LENGTH ? allPdfText.substring(0, MAX_TEXT_LENGTH) + "\n...[TEXTO TRUNCADO]" : allPdfText;
+  const filesContext = allPdfText ? `\n\nTexto Extraído dos Arquivos Anexos:\n${truncatedPdfText}\n` : '';
+
+  const modelPrompt = `
+    Você é um especialista em reestruturação de currículos. Foi fornecido o currículo atual em JSON e uma instrução do usuário (admin) para alterá-lo.
+    Retorne o novo currículo atualizado, mantendo a estrutura exata do JSON original, apenas modificando o que foi pedido.
+    ${base64Images.length > 0 ? "Considere as imagens fornecidas junto com esse texto de requisição para embasar a alteração." : ""}
+    ${filesContext}
+    
+    Instrução: ${editPrompt}
+
+    JSON Atual:
+    ${JSON.stringify(currentData)}
+  `;
+
+  try {
+    if (hasImage) {
+      const contentParts: any[] = [
+        { text: modelPrompt }
+      ];
+  
+      for (const img of base64Images) {
+        contentParts.push({ 
+          inlineData: { mimeType: img.mimeType, data: img.data } 
+        });
+      }
+  
+      const requestBody = {
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: contentParts }],
+        config: {
+          systemInstruction: "Retorne ESTRITAMENTE um objeto JSON válido. Responda apenas com o JSON na estrutura da interface ResumeData fornecida e nada mais.",
+          temperature: 0.5,
+          responseMimeType: "application/json",
+        }
+      };
+  
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+  
+      if (!response.ok) {
+        let errText = 'Erro desconhecido';
+        const rawErrText = await response.text();
+        try {
+          const errBody = JSON.parse(rawErrText);
+          errText = errBody.error || rawErrText;
+        } catch {
+          errText = rawErrText;
+        }
+        throw new Error(`Erro da Inteligência Artificial Gemini (${response.status}): ${errText}`);
+      }
+  
+      const rawResult = await response.json();
+      const textResponse = rawResult.text || "{}";
+      const rawData = parseJsonResponse(textResponse);
+      const normalizedData = normalizeResponse(rawData);
+      
+      return {
+        ...normalizedData,
+        id: currentData.id,
+        personalInfo: {
+          ...normalizedData.personalInfo,
+          photoUrl: currentData.personalInfo.photoUrl,
+        }
+      };
+    } else {
+      const response = await fetch('/api/groq', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: "Retorne ESTRITAMENTE um objeto JSON válido. Responda apenas com o JSON na estrutura da interface ResumeData fornecida e nada mais. Use a língua solicitada na instrução." },
+            { role: "user", content: modelPrompt }
+          ],
+          temperature: 0.5,
+          max_completion_tokens: 3500,
+          response_format: { type: "json_object" },
+        })
+      });
+
+      if (!response.ok) {
+        let errText = 'Erro desconhecido';
+        const rawErrText = await response.text();
+        try {
+          const errBody = JSON.parse(rawErrText);
+          errText = errBody.error || rawErrText;
+        } catch {
+          errText = rawErrText;
+        }
+        throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
+      }
+
+      const rawResult = await response.json();
+      const parsedText = rawResult.choices?.[0]?.message?.content || "{}";
+      const rawData = parseJsonResponse(parsedText);
+      
+      return {
+        ...normalizeResponse(rawData),
+        id: currentData.id,
+        personalInfo: {
+          ...normalizeResponse(rawData).personalInfo,
+          photoUrl: currentData.personalInfo.photoUrl,
+        }
+      };
+    }
+  } catch (e: any) {
+    console.error("Erro na edição com IA:", e);
+    throw new Error(`Falha ao editar currículo com IA: ${e.message}`);
   }
 }
