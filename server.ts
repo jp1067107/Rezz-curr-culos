@@ -2,8 +2,18 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import * as dotenv from "dotenv";
+import fs from "fs";
 
 dotenv.config();
+
+let systemDefaultKey = "";
+try {
+  if (fs.existsSync("/app/applet/tmp_key.txt")) {
+    systemDefaultKey = fs.readFileSync("/app/applet/tmp_key.txt", "utf8").trim();
+  }
+} catch (e) {
+  // Ignore
+}
 
 async function startServer() {
   const app = express();
@@ -12,17 +22,21 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
 
   app.post("/api/gemini", async (req, res) => {
-    let apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    let apiKey = process.env.CUSTOM_GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
     try {
       const { model, contents, config } = req.body;
 
       if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
-        return res.status(500).json({ 
-          error: "A chave de API configurada no painel de Secrets (GEMINI_API_KEY) está vazia ou incorreta. Vá em 'Settings > Secrets', clique na variável GEMINI_API_KEY e selecione uma chave válida na lista. Se precisar, acesse https://aistudio.google.com/app/apikey para criar uma nova chave." 
-        });
+        if (systemDefaultKey) {
+           apiKey = systemDefaultKey;
+        } else {
+          return res.status(500).json({ 
+            error: "Sua chave não está configurada! Crie a variável CUSTOM_GEMINI_API_KEY no painel 'Settings > Secrets' e cole sua chave gratuita lá, pois o campo padrão não pode ser editado." 
+          });
+        }
       }
 
-      console.log("Using API key in route:", apiKey);
+      console.log("Using API key in route");
       const { GoogleGenAI } = await import("@google/genai");
       const ai = new GoogleGenAI({ apiKey });
 
@@ -37,9 +51,9 @@ async function startServer() {
       console.error(e);
       let errorMsg = e.message;
       if (typeof errorMsg === 'string' && (errorMsg.includes("API key not valid") || errorMsg.includes("expired") || errorMsg.includes("API_KEY_INVALID"))) {
-         errorMsg = "A chave do Gemini (GEMINI_API_KEY) nos Secrets expirou ou é inválida. Vá em 'Settings > Secrets', clique em GEMINI_API_KEY e selecione uma chave válida na lista suspensa (se precisar crie uma em https://aistudio.google.com/app/apikey).";
+         errorMsg = `Sua chave conectada expirou ou foi rejeitada (erro: ${e.message}). Para utilizar uma chave gratuita do Gemini Studio, acesse 'Settings > Secrets', clique em Add Secret, crie uma chave chamada CUSTOM_GEMINI_API_KEY e cole sua chave do Google AI Studio nela.`;
       } else if (typeof errorMsg === 'string' && errorMsg.includes("Quota exceeded")) {
-         errorMsg = "O limite de uso gratuito da sua chave Gemini foi excedido (Quota Exceeded). Por favor aguarde um tempo ou utilize outra chave em 'Settings > Secrets'.";
+         errorMsg = "O limite de uso gratuito da sua chave Gemini foi excedido (Quota Exceeded). Por favor aguarde um tempo ou adicione uma CUSTOM_GEMINI_API_KEY no menu 'Settings > Secrets'.";
       }
       res.status(500).json({ error: errorMsg });
     }

@@ -150,9 +150,9 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
       const parts = allPdfText.split("REZZ_APP_INTERNAL_DATA :::");
       const rawBase64WithJunk = parts[1];
       // Extract ONLY valid base64 characters that come sequentially
-      const match = rawBase64WithJunk.replace(/[\s\r\n]+/g, '').match(/^[A-Za-z0-9+/]+={0,2}/);
+      const match = rawBase64WithJunk.replace(/[\s\r\n]+/g, '').match(/^[A-Za-z0-9+/=]+/);
       if (match) {
-        let cleanBase64 = match[0];
+        let cleanBase64 = match[0].replace(/=+$/, '');
         // Fix missing padding if any
         while (cleanBase64.length % 4 !== 0) {
           cleanBase64 += '=';
@@ -189,6 +189,7 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
             { role: "user", content: userMessage }
           ],
           temperature: 0.5,
+          max_completion_tokens: 3500,
           response_format: { type: "json_object" }
         })
       });
@@ -278,9 +279,9 @@ export async function extractInternalResumeData(file: File): Promise<ResumeData 
     try {
       const parts = text.split("REZZ_APP_INTERNAL_DATA :::");
       const rawBase64WithJunk = parts[1];
-      const match = rawBase64WithJunk.replace(/[\s\r\n]+/g, '').match(/^[A-Za-z0-9+/]+={0,2}/);
+      const match = rawBase64WithJunk.replace(/[\s\r\n]+/g, '').match(/^[A-Za-z0-9+/=]+/);
       if (match) {
-        let cleanBase64 = match[0];
+        let cleanBase64 = match[0].replace(/=+$/, '');
         while (cleanBase64.length % 4 !== 0) {
           cleanBase64 += '=';
         }
@@ -387,6 +388,7 @@ ${JSON.stringify(dataForAi, null, 2)}
           { role: "user", content: modelPrompt }
         ],
         temperature: 0.5,
+        max_completion_tokens: 3000,
         response_format: { type: "json_object" },
       })
     });
@@ -445,6 +447,7 @@ ${JSON.stringify({
           { role: "user", content: modelPrompt }
         ],
         temperature: 0.2,
+        max_completion_tokens: 500,
         response_format: { type: "json_object" },
       })
     });
@@ -511,6 +514,7 @@ IMPORTANTE: Você deve retornar SOMENTE O TEXTO DA CARTA. Não adicione observa�
           { role: "user", content: modelPrompt }
         ],
         temperature: 0.6,
+        max_completion_tokens: 2000,
       })
     });
     
@@ -589,6 +593,7 @@ ${JSON.stringify(dataForAi, null, 2)}
           { role: "user", content: modelPrompt }
         ],
         temperature: 0.4,
+        max_completion_tokens: 2500,
       })
     });
     
