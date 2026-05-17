@@ -543,15 +543,6 @@ function MainApp() {
         width: 794,
         windowWidth: 1024,
         onclone: (clonedDoc) => {
-          const allElements = clonedDoc.querySelectorAll('*');
-          allElements.forEach((el) => {
-            if (el instanceof HTMLElement) {
-              const htmlEl = el as HTMLElement;
-              htmlEl.style.fontVariantLigatures = 'none';
-              htmlEl.style.letterSpacing = '0px';
-              htmlEl.style.wordBreak = 'normal';
-            }
-          });
           const containers = clonedDoc.querySelectorAll('.shadow-lg');
           containers.forEach((c) => {
               if (c instanceof HTMLElement) {
@@ -676,15 +667,6 @@ function MainApp() {
         width: 794,
         windowWidth: 1024,
         onclone: (clonedDoc) => {
-          const allElements = clonedDoc.querySelectorAll('*');
-          allElements.forEach((el) => {
-            if (el instanceof HTMLElement) {
-              const htmlEl = el as HTMLElement;
-              htmlEl.style.fontVariantLigatures = 'none';
-              htmlEl.style.letterSpacing = '0px';
-              htmlEl.style.wordBreak = 'normal';
-            }
-          });
           const containers = clonedDoc.querySelectorAll('.shadow-lg');
           containers.forEach((c) => {
               if (c instanceof HTMLElement) {
@@ -820,15 +802,6 @@ function MainApp() {
         width: 794,
         windowWidth: 1024,
         onclone: (clonedDoc) => {
-          const allElements = clonedDoc.querySelectorAll('*');
-          allElements.forEach((el) => {
-            if (el instanceof HTMLElement) {
-              const htmlEl = el as HTMLElement;
-              htmlEl.style.fontVariantLigatures = 'none';
-              htmlEl.style.letterSpacing = '0px';
-              htmlEl.style.wordBreak = 'normal';
-            }
-          });
           const containers = clonedDoc.querySelectorAll('.shadow-lg');
           containers.forEach((c) => {
               if (c instanceof HTMLElement) {
