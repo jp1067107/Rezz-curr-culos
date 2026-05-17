@@ -489,6 +489,51 @@ function MainApp() {
       const html2canvas = (await import('html2canvas-pro')).default;
       const { jsPDF } = await import('jspdf');
 
+      // Paginator logic: Adds margins to prevent elements from breaking across A4 pages
+      const A4_HEIGHT_PX = 794 * (297 / 210); // ~1122.94px
+      const avoidElements = Array.from(element.querySelectorAll('.page-break-avoid')) as HTMLElement[];
+      const originalMargins = new Map<HTMLElement, string>();
+      
+      let shouldMeasure = true;
+      let iterationCount = 0;
+      
+      while (shouldMeasure && iterationCount < 50) {
+        shouldMeasure = false;
+        iterationCount++;
+        
+        const containerRect = element.getBoundingClientRect();
+        
+        for (const el of avoidElements) {
+          const rect = el.getBoundingClientRect();
+          const topRel = rect.top - containerRect.top;
+          const bottomRel = rect.bottom - containerRect.top;
+          
+          if (topRel < 0 || rect.height === 0) continue;
+          
+          const pageIndexTop = Math.floor((topRel + 2) / A4_HEIGHT_PX);
+          const pageIndexBottom = Math.floor((bottomRel - 2) / A4_HEIGHT_PX);
+          
+          if (pageIndexBottom > pageIndexTop) {
+            // Only push down if element itself is smaller than ~80% of a page
+            if (rect.height < A4_HEIGHT_PX * 0.8) {
+              const pageBoundary = (pageIndexTop + 1) * A4_HEIGHT_PX;
+              let pushAmount = pageBoundary - topRel;
+              pushAmount += 20; 
+              
+              if (!originalMargins.has(el)) {
+                originalMargins.set(el, el.style.marginTop);
+              }
+              
+              const currentMT = parseFloat(window.getComputedStyle(el).marginTop) || 0;
+              el.style.marginTop = (currentMT + pushAmount) + 'px';
+              
+              shouldMeasure = true;
+              break;
+            }
+          }
+        }
+      }
+
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
@@ -573,6 +618,9 @@ function MainApp() {
           if (wrapperElement) wrapperElement.style.transition = originalTransition;
         }, 50);
       }
+      originalMargins.forEach((marginTop, el) => {
+        el.style.marginTop = marginTop;
+      });
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Erro ao gerar PDF. Tente novamente mais tarde.');
@@ -718,6 +766,51 @@ function MainApp() {
       const html2canvas = (await import('html2canvas-pro')).default;
       const { jsPDF } = await import('jspdf');
 
+      // Paginator logic: Adds margins to prevent elements from breaking across A4 pages
+      const A4_HEIGHT_PX = 794 * (297 / 210); // ~1122.94px
+      const avoidElements = Array.from(element.querySelectorAll('.page-break-avoid')) as HTMLElement[];
+      const originalMargins = new Map<HTMLElement, string>();
+      
+      let shouldMeasure = true;
+      let iterationCount = 0;
+      
+      while (shouldMeasure && iterationCount < 50) {
+        shouldMeasure = false;
+        iterationCount++;
+        
+        const containerRect = element.getBoundingClientRect();
+        
+        for (const el of avoidElements) {
+          const rect = el.getBoundingClientRect();
+          const topRel = rect.top - containerRect.top;
+          const bottomRel = rect.bottom - containerRect.top;
+          
+          if (topRel < 0 || rect.height === 0) continue;
+          
+          const pageIndexTop = Math.floor((topRel + 2) / A4_HEIGHT_PX);
+          const pageIndexBottom = Math.floor((bottomRel - 2) / A4_HEIGHT_PX);
+          
+          if (pageIndexBottom > pageIndexTop) {
+            // Only push down if element itself is smaller than ~80% of a page
+            if (rect.height < A4_HEIGHT_PX * 0.8) {
+              const pageBoundary = (pageIndexTop + 1) * A4_HEIGHT_PX;
+              let pushAmount = pageBoundary - topRel;
+              pushAmount += 20; 
+              
+              if (!originalMargins.has(el)) {
+                originalMargins.set(el, el.style.marginTop);
+              }
+              
+              const currentMT = parseFloat(window.getComputedStyle(el).marginTop) || 0;
+              el.style.marginTop = (currentMT + pushAmount) + 'px';
+              
+              shouldMeasure = true;
+              break;
+            }
+          }
+        }
+      }
+
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
@@ -804,6 +897,9 @@ function MainApp() {
           if (wrapperElement) wrapperElement.style.transition = originalTransition;
         }, 50);
       }
+      originalMargins.forEach((marginTop, el) => {
+        el.style.marginTop = marginTop;
+      });
     } catch (error: any) {
       console.error('Error generating PDF:', error);
       alert('Erro ao gerar Currículo (PDF): ' + (error?.message || String(error)));
