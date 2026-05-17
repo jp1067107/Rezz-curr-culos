@@ -188,9 +188,10 @@ REGRAS DE CONTEÚDO E FORMATAÇÃO (CRÍTICAS):
    - Otimizou o processo Y com eficácia.
    - Treinou novos funcionários."
 3. Habilidades: Extraia TODAS as habilidades mencionadas. Use nomes adequados e curtos (ex: "Limpeza de ambientes"). Não omita e nem limite a quantidade de habilidades. Só liste habilidades mapeáveis a partir do currículo. NUNCA INVENTE.
-4. Fidelidade aos dados factuais: NUNCA altere ou invente Nomes de Instituições, Cursos, Empresas, Cargos, Períodos (datas) ou Contatos. Transcreva com fidelidade. Sua liberdade está em apenas MELHORAR a redação das DESCRIÇÕES de atividades para deixá-las persuasivas (sem alterar os fatos reais).
-5. Seções Extras (Customizadas): Se o currículo possuir outras categorias contendo dados (ex: Idiomas, Projetos, Publicações, Certificações), agrupe no campo "customSections", cada seção deve ter "name" (como 'Idiomas') e em 'items', coloque 'title' (o idioma/curso/projeto) e, se aplicável, 'description' (nível ou detalhe). Caso contrário, deixe a lista vazia.
-6. Omitir 'id' de arrays.
+4. Fidelidade aos dados factuais e geográficos: NUNCA altere ou invente Nomes de Instituições, Cursos, Empresas, Cargos, Períodos (datas) ou Contatos. NÃO OMita NENHUM dado geográfico (cidade, estado, região ou filial) da empresa/instituição; mantenha-o. Sua liberdade está apenas em MELHORAR a redação das DESCRIÇÕES (sem alterar fatos).
+5. Fidelidade a datas: NÃO force um padrão visual inventando datas. Se a experiência ou curso fornece apenas um ano isolado (ex: "2020"), NÃO duplique para forçar período contínuo (ex: falso "2020-2020"). Extraia apenas a data ou ano fornecido.
+6. Seções Extras (Customizadas): Se o currículo possuir outras categorias contendo dados (ex: Idiomas, Projetos, Publicações, Certificações), agrupe no campo "customSections", cada seção deve ter "name" (como 'Idiomas') e em 'items', coloque 'title' (o idioma/curso/projeto) e, se aplicável, 'description' (nível ou detalhe). Caso contrário, deixe a lista vazia.
+7. Omitir 'id' de arrays.
 
 Preencha as informações necessárias com textos enxutos. Se alguma informação (como localização, email, telefone) não constar no arquivo(s), deixe a string vazia ("").
 Responda OBRIGATORIAMENTE com um JSON válido correspondente a este schema:
@@ -212,8 +213,10 @@ Seu trabalho é extrair EXATAMENTE as informações contidas na imagem ou PDF e 
 REGRAS (CRÍTICAS):
 1. NUNCA resuma, MELHORE ou altere o texto. Transcreva exatamente as descrições originais do currículo.
 2. Divida textos longos de experiência em "bullet points", mas MANTENHA as palavras EXATAS.
-3. Seções Extras (Customizadas): Se o currículo possuir outras categorias (ex: Idiomas, Projetos, Publicações, Soft Skills, Certificações de TI), agrupe no campo "customSections", cada seção deve ter "name" (como 'Idiomas') e em 'items', coloque 'title' (o idioma/curso/projeto) e 'description'.
-4. Retorne APENAS um JSON válido.
+3. Dados Geográficos: NÃO OMita NENHUM dado geográfico (cidades, estados, filiais) de empresas e cursos.
+4. Datas: NÃO force um padrão visual inventando datas. Se a experiência tiver apenas um ano isolado (ex: "2020"), recuse-se a duplicar a data para forçar um formato "2020-2020". Extraia apenas a data original.
+5. Seções Extras (Customizadas): Se o currículo possuir outras categorias (ex: Idiomas, Projetos, Publicações, Soft Skills, Certificações de TI), agrupe no campo "customSections", cada seção deve ter "name" (como 'Idiomas') e em 'items', coloque 'title' (o idioma/curso/projeto) e 'description'.
+6. Retorne APENAS um JSON válido.
 
 Responda OBRIGATORIAMENTE com um JSON correspondente a este schema:
 {
