@@ -62,7 +62,10 @@ async function callGeminiAPI(requestBody: any) {
       if (!directResponse.ok) {
         const errorText = await directResponse.text();
         if (directResponse.status === 429 || errorText.toLowerCase().includes("quota")) {
-           throw new Error("O limite de uso gratuito da sua chave Gemini foi excedido (429). Aguarde alguns instantes ou adicione sua própria CUSTOM_GEMINI_API_KEY no menu 'Settings > Secrets'.");
+           throw new Error("O limite de uso gratuito da sua chave Gemini foi excedido (429). Aguarde alguns instantes ou adicione sua própria VITE_GEMINI_API_KEY nas variáveis de ambiente da sua hospedagem.");
+        }
+        if (directResponse.status === 400 && (errorText.includes("API key not valid") || errorText.includes("API_KEY_INVALID"))) {
+           throw new Error(`A chave da API fornecida no frontend é inválida (400). Parece que você publicou seu aplicativo externamente. Você precisa configurar a variável de ambiente (Environment Variable) VITE_GEMINI_API_KEY com sua chave de API do Gemini Studio (produção/hospedagem) no painel do Cloudflare/Versel/etc.`);
         }
         throw new Error(`Erro da API Direta do Gemini (${directResponse.status}): ${errorText}`);
       }
