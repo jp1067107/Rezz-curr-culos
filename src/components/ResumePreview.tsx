@@ -113,7 +113,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
   };
 
   const renderModern = () => (
-    <div className="relative font-sans text-[#1f2937] bg-[#ffffff] w-[794px] min-h-[1123px] shadow-lg rounded-sm mx-auto flex print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-[transparent]">
+    <div className="relative font-sans text-[#1f2937] bg-[#ffffff] w-[794px] min-h-[1122px] shadow-lg rounded-sm mx-auto flex print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-[transparent]">
       <div className="absolute left-0 top-0 bottom-0 w-[30%] bg-[#1e293b] z-0 print:block"></div>
       {/* Sidebar */}
       <div className={`relative z-10 w-[30%] text-[#ffffff] ${t.p} flex flex-col`}>
@@ -142,11 +142,11 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         </div>
 
         {skills.length > 0 && (
-          <div className={`${t.mb} page-break-avoid w-full`}>
-            <h2 className={`${t.h2} font-bold text-[#94a3b8] uppercase ${isDense ? 'mb-2' : 'mb-4'} border-b border-[#334155] pb-1`}>Habilidades</h2>
-            <div className="flex flex-wrap gap-1 w-full">
+          <div className={`${t.mb} w-full`}>
+            <h2 className={`${t.h2} font-bold text-[#94a3b8] uppercase ${isDense ? 'mb-2' : 'mb-4'} border-b border-[#334155] pb-1 page-break-avoid`}>Habilidades</h2>
+            <div className="flex flex-col gap-1.5 w-full">
               {skills.map((skill, index) => (
-                <span key={index} className={`px-2 py-1 bg-[#334155] rounded-sm ${isDense ? 'text-[9.5px]' : 'text-[11px]'} font-medium break-words leading-tight`}>
+                <span key={index} className={`w-full block text-left px-2 py-1.5 bg-[#334155] rounded-sm ${isDense ? 'text-[9.5px]' : 'text-[11px]'} font-medium break-words leading-tight page-break-avoid`}>
                   {skill.name}
                 </span>
               ))}
@@ -155,11 +155,11 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {(data.courses || []).length > 0 && (
-          <div className={`${t.mb} page-break-avoid w-full`}>
-            <h2 className={`${t.h2} font-bold text-[#94a3b8] uppercase ${isDense ? 'mb-2' : 'mb-4'} border-b border-[#334155] pb-1`}>Cursos</h2>
+          <div className={`${t.mb} w-full`}>
+            <h2 className={`${t.h2} font-bold text-[#94a3b8] uppercase ${isDense ? 'mb-2' : 'mb-4'} border-b border-[#334155] pb-1 page-break-avoid`}>Cursos</h2>
             <div className={t.space}>
               {data.courses!.map((course, index) => (
-                <div key={index}>
+                <div key={index} className="page-break-avoid overflow-hidden">
                   <div className={`${t.sidebarSmall} font-bold text-[#ffffff] mb-0.5`}>{course.name}</div>
                   <div className={`text-[10px] ${!isDense && 'text-xs'} text-[#94a3b8]`}>{course.institution}</div>
                 </div>
@@ -257,7 +257,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
   );
 
   const renderClassic = () => (
-    <div className={`font-sans text-[black] bg-[#ffffff] w-[794px] min-h-[1123px] shadow-lg rounded-sm mx-auto ${t.p} print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-[transparent]`}>
+    <div className={`font-sans text-[black] bg-[#ffffff] w-[794px] min-h-[1122px] shadow-lg rounded-sm mx-auto ${t.p} print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-[transparent]`}>
       <div className={`text-center ${isDense ? 'mb-4' : 'mb-6'}`}>
         <h1 className={`${t.name} font-bold uppercase mb-1`}>{personalInfo.fullName || 'Seu Nome'}</h1>
         
@@ -324,20 +324,22 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
       )}
 
       {skills.length > 0 && (
-        <div className={`page-break-avoid w-full ${t.mb}`}>
-          <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1`}>Habilidades e Competências</h2>
-          <p className={`${t.body} leading-relaxed`}>
-            {skills.map(s => s.name).join(', ')}
-          </p>
+        <div className={`w-full ${t.mb}`}>
+          <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1 page-break-avoid`}>Habilidades e Competências</h2>
+          <div className={`${t.body} leading-relaxed flex flex-wrap gap-2`}>
+            {skills.map((s, index) => (
+               <span key={index} className="page-break-avoid inline-block">{s.name}{index < skills.length - 1 ? ',' : ''}</span>
+            ))}
+          </div>
         </div>
       )}
 
       {(data.courses || []).length > 0 && (
-        <div className={`${t.mb} page-break-avoid w-full`}>
-          <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1`}>Cursos Complementares</h2>
+        <div className={`${t.mb} w-full`}>
+          <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1 page-break-avoid`}>Cursos Complementares</h2>
           <div className={isDense ? 'space-y-2' : 'space-y-3'}>
             {data.courses!.map((course, index) => (
-              <div key={index} className="w-full">
+              <div key={index} className="w-full page-break-avoid overflow-hidden">
                 <div className={`font-bold ${isDense ? 'text-[13px]' : isNormal ? 'text-sm' : 'text-base'} mb-0.5`}>{course.name}</div>
                 <div className={`${t.body}`}>{course.institution}</div>
               </div>
@@ -347,11 +349,11 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
       )}
 
       {(data.customSections || []).map((section) => (
-        <div key={section.id} className={`${t.mb} page-break-avoid w-full`}>
-          <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1`}>{section.name}</h2>
+        <div key={section.id} className={`${t.mb} w-full`}>
+          <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1 page-break-avoid`}>{section.name}</h2>
           <div className={isDense ? 'space-y-2' : 'space-y-3'}>
             {section.items.map((item) => (
-              <div key={item.id} className="w-full">
+              <div key={item.id} className="w-full page-break-avoid overflow-hidden">
                 <div className="flex justify-between items-start mb-0.5">
                   <h3 className={`font-bold ${isDense ? 'text-[13px]' : isNormal ? 'text-sm' : 'text-base'} leading-tight`}>{item.title} {item.subtitle && <span>- {item.subtitle}</span>}</h3>
                   {item.date && (
@@ -370,7 +372,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
   );
 
   const renderMinimal = () => (
-    <div className={`font-display text-[#1f2937] bg-[#ffffff] w-[794px] min-h-[1123px] shadow-lg rounded-sm mx-auto ${t.p} flex flex-col print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-[transparent]`}>
+    <div className={`font-display text-[#1f2937] bg-[#ffffff] w-[794px] min-h-[1122px] shadow-lg rounded-sm mx-auto ${t.p} flex flex-col print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-[transparent]`}>
       <div className={`flex items-start justify-between ${isDense ? 'mb-6' : 'mb-8'}`}>
         <div className="max-w-md">
           <h1 className={`${t.name} font-extrabold mb-1.5 tracking-tight`}>{personalInfo.fullName || 'Seu Nome'}</h1>
@@ -395,11 +397,11 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           )}
 
           {skills.length > 0 && (
-            <div className="page-break-avoid w-full">
-              <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-2 tracking-wider`}>Especialidades</h2>
+            <div className="w-full">
+              <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-2 tracking-wider page-break-avoid`}>Especialidades</h2>
               <div className="flex flex-wrap gap-1.5">
                 {skills.map((skill, index) => (
-                  <span key={index} className={`${t.small} font-medium px-1.5 py-0.5 bg-gray-200/50 rounded-sm text-[#374151]`}>{skill.name}</span>
+                  <span key={index} className={`${t.small} font-medium px-1.5 py-0.5 bg-gray-200/50 rounded-sm text-[#374151] page-break-avoid`}>{skill.name}</span>
                 ))}
               </div>
             </div>
@@ -486,7 +488,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
   );
 
   const renderCreative = () => (
-    <div className="relative font-sans text-[#1f2937] bg-[#ffffff] w-[794px] min-h-[1123px] shadow-lg rounded-sm mx-auto flex print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-[transparent]">
+    <div className="relative font-sans text-[#1f2937] bg-[#ffffff] w-[794px] min-h-[1122px] shadow-lg rounded-sm mx-auto flex print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-[transparent]">
       {/* Absolute background covering left sidebar */}
       <div className="absolute left-0 top-0 bottom-0 w-[35%] bg-[#374151] z-0 overflow-hidden print:block">
         <div className="absolute top-0 left-[-20%] w-[140%] h-64 bg-[#fbbf24] z-0 opacity-10" style={{ transform: 'rotate(-10deg) translateY(-20px)' }}></div>
@@ -523,11 +525,11 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         </div>
 
         {education.length > 0 && (
-          <div className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} page-break-avoid w-full relative z-10`}>
-            <h2 className={`${t.sidebarSmall} font-bold text-[#ffffff] uppercase tracking-wider mb-2 border-b border-[#64748b] pb-1`}>Educação</h2>
+          <div className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} w-full relative z-10`}>
+            <h2 className={`${t.sidebarSmall} font-bold text-[#ffffff] uppercase tracking-wider mb-2 border-b border-[#64748b] pb-1 page-break-avoid`}>Educação</h2>
             <div className={isDense ? 'space-y-2' : 'space-y-3'}>
               {education.map((edu, index) => (
-                <div key={index} className="flex relative">
+                <div key={index} className="flex relative page-break-avoid">
                   <div className="absolute left-[3px] top-2 bottom-0 w-px bg-[#64748b]/50"></div>
                   <div className="w-2 h-2 rounded-full bg-[#fbbf24] absolute left-[0px] top-1.5 ring-2 ring-[#374151]"></div>
                   <div className="pl-4">
@@ -544,11 +546,11 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {skills.length > 0 && (
-          <div className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} page-break-avoid w-full relative z-10`}>
-            <h2 className={`${t.sidebarSmall} font-bold text-[#ffffff] uppercase tracking-wider mb-2 border-b border-[#64748b] pb-1`}>Habilidades e<br/>Competências</h2>
+          <div className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} w-full relative z-10`}>
+            <h2 className={`${t.sidebarSmall} font-bold text-[#ffffff] uppercase tracking-wider mb-2 border-b border-[#64748b] pb-1 page-break-avoid`}>Habilidades e<br/>Competências</h2>
             <div className="flex flex-wrap gap-1.5 w-full">
               {skills.map((skill, index) => (
-                <span key={index} className={`px-2 py-1 bg-[#1e293b]/50 border border-[#475569]/50 rounded-sm text-white ${isDense ? 'text-[9px]' : 'text-[10px]'} font-medium break-words leading-tight flex items-center`}>
+                <span key={index} className={`px-2 py-1 bg-[#1e293b]/50 border border-[#475569]/50 rounded-sm text-white ${isDense ? 'text-[9px]' : 'text-[10px]'} font-medium break-words leading-tight flex items-center page-break-avoid`}>
                   <div className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] shrink-0 mr-1.5"></div>
                   {skill.name}
                 </span>
@@ -558,11 +560,11 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {data.courses && data.courses.length > 0 && (
-          <div className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} page-break-avoid w-full relative z-10`}>
-            <h2 className={`${t.sidebarSmall} font-bold text-[#ffffff] uppercase tracking-wider mb-2 border-b border-[#64748b] pb-1`}>Cursos</h2>
+          <div className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} w-full relative z-10`}>
+            <h2 className={`${t.sidebarSmall} font-bold text-[#ffffff] uppercase tracking-wider mb-2 border-b border-[#64748b] pb-1 page-break-avoid`}>Cursos</h2>
             <ul className="space-y-2">
               {data.courses.map((course, index) => (
-                <li key={index} className={`flex items-start gap-2 ${t.sidebarSmall}`}>
+                <li key={index} className={`flex items-start gap-2 ${t.sidebarSmall} page-break-avoid`}>
                    <div className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] shrink-0 mt-1"></div>
                    <div>
                      <div className="font-bold">{course.name}</div>
@@ -575,11 +577,11 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
         
         {data.customSections && data.customSections.map(section => (
-          <div key={section.id} className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} page-break-avoid w-full relative z-10`}>
-            <h2 className={`${t.sidebarSmall} font-bold text-[#ffffff] uppercase tracking-wider mb-2 border-b border-[#64748b] pb-1`}>{section.name}</h2>
+          <div key={section.id} className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} w-full relative z-10`}>
+            <h2 className={`${t.sidebarSmall} font-bold text-[#ffffff] uppercase tracking-wider mb-2 border-b border-[#64748b] pb-1 page-break-avoid`}>{section.name}</h2>
             <div className={isDense ? 'space-y-2' : 'space-y-2.5'}>
               {section.items.map((item, index) => (
-                <div key={index} className={`flex items-start gap-2 ${t.sidebarSmall}`}>
+                <div key={index} className={`flex items-start gap-2 ${t.sidebarSmall} page-break-avoid`}>
                   <div className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] shrink-0 mt-1"></div>
                   <div>
                     <div className="font-bold leading-tight">{item.title} {item.subtitle && <span className="font-normal text-[#cbd5e1]">| {item.subtitle}</span>}</div>
@@ -690,7 +692,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
   );
 
   const renderExecutive = () => (
-    <div className={`font-sans text-[#1f2937] bg-[#ffffff] w-[794px] min-h-[1123px] shadow-lg rounded-sm mx-auto flex flex-col justify-start print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-[transparent]`}>
+    <div className={`font-sans text-[#1f2937] bg-[#ffffff] w-[794px] min-h-[1122px] shadow-lg rounded-sm mx-auto flex flex-col justify-start print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-[transparent]`}>
       <div className={`w-full bg-[#1e293b] text-[#ffffff] px-8 py-6 flex items-center justify-between shrink-0`}>
          <div className="flex-1">
             <h1 className={`${t.name} font-black uppercase mb-1 tracking-tight text-[#ffffff]`}>{personalInfo.fullName || 'Seu Nome'}</h1>
@@ -711,8 +713,8 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
 
       <div className={`px-8 pt-8 pb-6 flex-1 flex flex-col ${t.mb} gap-y-6`}>
         {personalInfo.summary && (
-          <div className="page-break-avoid w-full">
-            <h2 className={`${t.h2} font-black text-[#1e293b] border-b-2 border-[#e5e7eb] uppercase pb-1 mb-2 tracking-wider flex items-center gap-2`}>
+          <div className="w-full">
+            <h2 className={`${t.h2} font-black text-[#1e293b] border-b-2 border-[#e5e7eb] uppercase pb-1 mb-2 tracking-wider flex items-center gap-2 page-break-avoid`}>
                <span className="w-3 h-3 bg-[#fbbf24] inline-block rounded-sm shrink-0"></span>
                Resumo Profissional
             </h2>
@@ -774,14 +776,14 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {skills.length > 0 && (
-          <div className="page-break-avoid w-full">
-            <h2 className={`${t.h2} font-black text-[#1e293b] border-b-2 border-[#e5e7eb] uppercase pb-1 mb-3 tracking-wider flex items-center gap-2`}>
+          <div className="w-full">
+            <h2 className={`${t.h2} font-black text-[#1e293b] border-b-2 border-[#e5e7eb] uppercase pb-1 mb-3 tracking-wider flex items-center gap-2 page-break-avoid`}>
                <span className="w-3 h-3 bg-[#fbbf24] inline-block rounded-sm shrink-0"></span>
                Habilidades
             </h2>
             <div className="flex flex-wrap gap-2">
               {skills.map((s, i) => (
-                 <span key={i} className={`inline-block ${t.small} font-bold text-[#1e293b] bg-[#f1f5f9] px-2 py-1 rounded-md border border-[#e2e8f0]`}>
+                 <span key={i} className={`inline-block ${t.small} font-bold text-[#1e293b] bg-[#f1f5f9] px-2 py-1 rounded-md border border-[#e2e8f0] page-break-avoid`}>
                    {s.name}
                  </span>
               ))}
@@ -834,7 +836,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
   );
 
   const renderCorporate = () => (
-    <div className={`font-sans text-[#1f2937] bg-white w-[794px] min-h-[1123px] shadow-lg rounded-sm mx-auto flex flex-col pt-10 pb-8 px-12 print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-transparent print:p-8 relative`}>
+    <div className={`font-sans text-[#1f2937] bg-white w-[794px] min-h-[1122px] shadow-lg rounded-sm mx-auto flex flex-col pt-10 pb-8 px-12 print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-transparent print:p-8 relative`}>
       
       {/* Top Banner Accent */}
       <div className="absolute top-0 left-0 right-0 h-3 bg-[#0f172a] print:hidden"></div>
@@ -864,8 +866,8 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
 
       <div className="flex flex-col gap-y-7 w-full">
         {personalInfo.summary && (
-          <div className="page-break-avoid">
-            <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest mb-2 flex items-center gap-2`}>
+          <div className="">
+            <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest mb-2 flex items-center gap-2 page-break-avoid`}>
                <span className="w-4 h-4 rounded-sm bg-[#2563eb] inline-block shrink-0"></span> Resumo Profissional
             </h2>
             <p className={`${t.body} text-gray-700 leading-relaxed text-justify pl-6`}>
@@ -926,13 +928,13 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         {(skills.length > 0 || (data.courses && data.courses.length > 0)) && (
           <div className="flex flex-wrap items-start w-full gap-8">
             {skills.length > 0 && (
-              <div className="flex-1 min-w-[250px] page-break-avoid">
-                <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest mb-4 flex items-center gap-2`}>
+              <div className="flex-1 min-w-[250px]">
+                <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest mb-4 flex items-center gap-2 page-break-avoid`}>
                    <span className="w-4 h-4 rounded-sm bg-[#2563eb] inline-block shrink-0"></span> Competências
                 </h2>
                 <div className="flex flex-wrap gap-2 pl-6">
                   {skills.map((s, i) => (
-                    <span key={i} className={`inline-block ${t.small} font-bold text-gray-700 bg-gray-100 px-3 py-1 rounded-sm border border-gray-200 shadow-sm`}>
+                    <span key={i} className={`inline-block ${t.small} font-bold text-gray-700 bg-gray-100 px-3 py-1 rounded-sm border border-gray-200 shadow-sm page-break-avoid`}>
                       {s.name}
                     </span>
                   ))}
@@ -941,13 +943,13 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
             )}
             
             {data.courses && data.courses.length > 0 && (
-              <div className="flex-1 min-w-[250px] page-break-avoid">
-                <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest mb-4 flex items-center gap-2`}>
+              <div className="flex-1 min-w-[250px]">
+                <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest mb-4 flex items-center gap-2 page-break-avoid`}>
                    <span className="w-4 h-4 rounded-sm bg-[#2563eb] inline-block shrink-0"></span> Cursos Relevantes
                 </h2>
                 <div className={`${isDense ? 'space-y-2' : 'space-y-3'} pl-6`}>
                   {data.courses.map((course, index) => (
-                    <div key={index} className="w-full flex items-center gap-2">
+                    <div key={index} className="w-full flex items-center gap-2 page-break-avoid">
                       <div className="w-1.5 h-1.5 bg-[#2563eb] rounded-full shrink-0"></div>
                       <div className={`font-bold text-[#0f172a] ${t.body} leading-tight`}>{course.name} <span className="font-normal text-gray-500">| {course.institution}</span></div>
                     </div>

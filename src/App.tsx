@@ -452,10 +452,6 @@ function MainApp() {
 
   const generateCoverLetterPdf = async (isDraft: boolean = false) => {
     if (!coverLetterRef.current) return;
-    
-    // Dynamically import
-    const html2canvas = (await import('html2canvas-pro')).default;
-    const { jsPDF } = await import('jspdf');
 
     await document.fonts.ready;
 
@@ -490,63 +486,82 @@ function MainApp() {
         ? `${data.personalInfo.fullName.replace(/\s+/g, '_')}_Carta_Apresentacao.pdf` 
         : 'Carta_Apresentacao.pdf';
 
-      const html2pdf = (await import('html2pdf.js')).default;
-      const opt = {
-        margin: 0,
-        filename:     fileName,
-        image:        { type: 'jpeg' as const, quality: 1 },
-        html2canvas:  { 
-          scale: 2, 
-          useCORS: true, 
-          allowTaint: false, 
-          logging: false,
-          width: 794,
-          windowWidth: 1024,
-          onclone: (clonedDoc: any) => {
-            const allElements = clonedDoc.querySelectorAll('*');
-            allElements.forEach((el: any) => {
-              if (el instanceof window.HTMLElement) {
-                el.style.fontVariantLigatures = 'none';
-                el.style.letterSpacing = '0px';
-                el.style.wordBreak = 'normal';
+      const html2canvas = (await import('html2canvas-pro')).default;
+      const { jsPDF } = await import('jspdf');
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: 794,
+        windowWidth: 1024,
+        onclone: (clonedDoc) => {
+          const allElements = clonedDoc.querySelectorAll('*');
+          allElements.forEach((el) => {
+            if (el instanceof HTMLElement) {
+              const htmlEl = el as HTMLElement;
+              htmlEl.style.fontVariantLigatures = 'none';
+              htmlEl.style.letterSpacing = '0px';
+              htmlEl.style.wordBreak = 'normal';
+            }
+          });
+          const containers = clonedDoc.querySelectorAll('.shadow-lg');
+          containers.forEach((c) => {
+              if (c instanceof HTMLElement) {
+                  c.classList.remove('shadow-lg', 'rounded-sm', 'mx-auto');
+                  c.style.margin = '0';
               }
-            });
-            const containers = clonedDoc.querySelectorAll('.shadow-lg');
-            containers.forEach((c: any) => {
-                c.classList.remove('shadow-lg', 'rounded-sm', 'mx-auto');
-                c.style.margin = '0';
-            });
-          }
-        },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak:    { mode: ['css', 'legacy'], avoid: '.page-break-avoid' }
-      };
-
-      // @ts-ignore
-      const worker = html2pdf().from(element).set(opt).toPdf();
-      await worker.get('pdf').then((pdf: any) => {
-        pdf.setFontSize(0.1);
-        pdf.setTextColor(255, 255, 255);
-        const textToEmbed = "REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-        const textLines = pdf.splitTextToSize(textToEmbed, pdf.internal.pageSize.getWidth() - 2);
-        pdf.text(textLines, -5000, -5000);
-
-        if (isDraft) {
-          const totalPages = pdf.internal.getNumberOfPages();
-          for (let i = 1; i <= totalPages; i++) {
-            pdf.setPage(i);
-            pdf.saveGraphicsState();
-            pdf.setGState(new pdf.GState({opacity: 0.25}));
-            pdf.setTextColor(100, 100, 100);
-            pdf.setFontSize(80);
-            pdf.text("AMOSTRA", 105, 140, { angle: 45, align: "center" });
-            pdf.setFontSize(40);
-            pdf.text("NÃO É A VERSÃO FINAL", 105, 170, { angle: 45, align: "center" });
-            pdf.restoreGraphicsState();
-          }
+          });
         }
       });
-      await worker.save(isDraft ? "Amostra_" + fileName : fileName);
+
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = 210;
+      const pageHeight = 297;
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      if (pdfHeight <= pageHeight * 1.015) {
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      } else {
+        let heightLeft = pdfHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft > 0.1) {
+          position = position - pageHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+          heightLeft -= pageHeight;
+        }
+      }
+
+      pdf.setFontSize(0.1);
+      pdf.setTextColor(255, 255, 255);
+      const textToEmbed = "REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+      const textLines = pdf.splitTextToSize(textToEmbed, pdf.internal.pageSize.getWidth() - 2);
+      pdf.text(textLines, -5000, -5000);
+
+      if (isDraft) {
+        const totalPages = (pdf as any).getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+          pdf.setPage(i);
+          pdf.saveGraphicsState();
+          pdf.setGState(new (pdf as any).GState({opacity: 0.25}));
+          pdf.setTextColor(100, 100, 100);
+          pdf.setFontSize(80);
+          pdf.text("AMOSTRA", 105, 140, { angle: 45, align: "center" });
+          pdf.setFontSize(40);
+          pdf.text("NÃO É A VERSÃO FINAL", 105, 170, { angle: 45, align: "center" });
+          pdf.restoreGraphicsState();
+        }
+      }
+
+      pdf.save(isDraft ? "Amostra_" + fileName : fileName);
 
       // Restore the original layout
       if (wrapperElement) {
@@ -665,10 +680,6 @@ function MainApp() {
 
   const generatePdf = async (isDraft: boolean = false) => {
     if (!componentRef.current || !containerRef.current) return;
-    
-    // Dynamically import
-    const html2canvas = (await import('html2canvas-pro')).default;
-    const { jsPDF } = await import('jspdf');
 
     await document.fonts.ready;
 
@@ -703,64 +714,85 @@ function MainApp() {
         ? `${data.personalInfo.fullName.replace(/\s+/g, '_')}_Curriculo.pdf` 
         : 'Curriculo.pdf';
 
-      // Use html2pdf instead of manual slicing
-      const html2pdf = (await import('html2pdf.js')).default;
-      const opt = {
-        margin: 0,
-        filename:     fileName,
-        image:        { type: 'jpeg' as const, quality: 1 },
-        html2canvas:  { 
-          scale: 2, 
-          useCORS: true, 
-          allowTaint: false, 
-          logging: false,
-          width: 794,
-          windowWidth: 1024,
-          onclone: (clonedDoc: any) => {
-            const allElements = clonedDoc.querySelectorAll('*');
-            allElements.forEach((el: any) => {
-              if (el instanceof window.HTMLElement) {
-                el.style.fontVariantLigatures = 'none';
-                el.style.letterSpacing = '0px';
-                el.style.wordBreak = 'normal';
+      // Use html2canvas-pro and jsPDF manually to avoid html2pdf.js bugs with layout
+      const html2canvas = (await import('html2canvas-pro')).default;
+      const { jsPDF } = await import('jspdf');
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: 794,
+        windowWidth: 1024,
+        onclone: (clonedDoc) => {
+          const allElements = clonedDoc.querySelectorAll('*');
+          allElements.forEach((el) => {
+            if (el instanceof HTMLElement) {
+              const htmlEl = el as HTMLElement;
+              htmlEl.style.fontVariantLigatures = 'none';
+              htmlEl.style.letterSpacing = '0px';
+              htmlEl.style.wordBreak = 'normal';
+            }
+          });
+          const containers = clonedDoc.querySelectorAll('.shadow-lg');
+          containers.forEach((c) => {
+              if (c instanceof HTMLElement) {
+                  c.classList.remove('shadow-lg', 'rounded-sm', 'mx-auto');
+                  c.style.margin = '0';
               }
-            });
-            const containers = clonedDoc.querySelectorAll('.shadow-lg');
-            containers.forEach((c: any) => {
-                c.classList.remove('shadow-lg', 'rounded-sm', 'mx-auto');
-                c.style.margin = '0';
-            });
-          }
-        },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak:    { mode: ['css', 'legacy'], avoid: '.page-break-avoid' }
-      };
-
-      // @ts-ignore
-      const worker = html2pdf().from(element).set(opt).toPdf();
-      await worker.get('pdf').then((pdf: any) => {
-        pdf.setFontSize(0.1);
-        pdf.setTextColor(255, 255, 255);
-        const textToEmbed = "REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-        const textLines = pdf.splitTextToSize(textToEmbed, pdf.internal.pageSize.getWidth() - 2);
-        pdf.text(textLines, -5000, -5000);
-
-        if (isDraft) {
-          const totalPages = pdf.internal.getNumberOfPages();
-          for (let i = 1; i <= totalPages; i++) {
-            pdf.setPage(i);
-            pdf.saveGraphicsState();
-            pdf.setGState(new pdf.GState({opacity: 0.25}));
-            pdf.setTextColor(100, 100, 100);
-            pdf.setFontSize(80);
-            pdf.text("AMOSTRA", 105, 140, { angle: 45, align: "center" });
-            pdf.setFontSize(40);
-            pdf.text("NÃO É A VERSÃO FINAL", 105, 170, { angle: 45, align: "center" });
-            pdf.restoreGraphicsState();
-          }
+          });
         }
       });
-      await worker.save(isDraft ? "Amostra_" + fileName : fileName);
+
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = 210;
+      const pageHeight = 297;
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      // Se a diferença de altura for muito pequena para valer a pena criar outra página
+      // por exemplo um padding vazando, forçamos caber em 1 página
+      if (pdfHeight <= pageHeight * 1.015) {
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      } else {
+        let heightLeft = pdfHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft > 0.1) {
+          position = position - pageHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+          heightLeft -= pageHeight;
+        }
+      }
+
+      pdf.setFontSize(0.1);
+      pdf.setTextColor(255, 255, 255);
+      const textToEmbed = "REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+      const textLines = pdf.splitTextToSize(textToEmbed, pdf.internal.pageSize.getWidth() - 2);
+      pdf.text(textLines, -5000, -5000);
+
+      if (isDraft) {
+        const totalPages = (pdf as any).getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+          pdf.setPage(i);
+          pdf.saveGraphicsState();
+          pdf.setGState(new (pdf as any).GState({opacity: 0.25}));
+          pdf.setTextColor(100, 100, 100);
+          pdf.setFontSize(80);
+          pdf.text("AMOSTRA", 105, 140, { angle: 45, align: "center" });
+          pdf.setFontSize(40);
+          pdf.text("NÃO É A VERSÃO FINAL", 105, 170, { angle: 45, align: "center" });
+          pdf.restoreGraphicsState();
+        }
+      }
+
+      pdf.save(isDraft ? "Amostra_" + fileName : fileName);
 
       // Restore the original layout
       if (wrapperElement) {
