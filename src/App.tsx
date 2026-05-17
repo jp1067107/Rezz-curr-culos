@@ -494,7 +494,7 @@ function MainApp() {
       const opt = {
         margin: 0,
         filename:     fileName,
-        image:        { type: 'jpeg', quality: 1 },
+        image:        { type: 'jpeg' as const, quality: 1 },
         html2canvas:  { 
           scale: 2, 
           useCORS: true, 
@@ -514,13 +514,20 @@ function MainApp() {
                 }
               }
             });
+            const containers = clonedDoc.querySelectorAll('.shadow-lg');
+            containers.forEach((c: any) => {
+                c.classList.remove('shadow-lg', 'rounded-sm', 'mx-auto');
+                c.style.margin = '0';
+            });
           }
         },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak:    { mode: ['css', 'legacy'], avoid: '.page-break-avoid' }
       };
 
-      await html2pdf().from(element).set(opt).toPdf().get('pdf').then((pdf: any) => {
+      // @ts-ignore
+      const worker = html2pdf().from(element).set(opt).toPdf();
+      await worker.get('pdf').then((pdf: any) => {
         pdf.setFontSize(0.1);
         pdf.setTextColor(255, 255, 255);
         const textToEmbed = "REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
@@ -541,7 +548,8 @@ function MainApp() {
             pdf.restoreGraphicsState();
           }
         }
-      }).save(isDraft ? "Amostra_" + fileName : fileName);
+      });
+      await worker.save(isDraft ? "Amostra_" + fileName : fileName);
 
       // Restore the original layout
       if (wrapperElement) {
@@ -616,6 +624,13 @@ function MainApp() {
               htmlEl.style.textRendering = 'optimizeLegibility';
               htmlEl.style.wordBreak = 'break-word';
             }
+          });
+          const containers = clonedDoc.querySelectorAll('.shadow-lg');
+          containers.forEach((c) => {
+              if (c instanceof HTMLElement) {
+                  c.classList.remove('shadow-lg', 'rounded-sm', 'mx-auto', 'my-8');
+                  c.style.margin = '0';
+              }
           });
         }
       });
@@ -696,7 +711,7 @@ function MainApp() {
       const opt = {
         margin: 0,
         filename:     fileName,
-        image:        { type: 'jpeg', quality: 1 },
+        image:        { type: 'jpeg' as const, quality: 1 },
         html2canvas:  { 
           scale: 2, 
           useCORS: true, 
@@ -716,13 +731,20 @@ function MainApp() {
                 }
               }
             });
+            const containers = clonedDoc.querySelectorAll('.shadow-lg');
+            containers.forEach((c: any) => {
+                c.classList.remove('shadow-lg', 'rounded-sm', 'mx-auto');
+                c.style.margin = '0';
+            });
           }
         },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak:    { mode: ['css', 'legacy'], avoid: '.page-break-avoid' }
       };
 
-      await html2pdf().from(element).set(opt).toPdf().get('pdf').then((pdf: any) => {
+      // @ts-ignore
+      const worker = html2pdf().from(element).set(opt).toPdf();
+      await worker.get('pdf').then((pdf: any) => {
         pdf.setFontSize(0.1);
         pdf.setTextColor(255, 255, 255);
         const textToEmbed = "REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
@@ -743,7 +765,8 @@ function MainApp() {
             pdf.restoreGraphicsState();
           }
         }
-      }).save(isDraft ? "Amostra_" + fileName : fileName);
+      });
+      await worker.save(isDraft ? "Amostra_" + fileName : fileName);
 
       // Restore the original layout
       if (wrapperElement) {
@@ -976,7 +999,8 @@ function MainApp() {
     classic: 'ATS (RH)',
     minimal: 'Minimalista',
     creative: 'Criativo',
-    executive: 'Executivo (Única Coluna)'
+    executive: 'Executivo',
+    corporate: 'Corporativo (Única Coluna)'
   };
 
   const purchasedResumes = (() => {
@@ -1430,7 +1454,7 @@ function MainApp() {
       )}
 
       {appState === 'purchased-view' && (() => {
-        const _templates: TemplateType[] = ['modern', 'classic', 'minimal', 'creative', 'executive'];
+        const _templates: TemplateType[] = ['modern', 'classic', 'minimal', 'creative', 'executive', 'corporate'];
         const purchasedTemplates = isPremium ? _templates : _templates.filter(t => unlockedConfigs.includes(`${currentResumeId}_${t}`));
         
         return (
@@ -1931,7 +1955,7 @@ function MainApp() {
           </div>
 
           <div className="flex items-center justify-between p-1 bg-slate-900 border border-white/10 rounded-xl shrink-0 w-full mb-4 overflow-x-auto">
-            {(['modern', 'classic', 'minimal', 'creative', 'executive'] as const).map(t => (
+            {(['modern', 'classic', 'minimal', 'creative', 'executive', 'corporate'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTemplate(t as TemplateType)}

@@ -5,6 +5,116 @@ import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
+async function callGeminiAPI(requestBody: any) {
+  try {
+    const response = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (response.ok) {
+      return await response.json();
+    }
+    
+    // If we get 405 (Method Not Allowed) or 404, it means we are in a static deployment (like Cloudflare Pages) without the server
+    if (response.status === 404 || response.status === 405) {
+      throw new Error("STATIC_DEPLOYMENT");
+    }
+
+    let errText = 'Erro desconhecido';
+    const rawErrText = await response.text();
+    try {
+      const errBody = JSON.parse(rawErrText);
+      errText = errBody.error || rawErrText;
+    } catch {
+      errText = rawErrText;
+    }
+    throw new Error(`Erro do Servidor Gemini (${response.status}): ${errText}`);
+  } catch (e: any) {
+    if (e.message === "STATIC_DEPLOYMENT" || e.name === "TypeError" /* fetch failed entirely */) {
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
+         console.warn("Falling back to my API key just in case we are in preview mode directly reading from env config.");
+         // fallback handled by prompt
+      }
+
+      // Direct call
+      const model = requestBody.model || "gemini-2.5-flash";
+      const directResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: requestBody.contents,
+          generationConfig: requestBody.config
+        })
+      });
+
+      if (!directResponse.ok) {
+        const errorText = await directResponse.text();
+        throw new Error(`Erro da API Direta do Gemini (${directResponse.status}): ${errorText}`);
+      }
+
+      const rawResult = await directResponse.json();
+      const text = rawResult.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+      return { text };
+    }
+    throw e;
+  }
+}
+
+async function callGroqAPI(requestBody: any) {
+  try {
+    const response = await fetch('/api/groq', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (response.ok) {
+      return await response.json();
+    }
+
+    if (response.status === 404 || response.status === 405) {
+      throw new Error("STATIC_DEPLOYMENT");
+    }
+
+    let errText = 'Erro desconhecido';
+    const rawErrText = await response.text();
+    try {
+      const errBody = JSON.parse(rawErrText);
+      errText = errBody.error || rawErrText;
+    } catch {
+      errText = rawErrText;
+    }
+    throw new Error(`Erro do Servidor Groq (${response.status}): ${errText}`);
+  } catch (e: any) {
+    if (e.message === "STATIC_DEPLOYMENT" || e.name === "TypeError") {
+      const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+      if (!apiKey || apiKey === "MY_GROQ_API_KEY") {
+        throw new Error("O aplicativo está rodando em modo estático pré-compilado sem servidor. Falta a variável VITE_GROQ_API_KEY.");
+      }
+
+      const directResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!directResponse.ok) {
+        const errorText = await directResponse.text();
+        throw new Error(`Erro da API Direta da Groq (${directResponse.status}): ${errorText}`);
+      }
+
+      const rawResult = await directResponse.json();
+      return rawResult;
+    }
+    throw e;
+  }
+}
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -67,22 +177,22 @@ async function extractTextFromPdf(file: File): Promise<string> {
 }
 
 const SYSTEM_PROMPT = `Você é um Especialista em Currículos de Alto Padrão.
-Seu trabalho é organizar as informações em um formato JSON, focado em ALTA LEGIBILIDADE.
-NUNCA crie blocos de texto gigantes. O texto deve ser conciso e equilibrado.
+Seu trabalho é organizar as informações do currículo original em um formato JSON, focado em ALTA LEGIBILIDADE.
+NUNCA INVENTE, PRESUMA OU EXTRAPOLE INFORMAÇÕES. Limite-se estritamente aos dados fornecidos no texto anexado.
 
 REGRAS DE CONTEÚDO E FORMATAÇÃO (CRÍTICAS):
-1. Perfil Profissional: Texto DIRETO E SUCINTO (máximo de 3 frases curtas). Nada de parágrafos enormes.
-2. Experiência: Transcreva as experiências usando marcadores (bullet points). Crie de 2 a 4 bullet points CURTOS por cargo. NUNCA crie blocos monolíticos de texto. USE A QUEBRA DE LINHA ("\\n") para separar cada ponto.
+1. Perfil Profissional: Texto DIRETO E SUCINTO (máximo de 3 frases curtas). Escreva com base apenas nas qualificações mencionadas no texto original.
+2. Experiência: Transcreva as experiências usando marcadores (bullet points). Crie de 2 a 4 bullet points CURTOS por cargo. NUNCA crie blocos monolíticos de texto. USE A QUEBRA DE LINHA ("\n") para separar cada ponto.
    Exemplo de "description":
    "- Liderou o projeto X reduzindo custos.
    - Otimizou o processo Y com eficácia.
    - Treinou novos funcionários."
-3. Habilidades: Limite a no máximo 6-8 habilidades importantes, nomes curtos (ex: "Excel Avançado").
-4. Fidelidade aos dados factuais: NUNCA altere ou invente Nomes de Instituições, Empresas ou Cargos. Transcreva com fidelidade. Sua liberdade está em MELHORAR as DESCRIÇÕES de atividades para deixá-las corporativas e persuasivas.
-5. Seções Extras (Customizadas): Se o currículo possuir outras categorias (ex: Idiomas, Projetos, Publicações, Soft Skills, Certificações de TI), agrupe no campo "customSections", cada seção deve ter "name" (como 'Idiomas') e em 'items', coloque 'title' (o idioma/curso/projeto) e, se aplicável, 'description' (nível ou detalhe).
+3. Habilidades: Extraia TODAS as habilidades mencionadas. Use nomes adequados e curtos (ex: "Limpeza de ambientes"). Não omita e nem limite a quantidade de habilidades. Só liste habilidades mapeáveis a partir do currículo. NUNCA INVENTE.
+4. Fidelidade aos dados factuais: NUNCA altere ou invente Nomes de Instituições, Cursos, Empresas, Cargos, Períodos (datas) ou Contatos. Transcreva com fidelidade. Sua liberdade está em apenas MELHORAR a redação das DESCRIÇÕES de atividades para deixá-las persuasivas (sem alterar os fatos reais).
+5. Seções Extras (Customizadas): Se o currículo possuir outras categorias contendo dados (ex: Idiomas, Projetos, Publicações, Certificações), agrupe no campo "customSections", cada seção deve ter "name" (como 'Idiomas') e em 'items', coloque 'title' (o idioma/curso/projeto) e, se aplicável, 'description' (nível ou detalhe). Caso contrário, deixe a lista vazia.
 6. Omitir 'id' de arrays.
 
-Preencha as informações necessárias com textos enxutos. Certifique-se de que o texto não transborde, mantendo harmonia em 1 página. Retorne em português perfeito.
+Preencha as informações necessárias com textos enxutos. Se alguma informação (como localização, email, telefone) não constar no arquivo(s), deixe a string vazia ("").
 Responda OBRIGATORIAMENTE com um JSON válido correspondente a este schema:
 {
   "personalInfo": { "fullName": "", "jobTitle": "", "email": "", "phone": "", "location": "", "summary": "" },
@@ -176,37 +286,20 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
   if (!hasImage) {
     const userMessage = exactMode
       ? `Extraia EXATAMENTE as informações do currículo a seguir, organizando-as no JSON, SEM alterar nenhuma palavra ou criar informações:\n\n${truncatedPdfText}`
-      : `Analise o(s) seguinte(s) texto(s) extraído(s) de currículo(s) ou perfil(is) e transforme-os no JSON solicitado. Você precisará consolidar as informações caso haja mais de um arquivo. Reescreva e otimize as informações ativamente com linguagem corporativa persuasiva e focada em resultados. Transforme o conteúdo consolidado no formato JSON estrito:\n\n${truncatedPdfText}`;
+      : `Leia atentamente o(s) texto(s) extraído(s) e preencha o JSON de forma conservadora. Regra primordial: NÃO CRIE nenhum dado, data, empresa, projeto, responsabilidade ou curso que não esteja explicitamente mencionado no texto. O limite da sua atuação é exclusivamente melhorar a redação (gramática e clareza corporativa) das informações que já existem. Seja totalmente fiel aos fatos originais.\n\nTextos Extraídos:\n${truncatedPdfText}`;
 
     try {
-      const response = await fetch('/api/groq', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            { role: "system", content: selectedSystemPrompt },
-            { role: "user", content: userMessage }
-          ],
-          temperature: 0.5,
-          max_completion_tokens: 3500,
-          response_format: { type: "json_object" }
-        })
+      const rawResult = await callGroqAPI({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: selectedSystemPrompt },
+          { role: "user", content: userMessage }
+        ],
+        temperature: 0.1,
+        max_completion_tokens: 3500,
+        response_format: { type: "json_object" }
       });
 
-      if (!response.ok) {
-        let errText = 'Erro desconhecido';
-        const rawErrText = await response.text();
-        try {
-          const errBody = JSON.parse(rawErrText);
-          errText = errBody.error || rawErrText;
-        } catch {
-          errText = rawErrText;
-        }
-        throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
-      }
-
-      const rawResult = await response.json();
       const parsedText = rawResult.choices?.[0]?.message?.content || "{}";
       const rawData = parseJsonResponse(parsedText);
       return normalizeResponse(rawData);
@@ -220,7 +313,7 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
   try {
     const userMessage = exactMode
       ? `Analise as imagens e textos fornecidos. Extraia EXATAMENTE as informações, NÃO as reescreva ou melhore. Apenas transcreva no formato JSON estrito.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}`
-      : `Analise as imagens e textos fornecidos (podem ser currículos, perfis do linkedin, certificados). Extraia e consolide as informações, mas não apenas transcreva. REESCREVA E OTIMIZE ativamente as informações utilizando uma linguagem corporativa profunda, persuasiva e orientada para resultados. Transforme o conteúdo consolidado no formato JSON estrito.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}`;
+      : `Leia atentamente as imagens e textos fornecidos e preencha o JSON de forma conservadora. Regra primordial: NÃO CRIE nenhum dado, data, empresa, projeto, responsabilidade ou curso que não consiga ver claramente. O limite da sua atuação é exclusivamente melhorar a redação (gramática e clareza corporativa) das informações visualizadas.\n\nTransforme o conteúdo estritamente no formato JSON.${allPdfText ? ' Também considere este texto do PDF:\n\n' + allPdfText : ''}`;
 
     const contentParts: any[] = [
       { text: userMessage }
@@ -237,30 +330,12 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
       contents: [{ role: "user", parts: contentParts }],
       config: {
         systemInstruction: selectedSystemPrompt,
-        temperature: 0.5,
+        temperature: 0.1,
         responseMimeType: "application/json",
       }
     };
 
-    const response = await fetch('/api/gemini', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      let errText = 'Erro desconhecido';
-      const rawErrText = await response.text();
-      try {
-        const errBody = JSON.parse(rawErrText);
-        errText = errBody.error || rawErrText;
-      } catch {
-        errText = rawErrText;
-      }
-      throw new Error(`Erro da Inteligência Artificial Gemini (${response.status}): ${errText}`);
-    }
-
-    const rawResult = await response.json();
+    const rawResult = await callGeminiAPI(requestBody);
     const textResponse = rawResult.text || "{}";
     const rawData = parseJsonResponse(textResponse);
     return normalizeResponse(rawData);
@@ -269,6 +344,7 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
     throw new Error(`Falha ao processar as informações da imagem: ${error.message}`);
   }
 }
+
 
 export async function extractInternalResumeData(file: File): Promise<ResumeData | null> {
   if (!file.type.includes('pdf')) {
@@ -371,7 +447,7 @@ export async function enhanceResumeData(currentData: ResumeData): Promise<Resume
   const modelPrompt = `
 Você é um escritor de currículos especialista e coach de carreira. 
 Revise os dados do currículo fornecido e reescreva-os para que soem profissionais, impactantes e polidos.
-Corrija erros gramaticais ou de ortografia (mantenha em português). Expanda descrições curtas usando bullet points para que pareçam conquistas profissionais. 
+Corrija erros gramaticais ou de ortografia (mantenha em português). Melhore as descrições usando bullet points curtos, focando em formato corporativo, mas NUNCA INVENTE informações, cargos, prazos ou responsabilidades que não constavam no currículo.
 Use a quebra de linha ("\\n") para separar os bullet points na "description" da experiência.
 Mantenha a estrutura JSON OBRIGATÓRIA. Não adicione texto fora do JSON.
 
@@ -380,34 +456,16 @@ ${JSON.stringify(dataForAi, null, 2)}
 `;
 
   try {
-    const response = await fetch('/api/groq', {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const rawResult = await callGroqAPI({
         model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: modelPrompt }
         ],
-        temperature: 0.5,
+        temperature: 0.1,
         max_completion_tokens: 3000,
         response_format: { type: "json_object" },
-      })
-    });
-
-    if (!response.ok) {
-      let errText = 'Erro desconhecido';
-      const rawErrText = await response.text();
-      try {
-        const errBody = JSON.parse(rawErrText);
-        errText = errBody.error || rawErrText;
-      } catch {
-        errText = rawErrText;
-      }
-      throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
-    }
-
-    const rawResult = await response.json();
+      });
     const parsedText = rawResult.choices?.[0]?.message?.content || "{}";
     const rawData = parseJsonResponse(parsedText);
     
@@ -441,10 +499,7 @@ ${JSON.stringify({
 `;
 
   try {
-    const response = await fetch('/api/groq', {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const rawResult = await callGroqAPI({
         model: "llama-3.3-70b-versatile",
         messages: [
           { role: "user", content: modelPrompt }
@@ -452,22 +507,7 @@ ${JSON.stringify({
         temperature: 0.2,
         max_completion_tokens: 500,
         response_format: { type: "json_object" },
-      })
-    });
-    
-    if (!response.ok) {
-      let errText = 'Erro desconhecido';
-      const rawErrText = await response.text();
-      try {
-        const errBody = JSON.parse(rawErrText);
-        errText = errBody.error || rawErrText;
-      } catch {
-        errText = rawErrText;
-      }
-      throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
-    }
-    
-    const rawResult = await response.json();
+      });
     const parsedText = rawResult.choices?.[0]?.message?.content || '{"keywords":[]}';
     const data = JSON.parse(parsedText);
     return Array.isArray(data.keywords) ? data.keywords : [];
@@ -508,10 +548,7 @@ IMPORTANTE: Você deve retornar SOMENTE O TEXTO DA CARTA. Não adicione observa�
 `;
 
   try {
-    const response = await fetch('/api/groq', {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const rawResult = await callGroqAPI({
         model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: "Você é um assistente gerador de cartas de apresentação baseadas em perfis profissionais. Responda única e exclusivamente com o conteúdo da carta final." },
@@ -519,21 +556,7 @@ IMPORTANTE: Você deve retornar SOMENTE O TEXTO DA CARTA. Não adicione observa�
         ],
         temperature: 0.6,
         max_completion_tokens: 2000,
-      })
-    });
-    
-    if (!response.ok) {
-      let errText = 'Erro desconhecido';
-      const rawErrText = await response.text();
-      try {
-        const errBody = JSON.parse(rawErrText);
-        errText = errBody.error || rawErrText;
-      } catch {
-        errText = rawErrText;
-      }
-      throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
-    }
-    const rawResult = await response.json();
+      });
 
     return rawResult.choices?.[0]?.message?.content || "";
   } catch (e) {
@@ -589,31 +612,14 @@ ${JSON.stringify(dataForAi, null, 2)}
 `;
 
   try {
-    const response = await fetch('/api/groq', {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const rawResult = await callGroqAPI({
         model: "llama-3.3-70b-versatile",
         messages: [
           { role: "user", content: modelPrompt }
         ],
         temperature: 0.4,
         max_completion_tokens: 2500,
-      })
-    });
-    
-    if (!response.ok) {
-      let errText = 'Erro desconhecido';
-      const rawErrText = await response.text();
-      try {
-        const errBody = JSON.parse(rawErrText);
-        errText = errBody.error || rawErrText;
-      } catch {
-        errText = rawErrText;
-      }
-      throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
-    }
-    const rawResult = await response.json();
+      });
 
     return rawResult.choices?.[0]?.message?.content || "Avaliação não disponível.";
   } catch (e) {
@@ -680,25 +686,7 @@ export async function editResumeWithAI(currentData: ResumeData, editPrompt: stri
         }
       };
   
-      const response = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-      });
-  
-      if (!response.ok) {
-        let errText = 'Erro desconhecido';
-        const rawErrText = await response.text();
-        try {
-          const errBody = JSON.parse(rawErrText);
-          errText = errBody.error || rawErrText;
-        } catch {
-          errText = rawErrText;
-        }
-        throw new Error(`Erro da Inteligência Artificial Gemini (${response.status}): ${errText}`);
-      }
-  
-      const rawResult = await response.json();
+      const rawResult = await callGeminiAPI(requestBody);
       const textResponse = rawResult.text || "{}";
       const rawData = parseJsonResponse(textResponse);
       const normalizedData = normalizeResponse(rawData);
@@ -712,12 +700,7 @@ export async function editResumeWithAI(currentData: ResumeData, editPrompt: stri
         }
       };
     } else {
-      const response = await fetch('/api/groq', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const rawResult = await callGroqAPI({
           model: "llama-3.3-70b-versatile",
           messages: [
             { role: "system", content: "Retorne ESTRITAMENTE um objeto JSON válido. Responda apenas com o JSON na estrutura da interface ResumeData fornecida e nada mais. Use a língua solicitada na instrução." },
@@ -726,22 +709,7 @@ export async function editResumeWithAI(currentData: ResumeData, editPrompt: stri
           temperature: 0.5,
           max_completion_tokens: 3500,
           response_format: { type: "json_object" },
-        })
-      });
-
-      if (!response.ok) {
-        let errText = 'Erro desconhecido';
-        const rawErrText = await response.text();
-        try {
-          const errBody = JSON.parse(rawErrText);
-          errText = errBody.error || rawErrText;
-        } catch {
-          errText = rawErrText;
-        }
-        throw new Error(`Erro da Inteligência Artificial (${response.status}): ${errText}`);
-      }
-
-      const rawResult = await response.json();
+        });
       const parsedText = rawResult.choices?.[0]?.message?.content || "{}";
       const rawData = parseJsonResponse(parsedText);
       
