@@ -34,9 +34,8 @@ async function callGeminiAPI(requestBody: any) {
   } catch (e: any) {
     if (e.message === "STATIC_DEPLOYMENT" || e.name === "TypeError" /* fetch failed entirely */) {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
-         console.warn("Falling back to my API key just in case we are in preview mode directly reading from env config.");
-         // fallback handled by prompt
+      if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "undefined") {
+        throw new Error("A chave VITE_GEMINI_API_KEY não foi configurada! Como o aplicativo foi publicado externamente (e sem backend NodeJS), você OBRIGATORIAMENTE precisa criar essa variável de ambiente (Environment Variable) no painel da sua hospedagem (ex: Cloudflare Pages) com a sua chave gratuita do Google AI Studio para que o aplicativo funcione.");
       }
 
       const model = requestBody.model || "gemini-2.5-flash";
