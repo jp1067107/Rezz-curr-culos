@@ -219,8 +219,18 @@ async function extractTextFromPdf(file: File): Promise<string> {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
-    const pageText = textContent.items.map((item: any) => item.str).join(' ');
-    fullText += pageText + "\n";
+    let pageText = '';
+    let lastY = -1;
+    for (const item of textContent.items as any[]) {
+      if (lastY !== -1 && Math.abs(lastY - item.transform[5]) > 2) {
+        pageText += '\n';
+      } else if (lastY !== -1 && item.str.trim() !== '') {
+        pageText += ' ';
+      }
+      pageText += item.str;
+      lastY = item.transform[5];
+    }
+    fullText += pageText.replace(/[ \t]+/g, ' ') + "\n\n";
   }
   return fullText;
 }
@@ -233,7 +243,7 @@ REGRAS DE CONTEÚDO E FORMATAÇÃO (CRÍTICAS):
 1. Perfil Profissional: Texto DIRETO E SUCINTO. Omitir clichês. É estritamente proibido remover especificações como '(elétrico e mecânico)'.
 2. Experiência: Reescreva as atividades usando marcadores (bullet points). Crie de 2 a 4 bullet points CURTOS por cargo. Use quebra de linha ("\\n") para os separar. Zero Omissão Técnica: É estritamente proibido resumir ou apagar nomes de ferramentas, peças, materiais ou processos específicos (ex: anel o-ring, torquímetro, limpeza de canaletas, PVC).
 3. Habilidades (Skills): Transcreva TODAS as 'Habilidades e Competências' exatamente com as palavras originais da imagem/texto. Não invente, não resuma, não limite a 15 itens e não substitua soft skills por hard skills. Transcreva-as DE FORMA EXATA.
-4. Dados Pessoais e Geográficos: Transcreva o CEP exato no cabeçalho. Você deve OBRIGATORIAMENTE incluir a cidade e o estado ao lado do nome de TODAS as empresas na Experiência e TODAS as instituições na Formação Acadêmica (ex: "Empresa X - São Paulo/SP").
+4. Dados Pessoais e Geográficos: Transcreva o CEP exato no cabeçalho. Você deve OBRIGATORIAMENTE incluir a cidade e o estado ao lado do nome de TODAS as empresas na Experiência e TODAS as instituições na Formação Acadêmica (ex: "Empresa X - São Paulo/SP"). INSIRA A CIDADE/ESTADO APENAS UMA VEZ, SEM REPETIÇÕES na mesma linha.
 5. Datas (RISCO CRÍTICO): PRESERVE rigorosamente as datas exatas. Sob NENHUMA hipótese altere anos ou meses. Se ocorreu em fevereiro de 2019, o JSON deve ter fevereiro de 2019 (ou 02/2019). Não tente resolver supostos conflitos cronológicos percebidos.
 6. Educação e Cursos (Zero Omissão Acadêmica): NUNCA delete ou pule níveis de formação (ex: ensino médio, técnico, tecnólogo, especialização). Se houver qualificações ou cursos técnicos e formações concluídas, eles DEVEM ser incluídos na lista de \`education\` ou \`courses\`. Adicione TUDO que for acadêmico ou curso listado no original.
 7. Correção Inteligente de OCR: O processo de leitura de PDF/Imagem às vezes introduz erros bizarros de digitação (ex: "maid" ao invés de maio, "Universidadete" ao invés de Universidade, "São Pauly" ao invés de São Paulo). Você deve CORRIGIR essas falhas óbvias de OCR para o português correto, sem inventar nenhum dado novo.
@@ -260,7 +270,7 @@ REGRAS (CRÍTICAS):
 1. NUNCA resuma, melhore ou altere o sentido das sentenças. Transcreva os fatos originais. É estritamente proibido remover especificações como '(elétrico e mecânico)'. Zero Omissão Técnica: Conserve os nomes exatos de ferramentas, peças, materiais ou processos específicos.
 2. Experiência: Divida textos longos de experiência em "bullet points", mas MANTENHA as palavras EXATAS.
 3. Habilidades (Skills): Transcreva as habilidades MENCIONADAS de forma exata. Não crie frases longas, não resuma, não substitua soft skills por hard skills, transcreva exatamente o que está na imagem/texto original.
-4. Dados Geográficos e Datas (CRÍTICO): PRESERVE rigorosamente as datas exatas. Sob NENHUMA hipótese altere anos ou meses. Se ocorreu em fevereiro de 2019, mantenha fevereiro de 2019 (ou 02/2019). Transcreva o CEP exato no cabeçalho. Você deve OBRIGATORIAMENTE extrair e incluir a cidade e estado ao lado do nome de TODAS as empresas e cursos. Não force padrões de datas inventando períodos contínuos.
+4. Dados Geográficos e Datas (CRÍTICO): PRESERVE rigorosamente as datas exatas. Sob NENHUMA hipótese altere anos ou meses. Se ocorreu em fevereiro de 2019, mantenha fevereiro de 2019 (ou 02/2019). Transcreva o CEP exato no cabeçalho. Você deve OBRIGATORIAMENTE extrair e incluir a cidade e estado ao lado do nome de TODAS as empresas e cursos. INSIRA A CIDADE/ESTADO APENAS UMA VEZ, SEM REPETIÇÕES na mesma linha/nome. Não force padrões de datas inventando períodos contínuos.
 5. Educação e Cursos (Zero Omissão Acadêmica): NUNCA delete formação, especialização ou nível educacional. Se houver cursos técnicos e tecnólogos, ou ensino médio, eles DEVEM ser incluídos em \`education\` ou \`courses\`. Adicione tudo o que for acadêmico que o usuário tiver listado.
 6. Correção Inteligente de OCR: O processo de leitura às vezes comete erros bizarros (ex: "maid" -> maio, "Universidadete" -> Universidade, "São Pauly" -> São Paulo). CORRIJA falhas óbvias de leitura OCR para o português correto, sem fabricar nenhum dado novo.
 7. Seções Extras: Agrupe categorias adicionais (ex: Idiomas, Projetos, Certificações de TI) em "customSections".
