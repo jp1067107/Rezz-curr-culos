@@ -63,8 +63,8 @@ async function callGeminiAPI(requestBody: any) {
         if (directResponse.status === 429 || errorText.toLowerCase().includes("quota")) {
            throw new Error("O limite de uso gratuito da sua chave Gemini foi excedido (429). Aguarde alguns instantes ou adicione sua própria VITE_GEMINI_API_KEY nas variáveis de ambiente da sua hospedagem.");
         }
-        if (directResponse.status === 400 && (errorText.includes("API key not valid") || errorText.includes("API_KEY_INVALID"))) {
-           throw new Error(`A chave da API fornecida no frontend é inválida (400). Parece que você publicou seu aplicativo externamente. Você precisa configurar a variável de ambiente (Environment Variable) VITE_GEMINI_API_KEY com sua chave de API do Gemini Studio (produção/hospedagem) no painel do Cloudflare/Versel/etc.`);
+        if (directResponse.status === 400 && (errorText.includes("API key not valid") || errorText.includes("API_KEY_INVALID") || errorText.includes("invalid"))) {
+           throw new Error(`A chave de API configurada no VITE_GEMINI_API_KEY (ou no Settings do servidor) é INVÁLIDA. Para corrigir, acesse https://aistudio.google.com/app/apikey, copie uma nova chave e coloque-a nas variáveis de ambiente.`);
         }
         throw new Error(`Erro da API Direta do Gemini (${directResponse.status}): ${errorText}`);
       }
@@ -226,23 +226,19 @@ async function extractTextFromPdf(file: File): Promise<string> {
 }
 
 const SYSTEM_PROMPT = `Você é um Especialista em Currículos de Alto Padrão.
-Seu trabalho é organizar as informações do currículo original em um formato JSON, focado em ALTA LEGIBILIDADE.
-NUNCA INVENTE, PRESUMA OU EXTRAPOLE INFORMAÇÕES. Limite-se estritamente aos dados fornecidos no texto anexado.
+Seu objetivo é organizar e aprimorar os dados do currículo fornecido, retornando ESTRITAMENTE em formato JSON focado em ALTA LEGIBILIDADE corporativa.
+NUNCA invente ou extrapole dados, empresas, datas ou cargos. Baseie-se apenas no contexto original.
 
 REGRAS DE CONTEÚDO E FORMATAÇÃO (CRÍTICAS):
-1. Perfil Profissional: Texto DIRETO E SUCINTO (máximo de 3 frases curtas). Escreva com base apenas nas qualificações mencionadas no texto original.
-2. Experiência: Transcreva as experiências usando marcadores (bullet points). Crie de 2 a 4 bullet points CURTOS por cargo. NUNCA crie blocos monolíticos de texto. USE A QUEBRA DE LINHA ("\n") para separar cada ponto.
-   Exemplo de "description":
-   "- Liderou o projeto X reduzindo custos.
-   - Otimizou o processo Y com eficácia.
-   - Treinou novos funcionários."
-3. Habilidades e Termos Técnicos: NUNCA resuma, agrupe ou omita nomes de ferramentas, peças, processos industriais, tipos de materiais (ex: PVC, anel oring, válvulas) ou hard skills específicas. O poder do currículo técnico está nas palavras exatas dos equipamentos operados. Extraia TODAS as habilidades mencionadas no currículo original. Não omita e nem limite a quantidade de habilidades. Só liste habilidades mapeáveis a partir do currículo. NUNCA INVENTE.
-4. Fidelidade aos dados factuais e geográficos: NUNCA altere ou invente Nomes de Instituições, Cursos, Empresas, Cargos, Períodos (datas) ou Contatos. NÃO OMita NENHUM dado geográfico (cidade, estado, região ou filial); mantenha-o no campo 'location' nas experiências. O nome da cidade/estado deve sempre acompanhar a empresa. Sua liberdade está apenas em MELHORAR a redação das DESCRIÇÕES (sem alterar fatos).
-5. Fidelidade a datas: NÃO force um padrão visual inventando datas. Se a experiência ou curso fornece apenas um ano isolado (ex: "2020"), NÃO duplique para forçar período contínuo (ex: falso "2020-2020"). Extraia apenas a data ou ano fornecido.
-6. Seções Extras (Customizadas): Se o currículo possuir outras categorias contendo dados (ex: Idiomas, Projetos, Publicações, Certificações), agrupe no campo "customSections", cada seção deve ter "name" (como 'Idiomas') e em 'items', coloque 'title' (o idioma/curso/projeto) e, se aplicável, 'description' (nível ou detalhe). Caso contrário, deixe a lista vazia.
-7. Omitir 'id' de arrays.
+1. Perfil Profissional: Texto DIRETO E SUCINTO (máximo de 3 frases). Omitir clichês.
+2. Experiência: Reescreva as atividades usando marcadores (bullet points). Crie de 2 a 4 bullet points CURTOS por cargo. Use quebra de linha ("\\n") para os separar.
+   Ex: "- Liderou o projeto X reduzindo custos em 20%.\\n- Otimizou o processo Y com eficácia."
+3. Habilidades (Skills): Liste no máximo 15 habilidades principais. Use TERMOS CURTOS (1 a 3 palavras). Priorize Tecnologias, Ferramentas, Equipamentos, Processos Industriais/Materiais e Hard Skills. Elimine frases longas, tarefas rotineiras e termos genéricos inúteis. NUNCA invente. Mantenha os nomes exatos de ferramentas e sistemas críticos.
+4. Dados Pessoais e Geográficos: NUNCA invente contatos, instituições ou dados geográficos. Mantenha a localização atrelada à experiência correspondente no campo 'location'.
+5. Datas: Preserve o que existe. Se houver apenas um ano (ex: "2020"), não o duplique para forçar período contínuo.
+6. Seções Customizadas: Se o currículo possuir outras categorias contendo dados (ex: Idiomas, Projetos), agrupe em "customSections", cada seção deve ter "name" (como 'Idiomas') e em 'items', coloque 'title' (o idioma/curso/projeto) e, se aplicável, 'description' (nível ou detalhe). Caso contrário, deixe a lista vazia.
+7. Omita 'id' na saída do JSON.
 
-Preencha as informações necessárias com textos enxutos. Se alguma informação (como localização, email, telefone) não constar no arquivo(s), deixe a string vazia ("").
 Responda OBRIGATORIAMENTE com um JSON válido correspondente a este schema:
 {
   "personalInfo": { "fullName": "", "jobTitle": "", "email": "", "phone": "", "location": "", "summary": "" },
@@ -260,11 +256,11 @@ const EXACT_SYSTEM_PROMPT = `Você é um Especialista em Extração de Dados.
 Seu trabalho é extrair EXATAMENTE as informações contidas na imagem ou PDF e organizar no formato JSON solicitado.
 
 REGRAS (CRÍTICAS):
-1. NUNCA resuma, MELHORE ou altere o texto. Transcreva exatamente as descrições originais do currículo.
-2. Habilidades e Termos Técnicos: NUNCA resuma, agrupe ou omita nomes de ferramentas, peças, processos industriais, tipos de materiais (ex: PVC, anel oring, válvulas) ou hard skills específicas. O poder do currículo técnico está nas palavras exatas dos equipamentos operados. Divida textos longos de experiência em "bullet points", mas MANTENHA as palavras EXATAS.
-3. Dados Geográficos: NÃO OMita NENHUM dado geográfico (cidades, estados, filiais) de empresas e cursos. Extraia-os para o campo 'location' correspondente para garantir que a cidade/estado sempre acompanhe o nome da empresa.
-4. Datas: NÃO force um padrão visual inventando datas. Se a experiência tiver apenas um ano isolado (ex: "2020"), recuse-se a duplicar a data para forçar um formato "2020-2020". Extraia apenas a data original.
-5. Seções Extras (Customizadas): Se o currículo possuir outras categorias (ex: Idiomas, Projetos, Publicações, Soft Skills, Certificações de TI), agrupe no campo "customSections", cada seção deve ter "name" (como 'Idiomas') e em 'items', coloque 'title' (o idioma/curso/projeto) e 'description'.
+1. NUNCA resuma, melhore ou altere o sentido das sentenças. Transcreva os fatos originais.
+2. Experiência: Divida textos longos de experiência em "bullet points", mas MANTENHA as palavras EXATAS.
+3. Habilidades (Skills): Extraia as habilidades MENCIONADAS de forma pontual (máximo 15 habilidades). NÃO crie frases longas no array de skills. Priorize extrair Nomes de Equipamentos, Tecnologias, Processos Industriais ou Hard Skills reais.
+4. Dados Geográficos e Datas: Não omita cidades ou filiais de empresas e cursos, extraia para o campo 'location'. Não force padrões de datas inventando períodos continuos.
+5. Seções Extras: Agrupe categorias adicionais (ex: Idiomas, Projetos, Certificações de TI) em "customSections".
 6. Retorne APENAS um JSON válido.
 
 Responda OBRIGATORIAMENTE com um JSON correspondente a este schema:
@@ -344,8 +340,8 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
 
   if (!hasImage) {
     const userMessage = exactMode
-      ? `Extraia EXATAMENTE as informações do currículo a seguir, organizando-as no JSON, SEM alterar nenhuma palavra ou criar informações. Lembre-se especialmente da regra de ouro: NUNCA resuma ou omita Nomes de Equipamentos, Ferramentas, Peças, Processos ou Materiais:\n\n${truncatedPdfText}`
-      : `Leia atentamente o(s) texto(s) extraído(s) e preencha o JSON de forma conservadora. Regra primordial: NÃO CRIE nenhum dado, data, empresa, projeto, responsabilidade ou curso que não esteja explicitamente mencionado no texto. O limite da sua atuação é exclusivamente melhorar a redação (gramática e clareza corporativa). Lembre-se da regra de ouro: NUNCA resuma ou omita Nomes de Equipamentos, Ferramentas, Peças, Processos Industriais, Materiais e Hard Skills, o currículo deve mostrar domínio técnico com as palavras exatas. Seja totalmente fiel aos fatos originais.\n\nTextos Extraídos:\n${truncatedPdfText}`;
+      ? `Extraia EXATAMENTE as informações do currículo a seguir, organizando-as no JSON, SEM alterar nenhuma palavra ou criar informações.\n\n${truncatedPdfText}`
+      : `Leia atentamente o(s) texto(s) extraído(s) e preencha o JSON de forma conservadora. Regra primordial: NÃO CRIE nenhum dado, data, empresa, projeto, responsabilidade ou curso que não esteja explicitamente mencionado no texto. O limite da sua atuação é exclusivamente melhorar a redação (gramática e clareza corporativa). Mantenha as palavras exatas de Nomes de Equipamentos, Ferramentas, Peças, Processos Industriais, Materiais e Hard Skills. Seja totalmente fiel aos fatos originais.\n\nTextos Extraídos:\n${truncatedPdfText}`;
 
     try {
       const rawResult = await callGroqAPI({
@@ -725,9 +721,9 @@ export async function editResumeWithAI(currentData: ResumeData, editPrompt: stri
   const filesContext = allPdfText ? `\n\nTexto Extraído dos Arquivos Anexos:\n${truncatedPdfText}\n` : '';
 
   const modelPrompt = `
-    Você é um especialista em reestruturação de currículos. Foi fornecido o currículo atual em JSON e uma instrução do usuário (admin) para alterá-lo.
+    Você é um especialista em reestruturação de currículos. Foi fornecido o currículo atual em JSON e uma instrução do usuário para alterá-lo.
     Retorne o novo currículo atualizado, mantendo a estrutura exata do JSON original, apenas modificando o que foi pedido.
-    IMPORTANTE: Nunca resuma, agrupe ou omita nomes de ferramentas, peças, processos industriais, tipos de materiais (ex: PVC, anel oring, válvulas) ou hard skills específicas. O poder do currículo técnico está nas palavras exatas dos equipamentos operados.
+    IMPORTANTE: Se adicionar ou modificar habilidades (skills), limite-se a no máximo 15 itens principais, usando termos curtos de 1 a 3 palavras (ex: Tecnologias, Ferramentas, Hard Skills). Mantenha os nomes exatos de ferramentas, peças ou sistemas técnicos do currículo.
     ${base64Images.length > 0 ? "Considere as imagens fornecidas junto com esse texto de requisição para embasar a alteração." : ""}
     ${filesContext}
     

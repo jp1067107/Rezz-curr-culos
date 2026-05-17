@@ -53,9 +53,9 @@ async function startServer() {
       // console.error removed to prevent test runner from flagging it as crash
       let errorMsg = e.message || String(e);
       if (typeof errorMsg === 'string' && (errorMsg.includes("API key not valid") || errorMsg.includes("expired") || errorMsg.includes("API_KEY_INVALID"))) {
-         errorMsg = `Sua chave conectada expirou ou foi rejeitada (erro: ${e.message}). Para utilizar uma chave gratuita do Gemini Studio, acesse 'Settings > Secrets', clique em Add Secret, crie uma chave chamada CUSTOM_GEMINI_API_KEY e cole sua chave do Google AI Studio nela.`;
+         errorMsg = `A chave de API que você inseriu é inválida ou incorreta (erro: API_KEY_INVALID). Acesse https://aistudio.google.com/app/apikey, gere uma chave nova, copie-a e atualize a variável CUSTOM_GEMINI_API_KEY no menu 'Settings > Secrets' (ou na sua hospedagem).`;
       } else if (e.status === 429 || (typeof errorMsg === 'string' && (errorMsg.toLowerCase().includes("quota") || errorMsg.includes("429")))) {
-         errorMsg = "O limite de uso gratuito da sua chave Gemini foi excedido (429 Too Many Requests). Por favor, aguarde alguns minutos ou adicione uma CUSTOM_GEMINI_API_KEY no menu 'Settings > Secrets' para usar os seus próprios limites da sua conta do Google AI Studio.";
+         errorMsg = "O sistema atingiu o limite de consultas por minuto. Por favor, aguarde de 1 a 2 minutos e tente enviar novamente.";
       }
       res.status(500).json({ error: errorMsg });
     }
