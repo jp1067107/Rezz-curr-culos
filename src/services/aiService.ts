@@ -341,7 +341,7 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
   if (!hasImage) {
     const userMessage = exactMode
       ? `Extraia EXATAMENTE as informações do currículo a seguir, organizando-as no JSON, SEM alterar nenhuma palavra ou criar informações.\n\n${truncatedPdfText}`
-      : `Leia atentamente o(s) texto(s) extraído(s) e preencha o JSON de forma conservadora. Regra primordial: NÃO CRIE nenhum dado, data, empresa, projeto, responsabilidade ou curso que não esteja explicitamente mencionado no texto. O limite da sua atuação é exclusivamente melhorar a redação (gramática e clareza corporativa). Mantenha as palavras exatas de Nomes de Equipamentos, Ferramentas, Peças, Processos Industriais, Materiais e Hard Skills. Seja totalmente fiel aos fatos originais.\n\nTextos Extraídos:\n${truncatedPdfText}`;
+      : `Leia atentamente o(s) texto(s) extraído(s) e preencha o JSON de forma conservadora. Regra primordial: NÃO CRIE nenhum dado, data, empresa, projeto, responsabilidade ou curso que não esteja explicitamente mencionado no texto. O limite da sua atuação é exclusivamente melhorar a redação (gramática e clareza corporativa). Mantenha as palavras exatas de Nomes de Equipamentos, Ferramentas, Peças, Processos Industriais, Materiais e Hard Skills. O array de skills deve conter no máximo 15 itens essenciais (termos bem curtos). Seja totalmente fiel aos fatos originais.\n\nTextos Extraídos:\n${truncatedPdfText}`;
 
     try {
       const rawResult = await callGroqAPI({

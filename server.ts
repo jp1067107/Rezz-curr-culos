@@ -26,7 +26,7 @@ async function startServer() {
     try {
       const { model, contents, config } = req.body;
       
-      if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
+      if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "" || apiKey === "undefined") {
         if (systemDefaultKey) {
            apiKey = systemDefaultKey;
         } else {
