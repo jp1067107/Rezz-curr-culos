@@ -41,7 +41,7 @@ async function startServer() {
       const ai = new GoogleGenAI({ apiKey });
 
       const payload: any = {
-        model: model || "gemini-2.5-flash",
+        model: model || "gemini-flash-latest",
         contents,
         config
       };

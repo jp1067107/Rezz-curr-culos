@@ -38,7 +38,7 @@ async function callGeminiAPI(requestBody: any) {
         throw new Error("A chave VITE_GEMINI_API_KEY não foi configurada! Como o aplicativo foi publicado externamente (e sem backend NodeJS), você OBRIGATORIAMENTE precisa criar essa variável de ambiente (Environment Variable) no painel da sua hospedagem (ex: Cloudflare Pages) com a sua chave gratuita do Google AI Studio para que o aplicativo funcione.");
       }
 
-      const model = requestBody.model || "gemini-2.5-flash";
+      const model = requestBody.model || "gemini-flash-latest";
       
       const restPayload: any = {
         contents: requestBody.contents,
@@ -230,11 +230,10 @@ Seu objetivo é organizar e aprimorar os dados do currículo fornecido, retornan
 NUNCA invente ou extrapole dados, empresas, datas ou cargos. Baseie-se apenas no contexto original.
 
 REGRAS DE CONTEÚDO E FORMATAÇÃO (CRÍTICAS):
-1. Perfil Profissional: Texto DIRETO E SUCINTO (máximo de 3 frases). Omitir clichês.
-2. Experiência: Reescreva as atividades usando marcadores (bullet points). Crie de 2 a 4 bullet points CURTOS por cargo. Use quebra de linha ("\\n") para os separar.
-   Ex: "- Liderou o projeto X reduzindo custos em 20%.\\n- Otimizou o processo Y com eficácia."
-3. Habilidades (Skills): Liste no máximo 15 habilidades principais. Use TERMOS CURTOS (1 a 3 palavras). Priorize Tecnologias, Ferramentas, Equipamentos, Processos Industriais/Materiais e Hard Skills. Elimine frases longas, tarefas rotineiras e termos genéricos inúteis. NUNCA invente. Mantenha os nomes exatos de ferramentas e sistemas críticos.
-4. Dados Pessoais e Geográficos: NUNCA invente contatos, instituições ou dados geográficos. Mantenha a localização atrelada à experiência correspondente no campo 'location'.
+1. Perfil Profissional: Texto DIRETO E SUCINTO. Omitir clichês. É estritamente proibido remover especificações como '(elétrico e mecânico)'.
+2. Experiência: Reescreva as atividades usando marcadores (bullet points). Crie de 2 a 4 bullet points CURTOS por cargo. Use quebra de linha ("\\n") para os separar. Zero Omissão Técnica: É estritamente proibido resumir ou apagar nomes de ferramentas, peças, materiais ou processos específicos (ex: anel o-ring, torquímetro, limpeza de canaletas, PVC).
+3. Habilidades (Skills): Transcreva TODAS as 'Habilidades e Competências' exatamente com as palavras originais da imagem/texto. Não invente, não resuma, não limite a 15 itens e não substitua soft skills por hard skills. Transcreva-as DE FORMA EXATA.
+4. Dados Pessoais e Geográficos: Transcreva o CEP exato no cabeçalho. Você deve OBRIGATORIAMENTE incluir a cidade e o estado ao lado do nome de TODAS as empresas na Experiência e TODAS as instituições na Formação Acadêmica (ex: "Empresa X - São Paulo/SP").
 5. Datas: Preserve o que existe. Se houver apenas um ano (ex: "2020"), não o duplique para forçar período contínuo.
 6. Seções Customizadas: Se o currículo possuir outras categorias contendo dados (ex: Idiomas, Projetos), agrupe em "customSections", cada seção deve ter "name" (como 'Idiomas') e em 'items', coloque 'title' (o idioma/curso/projeto) e, se aplicável, 'description' (nível ou detalhe). Caso contrário, deixe a lista vazia.
 7. Omita 'id' na saída do JSON.
@@ -256,10 +255,10 @@ const EXACT_SYSTEM_PROMPT = `Você é um Especialista em Extração de Dados.
 Seu trabalho é extrair EXATAMENTE as informações contidas na imagem ou PDF e organizar no formato JSON solicitado.
 
 REGRAS (CRÍTICAS):
-1. NUNCA resuma, melhore ou altere o sentido das sentenças. Transcreva os fatos originais.
+1. NUNCA resuma, melhore ou altere o sentido das sentenças. Transcreva os fatos originais. É estritamente proibido remover especificações como '(elétrico e mecânico)'. Zero Omissão Técnica: Conserve os nomes exatos de ferramentas, peças, materiais ou processos específicos.
 2. Experiência: Divida textos longos de experiência em "bullet points", mas MANTENHA as palavras EXATAS.
-3. Habilidades (Skills): Extraia as habilidades MENCIONADAS de forma pontual (máximo 15 habilidades). NÃO crie frases longas no array de skills. Priorize extrair Nomes de Equipamentos, Tecnologias, Processos Industriais ou Hard Skills reais.
-4. Dados Geográficos e Datas: Não omita cidades ou filiais de empresas e cursos, extraia para o campo 'location'. Não force padrões de datas inventando períodos continuos.
+3. Habilidades (Skills): Transcreva as habilidades MENCIONADAS de forma exata. Não crie frases longas, não resuma, não substitua soft skills por hard skills, transcreva exatamente o que está na imagem/texto original.
+4. Dados Geográficos e Datas: Transcreva o CEP exato no cabeçalho. Você deve OBRIGATORIAMENTE extrair e incluir a cidade e estado ao lado do nome de TODAS as empresas e cursos. Não force padrões de datas inventando períodos contínuos.
 5. Seções Extras: Agrupe categorias adicionais (ex: Idiomas, Projetos, Certificações de TI) em "customSections".
 6. Retorne APENAS um JSON válido.
 
@@ -341,7 +340,7 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
   if (!hasImage) {
     const userMessage = exactMode
       ? `Extraia EXATAMENTE as informações do currículo a seguir, organizando-as no JSON, SEM alterar nenhuma palavra ou criar informações.\n\n${truncatedPdfText}`
-      : `Leia atentamente o(s) texto(s) extraído(s) e preencha o JSON de forma conservadora. Regra primordial: NÃO CRIE nenhum dado, data, empresa, projeto, responsabilidade ou curso que não esteja explicitamente mencionado no texto. O limite da sua atuação é exclusivamente melhorar a redação (gramática e clareza corporativa). Mantenha as palavras exatas de Nomes de Equipamentos, Ferramentas, Peças, Processos Industriais, Materiais e Hard Skills. O array de skills deve conter no máximo 15 itens essenciais (termos bem curtos). Seja totalmente fiel aos fatos originais.\n\nTextos Extraídos:\n${truncatedPdfText}`;
+      : `Leia atentamente o(s) texto(s) extraído(s) e preencha o JSON de forma conservadora. Regra primordial: NÃO CRIE nenhum dado, data, empresa, projeto, responsabilidade ou curso que não esteja explicitamente mencionado no texto. O limite da sua atuação é apenas na apresentação. Zero Omissão Técnica e Habilidades Exatas (Soft e Hard). Seja totalmente fiel aos fatos originais.\n\nTextos Extraídos:\n${truncatedPdfText}`;
 
     try {
       const rawResult = await callGroqAPI({
@@ -373,8 +372,8 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
   // Se houver imagens, tenta usar o Gemini
   try {
     const userMessage = exactMode
-      ? `Analise as imagens e textos fornecidos. Extraia EXATAMENTE as informações, NÃO as reescreva ou melhore. Apenas transcreva no formato JSON estrito. Lembre-se especialmente da regra de ouro: NUNCA resuma ou omita Nomes de Equipamentos, Ferramentas, Peças, Processos ou Materiais.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}`
-      : `Leia atentamente as imagens e textos fornecidos e preencha o JSON de forma conservadora. Regra primordial: NÃO CRIE nenhum dado, data, empresa, projeto, responsabilidade ou curso que não consiga ver claramente. O limite da sua atuação é exclusivamente melhorar a redação (gramática e clareza corporativa) das informações visualizadas. Lembre-se da regra de ouro: NUNCA resuma ou omita Nomes de Equipamentos, Ferramentas, Peças, Processos Industriais, Materiais e Hard Skills.\n\nTransforme o conteúdo estritamente no formato JSON.${allPdfText ? ' Também considere este texto do PDF:\n\n' + allPdfText : ''}`;
+      ? `Analise as imagens e textos fornecidos. Extraia EXATAMENTE as informações, NÃO as reescreva ou melhore. Apenas transcreva no formato JSON estrito. Zero Omissão Técnica: É estritamente proibido remover nomes de ferramentas, peças, materiais ou processos (ex: anel o-ring, etc). Transcreva o CEP exato; inclua cidades e estados nas empresas/instituições; transcreva todas as 'Habilidades' de forma exata.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}`
+      : `Leia atentamente as imagens e textos fornecidos e preencha o JSON de forma conservadora. Regra primordial: NÃO CRIE dados. O limite da sua atuação é apenas a melhora da apresentação. Zero Omissão Técnica: É estritamente proibido remover ou resumir nomes de ferramentas, peças, materiais ou processos (ex: anel o-ring, torquímetro, etc). Transcreva as 'Habilidades' exatamente como estão (não substitua soft skills por hard skills, nem resuma). Mantenha as especificações '(elétrico e mecânico)'. Transcreva o CEP exato. Adicione cidade e estado ao nome de TODAS as empresas e instituições.\n\nTransforme o conteúdo estritamente no formato JSON.${allPdfText ? ' Também considere este texto do PDF:\n\n' + allPdfText : ''}`;
 
     const contentParts: any[] = [
       { text: userMessage }
@@ -387,7 +386,7 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
     }
 
     const requestBody = {
-      model: "gemini-2.5-flash",
+      model: "gemini-flash-latest",
       contents: [{ role: "user", parts: contentParts }],
       config: {
         systemInstruction: selectedSystemPrompt,
@@ -723,7 +722,7 @@ export async function editResumeWithAI(currentData: ResumeData, editPrompt: stri
   const modelPrompt = `
     Você é um especialista em reestruturação de currículos. Foi fornecido o currículo atual em JSON e uma instrução do usuário para alterá-lo.
     Retorne o novo currículo atualizado, mantendo a estrutura exata do JSON original, apenas modificando o que foi pedido.
-    IMPORTANTE: Se adicionar ou modificar habilidades (skills), limite-se a no máximo 15 itens principais, usando termos curtos de 1 a 3 palavras (ex: Tecnologias, Ferramentas, Hard Skills). Mantenha os nomes exatos de ferramentas, peças ou sistemas técnicos do currículo.
+    IMPORTANTE: Ao adicionar ou modificar habilidades (skills), não as resuma, não substitua soft skills por hard skills, e mantenha todas de forma exata. Zero Omissão Técnica: É estritamente proibido excluir nomes de ferramentas, peças, processos ou especificações técnicas da experiência ou do currículo.
     ${base64Images.length > 0 ? "Considere as imagens fornecidas junto com esse texto de requisição para embasar a alteração." : ""}
     ${filesContext}
     
@@ -746,7 +745,7 @@ export async function editResumeWithAI(currentData: ResumeData, editPrompt: stri
       }
   
       const requestBody = {
-        model: "gemini-2.5-flash",
+        model: "gemini-flash-latest",
         contents: [{ role: "user", parts: contentParts }],
         config: {
           systemInstruction: "Retorne ESTRITAMENTE um objeto JSON válido. Responda apenas com o JSON na estrutura da interface ResumeData fornecida e nada mais.",

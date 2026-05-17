@@ -144,9 +144,9 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         {skills.length > 0 && (
           <div className={`${t.mb} page-break-avoid w-full`}>
             <h2 className={`${t.h2} font-bold text-[#94a3b8] uppercase ${isDense ? 'mb-2' : 'mb-4'} border-b border-[#334155] pb-1`}>Habilidades</h2>
-            <div className="flex flex-col gap-1.5 w-full">
+            <div className="flex flex-wrap gap-1 w-full">
               {skills.map((skill, index) => (
-                <span key={index} className={`w-full block text-left px-2.5 py-1.5 bg-[#334155] rounded ${t.sidebarSmall} font-medium break-words`}>
+                <span key={index} className={`px-2 py-1 bg-[#334155] rounded-sm ${isDense ? 'text-[9.5px]' : 'text-[11px]'} font-medium break-words leading-tight`}>
                   {skill.name}
                 </span>
               ))}
@@ -397,11 +397,11 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           {skills.length > 0 && (
             <div className="page-break-avoid w-full">
               <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-2 tracking-wider`}>Especialidades</h2>
-              <ul className="space-y-0.5">
+              <div className="flex flex-wrap gap-1.5">
                 {skills.map((skill, index) => (
-                  <li key={index} className={`${t.body} font-medium`}>{skill.name}</li>
+                  <span key={index} className={`${t.small} font-medium px-1.5 py-0.5 bg-gray-200/50 rounded-sm text-[#374151]`}>{skill.name}</span>
                 ))}
-              </ul>
+              </div>
             </div>
           )}
           
@@ -546,14 +546,14 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         {skills.length > 0 && (
           <div className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} page-break-avoid w-full relative z-10`}>
             <h2 className={`${t.sidebarSmall} font-bold text-[#ffffff] uppercase tracking-wider mb-2 border-b border-[#64748b] pb-1`}>Habilidades e<br/>Competências</h2>
-            <ul className="space-y-1">
+            <div className="flex flex-wrap gap-1.5 w-full">
               {skills.map((skill, index) => (
-                <li key={index} className={`flex items-start gap-2 ${t.sidebarSmall}`}>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] shrink-0 mt-1"></div>
-                  <span>{skill.name}</span>
-                </li>
+                <span key={index} className={`px-2 py-1 bg-[#1e293b]/50 border border-[#475569]/50 rounded-sm text-white ${isDense ? 'text-[9px]' : 'text-[10px]'} font-medium break-words leading-tight flex items-center`}>
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] shrink-0 mr-1.5"></div>
+                  {skill.name}
+                </span>
               ))}
-            </ul>
+            </div>
           </div>
         )}
 
