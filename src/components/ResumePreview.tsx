@@ -146,7 +146,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
             <h2 className={`${t.h2} font-bold text-[#94a3b8] uppercase ${isDense ? 'mb-2' : 'mb-4'} border-b border-[#334155] pb-1`}>Habilidades</h2>
             <div className="flex flex-col gap-1.5 w-full">
               {skills.map((skill, index) => (
-                <span key={index} className={`w-full block px-2.5 py-1.5 bg-[#334155] rounded ${t.sidebarSmall} font-medium`}>
+                <span key={index} className={`w-full block text-left px-2.5 py-1.5 bg-[#334155] rounded ${t.sidebarSmall} font-medium break-words`}>
                   {skill.name}
                 </span>
               ))}
@@ -199,7 +199,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
                       {exp.startDate} {exp.startDate && exp.endDate ? '-' : ''} {exp.endDate}
                     </span>
                   </div>
-                  <div className={`${t.body} font-semibold text-[#64748b] mb-1.5`}>{exp.company} {exp.location && <span className="font-normal text-[#6b7280]">- {exp.location}</span>}</div>
+                  <div className={`${t.body} font-semibold text-[#64748b] mb-1.5`}>{exp.company}{exp.location && <span className="font-normal text-[#6b7280] whitespace-nowrap">&nbsp;- {exp.location}</span>}</div>
                   <p className={`${t.body} text-[#4b5563] leading-relaxed whitespace-pre-line `}>
                     <HighlightText text={exp.description} keywords={data.keywords} showHighlights={data.showHighlights} />
                   </p>
@@ -291,7 +291,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
                 </div>
                 <div className={`mb-1.5 ${t.body}`}>
                   <span className="font-semibold">{exp.company}</span>
-                  {exp.location && <span>, {exp.location}</span>}
+                  {exp.location && <span className="whitespace-nowrap">, {exp.location}</span>}
                 </div>
                 <p className={`${t.body} leading-relaxed whitespace-pre-line `}>
                   <HighlightText text={exp.description} keywords={data.keywords} showHighlights={data.showHighlights} />
@@ -449,7 +449,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
                        {exp.startDate} {exp.startDate && exp.endDate ? '—' : ''} {exp.endDate}
                     </div>
                     <h3 className={`${t.h3} font-bold text-[#111827] leading-tight`}>{exp.position}</h3>
-                    <div className={`${t.body} font-medium text-[#6b7280] mb-2`}>{exp.company} {exp.location && <span className="font-normal text-[#6b7280]">- {exp.location}</span>}</div>
+                    <div className={`${t.body} font-medium text-[#6b7280] mb-2`}>{exp.company}{exp.location && <span className="font-normal text-[#6b7280] whitespace-nowrap">&nbsp;- {exp.location}</span>}</div>
                     <p className={`${t.body} text-[#4b5563] leading-relaxed whitespace-pre-line `}>
                       <HighlightText text={exp.description} keywords={data.keywords} showHighlights={data.showHighlights} />
                     </p>
@@ -660,7 +660,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
                         <div className="absolute left-[-1.6rem] top-[6px] w-[7px] h-[7px] rounded-full border border-[#fbbf24] bg-[#ffffff] ring-4 ring-[#ffffff] z-20"></div>
                         
                         <div className={`font-bold text-[#374151] ${t.h3} leading-snug`}>
-                           {exp.company} {exp.location && <span className="font-normal text-[#6b7280]">- {exp.location}</span>}
+                           {exp.company}{exp.location && <span className="font-normal text-[#6b7280] whitespace-nowrap">&nbsp;- {exp.location}</span>}
                         </div>
                         <div className={`${t.small} font-bold text-[#374151] mt-0.5 mb-0.5 inline-flex bg-[#f1f5f9] px-2 py-0.5 rounded-sm`}>
                            Cargo: {exp.position}
@@ -738,7 +738,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
                     </span>
                   </div>
                   <div className={`mb-1.5 ${t.body} font-medium text-[#64748b]`}>
-                    {exp.company}{exp.location && <span> | {exp.location}</span>}
+                    {exp.company}{exp.location && <span className="whitespace-nowrap">&nbsp;| {exp.location}</span>}
                   </div>
                   <p className={`${t.body} leading-relaxed whitespace-pre-line text-[#4b5563]`}>
                     <HighlightText text={exp.description} keywords={data.keywords} showHighlights={data.showHighlights} />
@@ -781,7 +781,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
             </h2>
             <div className="flex flex-wrap gap-2">
               {skills.map((s, i) => (
-                 <span key={i} className={`${t.small} font-bold text-[#1e293b] bg-[#f1f5f9] px-2 py-1 rounded-md border border-[#e2e8f0]`}>
+                 <span key={i} className={`inline-block ${t.small} font-bold text-[#1e293b] bg-[#f1f5f9] px-2 py-1 rounded-md border border-[#e2e8f0]`}>
                    {s.name}
                  </span>
               ))}
@@ -890,7 +890,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
                     </span>
                   </div>
                   <div className={`mb-2 font-bold text-[#3b82f6] ${t.small} uppercase tracking-wider`}>
-                    {exp.company}{exp.location && <span className="text-gray-400 font-medium"> • {exp.location}</span>}
+                    {exp.company}{exp.location && <span className="text-gray-400 font-medium whitespace-nowrap">&nbsp;• {exp.location}</span>}
                   </div>
                   <div className={`${t.body} leading-relaxed text-gray-700 whitespace-pre-wrap text-justify`}>
                     <HighlightText text={exp.description} keywords={data.keywords} showHighlights={data.showHighlights} />
@@ -932,7 +932,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
                 </h2>
                 <div className="flex flex-wrap gap-2 pl-6">
                   {skills.map((s, i) => (
-                    <span key={i} className={`${t.small} font-bold text-gray-700 bg-gray-100 px-3 py-1 rounded-sm border border-gray-200 shadow-sm`}>
+                    <span key={i} className={`inline-block ${t.small} font-bold text-gray-700 bg-gray-100 px-3 py-1 rounded-sm border border-gray-200 shadow-sm`}>
                       {s.name}
                     </span>
                   ))}

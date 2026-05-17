@@ -39,19 +39,31 @@ async function callGeminiAPI(requestBody: any) {
          // fallback handled by prompt
       }
 
-      // Direct call
       const model = requestBody.model || "gemini-2.5-flash";
+      
+      const restPayload: any = {
+        contents: requestBody.contents,
+        generationConfig: requestBody.config ? { ...requestBody.config } : undefined
+      };
+      
+      if (restPayload.generationConfig?.systemInstruction) {
+        restPayload.system_instruction = {
+          parts: [{ text: restPayload.generationConfig.systemInstruction }]
+        };
+        delete restPayload.generationConfig.systemInstruction;
+      }
+
       const directResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: requestBody.contents,
-          generationConfig: requestBody.config
-        })
+        body: JSON.stringify(restPayload)
       });
 
       if (!directResponse.ok) {
         const errorText = await directResponse.text();
+        if (directResponse.status === 429 || errorText.toLowerCase().includes("quota")) {
+           throw new Error("O limite de uso gratuito da sua chave Gemini foi excedido (429). Aguarde alguns instantes ou adicione sua própria CUSTOM_GEMINI_API_KEY no menu 'Settings > Secrets'.");
+        }
         throw new Error(`Erro da API Direta do Gemini (${directResponse.status}): ${errorText}`);
       }
 
@@ -116,7 +128,7 @@ async function callGroqAPI(requestBody: any) {
   }
 }
 
-function fileToBase64(file: File): Promise<string> {
+function fileToBase64(file: File): Promise<{ mimeType: string, data: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -126,8 +138,8 @@ function fileToBase64(file: File): Promise<string> {
       img.src = result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1000;
-        const MAX_HEIGHT = 1000;
+        const MAX_WIDTH = 2500;
+        const MAX_HEIGHT = 2500;
         let width = img.width;
         let height = img.height;
 
@@ -147,20 +159,55 @@ function fileToBase64(file: File): Promise<string> {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (ctx) {
+          // Fill background for transparency
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, width, height);
           ctx.drawImage(img, 0, 0, width, height);
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
           const base64String = compressedDataUrl.split(',')[1];
-          resolve(base64String);
+          resolve({ mimeType: 'image/jpeg', data: base64String });
         } else {
-          resolve(result.split(',')[1]);
+          const mimeMatch = result.match(/^data:(image\/[a-zA-Z+]+);base64,/);
+          const originalMime = mimeMatch ? mimeMatch[1] : file.type;
+          resolve({ mimeType: originalMime, data: result.split(',')[1] });
         }
       };
       img.onerror = () => {
-        resolve(result.split(',')[1]);
+        const mimeMatch = result.match(/^data:(image\/[a-zA-Z+]+);base64,/);
+        const originalMime = mimeMatch ? mimeMatch[1] : file.type;
+        resolve({ mimeType: originalMime, data: result.split(',')[1] });
       };
     };
     reader.onerror = (error) => reject(error);
   });
+}
+
+async function convertPdfToImages(file: File): Promise<{ mimeType: string, data: string }[]> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+  const images: { mimeType: string, data: string }[] = [];
+  
+  const numPages = Math.min(pdf.numPages, 4); // Limiting pages to prevent payload size issues
+  
+  for (let i = 1; i <= numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 1.5 });
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) continue;
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+    
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    const base64String = dataUrl.split(',')[1];
+    images.push({ mimeType: 'image/jpeg', data: base64String });
+  }
+  return images;
 }
 
 async function extractTextFromPdf(file: File): Promise<string> {
@@ -187,8 +234,8 @@ REGRAS DE CONTEÚDO E FORMATAÇÃO (CRÍTICAS):
    "- Liderou o projeto X reduzindo custos.
    - Otimizou o processo Y com eficácia.
    - Treinou novos funcionários."
-3. Habilidades: Extraia TODAS as habilidades mencionadas. Use nomes adequados e curtos (ex: "Limpeza de ambientes"). Não omita e nem limite a quantidade de habilidades. Só liste habilidades mapeáveis a partir do currículo. NUNCA INVENTE.
-4. Fidelidade aos dados factuais e geográficos: NUNCA altere ou invente Nomes de Instituições, Cursos, Empresas, Cargos, Períodos (datas) ou Contatos. NÃO OMita NENHUM dado geográfico (cidade, estado, região ou filial) da empresa/instituição; mantenha-o. Sua liberdade está apenas em MELHORAR a redação das DESCRIÇÕES (sem alterar fatos).
+3. Habilidades e Termos Técnicos: NUNCA resuma, agrupe ou omita nomes de ferramentas, peças, processos industriais, tipos de materiais (ex: PVC, anel oring, válvulas) ou hard skills específicas. O poder do currículo técnico está nas palavras exatas dos equipamentos operados. Extraia TODAS as habilidades mencionadas no currículo original. Não omita e nem limite a quantidade de habilidades. Só liste habilidades mapeáveis a partir do currículo. NUNCA INVENTE.
+4. Fidelidade aos dados factuais e geográficos: NUNCA altere ou invente Nomes de Instituições, Cursos, Empresas, Cargos, Períodos (datas) ou Contatos. NÃO OMita NENHUM dado geográfico (cidade, estado, região ou filial); mantenha-o no campo 'location' nas experiências. O nome da cidade/estado deve sempre acompanhar a empresa. Sua liberdade está apenas em MELHORAR a redação das DESCRIÇÕES (sem alterar fatos).
 5. Fidelidade a datas: NÃO force um padrão visual inventando datas. Se a experiência ou curso fornece apenas um ano isolado (ex: "2020"), NÃO duplique para forçar período contínuo (ex: falso "2020-2020"). Extraia apenas a data ou ano fornecido.
 6. Seções Extras (Customizadas): Se o currículo possuir outras categorias contendo dados (ex: Idiomas, Projetos, Publicações, Certificações), agrupe no campo "customSections", cada seção deve ter "name" (como 'Idiomas') e em 'items', coloque 'title' (o idioma/curso/projeto) e, se aplicável, 'description' (nível ou detalhe). Caso contrário, deixe a lista vazia.
 7. Omitir 'id' de arrays.
@@ -197,7 +244,7 @@ Preencha as informações necessárias com textos enxutos. Se alguma informaçã
 Responda OBRIGATORIAMENTE com um JSON válido correspondente a este schema:
 {
   "personalInfo": { "fullName": "", "jobTitle": "", "email": "", "phone": "", "location": "", "summary": "" },
-  "experience": [{ "company": "", "position": "", "startDate": "", "endDate": "", "description": "" }],
+  "experience": [{ "company": "", "location": "", "position": "", "startDate": "", "endDate": "", "description": "" }],
   "education": [{ "institution": "", "degree": "", "startDate": "", "endDate": "" }],
   "courses": [{ "name": "", "institution": "" }],
   "skills": [{ "name": "" }],
@@ -212,8 +259,8 @@ Seu trabalho é extrair EXATAMENTE as informações contidas na imagem ou PDF e 
 
 REGRAS (CRÍTICAS):
 1. NUNCA resuma, MELHORE ou altere o texto. Transcreva exatamente as descrições originais do currículo.
-2. Divida textos longos de experiência em "bullet points", mas MANTENHA as palavras EXATAS.
-3. Dados Geográficos: NÃO OMita NENHUM dado geográfico (cidades, estados, filiais) de empresas e cursos.
+2. Habilidades e Termos Técnicos: NUNCA resuma, agrupe ou omita nomes de ferramentas, peças, processos industriais, tipos de materiais (ex: PVC, anel oring, válvulas) ou hard skills específicas. O poder do currículo técnico está nas palavras exatas dos equipamentos operados. Divida textos longos de experiência em "bullet points", mas MANTENHA as palavras EXATAS.
+3. Dados Geográficos: NÃO OMita NENHUM dado geográfico (cidades, estados, filiais) de empresas e cursos. Extraia-os para o campo 'location' correspondente para garantir que a cidade/estado sempre acompanhe o nome da empresa.
 4. Datas: NÃO force um padrão visual inventando datas. Se a experiência tiver apenas um ano isolado (ex: "2020"), recuse-se a duplicar a data para forçar um formato "2020-2020". Extraia apenas a data original.
 5. Seções Extras (Customizadas): Se o currículo possuir outras categorias (ex: Idiomas, Projetos, Publicações, Soft Skills, Certificações de TI), agrupe no campo "customSections", cada seção deve ter "name" (como 'Idiomas') e em 'items', coloque 'title' (o idioma/curso/projeto) e 'description'.
 6. Retorne APENAS um JSON válido.
@@ -221,7 +268,7 @@ REGRAS (CRÍTICAS):
 Responda OBRIGATORIAMENTE com um JSON correspondente a este schema:
 {
   "personalInfo": { "fullName": "", "jobTitle": "", "email": "", "phone": "", "location": "", "summary": "" },
-  "experience": [{ "company": "", "position": "", "startDate": "", "endDate": "", "description": "" }],
+  "experience": [{ "company": "", "location": "", "position": "", "startDate": "", "endDate": "", "description": "" }],
   "education": [{ "institution": "", "degree": "", "startDate": "", "endDate": "" }],
   "courses": [{ "name": "", "institution": "" }],
   "skills": [{ "name": "" }],
@@ -249,11 +296,18 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
   for (const file of fileArray) {
     if (file.type.includes('pdf')) {
       const text = await extractTextFromPdf(file);
-      allPdfText += `[Conteúdo do arquivo PDF ${file.name}]:\n${text}\n\n`;
+      if (text.trim().length < 50) {
+        console.warn(`PDF ${file.name} parece ser escaneado. Convertendo as páginas em imagens para leitura óptica com Gemini...`);
+        const images = await convertPdfToImages(file);
+        base64Images.push(...images);
+        hasImage = true;
+      } else {
+        allPdfText += `[Conteúdo do arquivo PDF ${file.name}]:\n${text}\n\n`;
+      }
     } else if (file.type.includes('image')) {
       hasImage = true;
-      const base64Data = await fileToBase64(file);
-      base64Images.push({ mimeType: file.type, data: base64Data });
+      const imageData = await fileToBase64(file);
+      base64Images.push(imageData);
     }
   }
 
@@ -288,8 +342,8 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
 
   if (!hasImage) {
     const userMessage = exactMode
-      ? `Extraia EXATAMENTE as informações do currículo a seguir, organizando-as no JSON, SEM alterar nenhuma palavra ou criar informações:\n\n${truncatedPdfText}`
-      : `Leia atentamente o(s) texto(s) extraído(s) e preencha o JSON de forma conservadora. Regra primordial: NÃO CRIE nenhum dado, data, empresa, projeto, responsabilidade ou curso que não esteja explicitamente mencionado no texto. O limite da sua atuação é exclusivamente melhorar a redação (gramática e clareza corporativa) das informações que já existem. Seja totalmente fiel aos fatos originais.\n\nTextos Extraídos:\n${truncatedPdfText}`;
+      ? `Extraia EXATAMENTE as informações do currículo a seguir, organizando-as no JSON, SEM alterar nenhuma palavra ou criar informações. Lembre-se especialmente da regra de ouro: NUNCA resuma ou omita Nomes de Equipamentos, Ferramentas, Peças, Processos ou Materiais:\n\n${truncatedPdfText}`
+      : `Leia atentamente o(s) texto(s) extraído(s) e preencha o JSON de forma conservadora. Regra primordial: NÃO CRIE nenhum dado, data, empresa, projeto, responsabilidade ou curso que não esteja explicitamente mencionado no texto. O limite da sua atuação é exclusivamente melhorar a redação (gramática e clareza corporativa). Lembre-se da regra de ouro: NUNCA resuma ou omita Nomes de Equipamentos, Ferramentas, Peças, Processos Industriais, Materiais e Hard Skills, o currículo deve mostrar domínio técnico com as palavras exatas. Seja totalmente fiel aos fatos originais.\n\nTextos Extraídos:\n${truncatedPdfText}`;
 
     try {
       const rawResult = await callGroqAPI({
@@ -305,6 +359,12 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
 
       const parsedText = rawResult.choices?.[0]?.message?.content || "{}";
       const rawData = parseJsonResponse(parsedText);
+      
+      const isEmpty = !rawData || (!rawData.personalInfo?.fullName && !rawData.experience?.length && !rawData.education?.length && !rawData.skills?.length);
+      if (isEmpty) {
+        throw new Error("A IA não conseguiu interpretar o documento. Certifique-se de que o PDF não está em branco ou bloqueado.");
+      }
+      
       return normalizeResponse(rawData);
     } catch (error: any) {
       console.error("Error reading PDF files with Groq:", error);
@@ -315,8 +375,8 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
   // Se houver imagens, tenta usar o Gemini
   try {
     const userMessage = exactMode
-      ? `Analise as imagens e textos fornecidos. Extraia EXATAMENTE as informações, NÃO as reescreva ou melhore. Apenas transcreva no formato JSON estrito.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}`
-      : `Leia atentamente as imagens e textos fornecidos e preencha o JSON de forma conservadora. Regra primordial: NÃO CRIE nenhum dado, data, empresa, projeto, responsabilidade ou curso que não consiga ver claramente. O limite da sua atuação é exclusivamente melhorar a redação (gramática e clareza corporativa) das informações visualizadas.\n\nTransforme o conteúdo estritamente no formato JSON.${allPdfText ? ' Também considere este texto do PDF:\n\n' + allPdfText : ''}`;
+      ? `Analise as imagens e textos fornecidos. Extraia EXATAMENTE as informações, NÃO as reescreva ou melhore. Apenas transcreva no formato JSON estrito. Lembre-se especialmente da regra de ouro: NUNCA resuma ou omita Nomes de Equipamentos, Ferramentas, Peças, Processos ou Materiais.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}`
+      : `Leia atentamente as imagens e textos fornecidos e preencha o JSON de forma conservadora. Regra primordial: NÃO CRIE nenhum dado, data, empresa, projeto, responsabilidade ou curso que não consiga ver claramente. O limite da sua atuação é exclusivamente melhorar a redação (gramática e clareza corporativa) das informações visualizadas. Lembre-se da regra de ouro: NUNCA resuma ou omita Nomes de Equipamentos, Ferramentas, Peças, Processos Industriais, Materiais e Hard Skills.\n\nTransforme o conteúdo estritamente no formato JSON.${allPdfText ? ' Também considere este texto do PDF:\n\n' + allPdfText : ''}`;
 
     const contentParts: any[] = [
       { text: userMessage }
@@ -341,6 +401,12 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
     const rawResult = await callGeminiAPI(requestBody);
     const textResponse = rawResult.text || "{}";
     const rawData = parseJsonResponse(textResponse);
+    
+    const isEmpty = !rawData || (!rawData.personalInfo?.fullName && !rawData.experience?.length && !rawData.education?.length && !rawData.skills?.length);
+    if (isEmpty) {
+      throw new Error("A IA não conseguiu encontrar informações legíveis. Certifique-se de que a imagem ou PDF tem boa resolução e texto visível.");
+    }
+    
     return normalizeResponse(rawData);
   } catch (error: any) {
     console.error("Error reading mixed files with Gemini:", error);
@@ -402,6 +468,7 @@ function normalizeResponse(rawData: any): ResumeData {
     experience: Array.isArray(rawData.experience) ? rawData.experience.map((exp: any) => ({
       id: uuidv4(),
       company: exp.company || '',
+      location: exp.location || '',
       position: exp.position || '',
       startDate: exp.startDate || '',
       endDate: exp.endDate || '',
@@ -643,8 +710,8 @@ export async function editResumeWithAI(currentData: ResumeData, editPrompt: stri
         allPdfText += `[Conteúdo do arquivo PDF ${file.name}]:\n${await extractTextFromPdf(file)}\n\n`;
       } else if (file.type.includes('image')) {
         hasImage = true;
-        const base64Data = await fileToBase64(file);
-        base64Images.push({ mimeType: file.type, data: base64Data });
+        const imageData = await fileToBase64(file);
+        base64Images.push(imageData);
       } else {
         throw new Error(`Tipo de arquivo não suportado: ${file.name}. Envie apenas PDF ou imagem.`);
       }
@@ -658,6 +725,7 @@ export async function editResumeWithAI(currentData: ResumeData, editPrompt: stri
   const modelPrompt = `
     Você é um especialista em reestruturação de currículos. Foi fornecido o currículo atual em JSON e uma instrução do usuário (admin) para alterá-lo.
     Retorne o novo currículo atualizado, mantendo a estrutura exata do JSON original, apenas modificando o que foi pedido.
+    IMPORTANTE: Nunca resuma, agrupe ou omita nomes de ferramentas, peças, processos industriais, tipos de materiais (ex: PVC, anel oring, válvulas) ou hard skills específicas. O poder do currículo técnico está nas palavras exatas dos equipamentos operados.
     ${base64Images.length > 0 ? "Considere as imagens fornecidas junto com esse texto de requisição para embasar a alteração." : ""}
     ${filesContext}
     
@@ -694,6 +762,9 @@ export async function editResumeWithAI(currentData: ResumeData, editPrompt: stri
       const rawData = parseJsonResponse(textResponse);
       const normalizedData = normalizeResponse(rawData);
       
+      const isEmpty = !normalizedData.personalInfo.fullName && normalizedData.experience.length === 0 && normalizedData.education.length === 0;
+      if (isEmpty) throw new Error("A IA retornou um currículo vazio. Edição cancelada.");
+      
       return {
         ...normalizedData,
         id: currentData.id,
@@ -715,12 +786,16 @@ export async function editResumeWithAI(currentData: ResumeData, editPrompt: stri
         });
       const parsedText = rawResult.choices?.[0]?.message?.content || "{}";
       const rawData = parseJsonResponse(parsedText);
+      const normalizedData = normalizeResponse(rawData);
+      
+      const isEmpty = !normalizedData.personalInfo.fullName && normalizedData.experience.length === 0 && normalizedData.education.length === 0;
+      if (isEmpty) throw new Error("A IA retornou um currículo vazio. Edição cancelada.");
       
       return {
-        ...normalizeResponse(rawData),
+        ...normalizedData,
         id: currentData.id,
         personalInfo: {
-          ...normalizeResponse(rawData).personalInfo,
+          ...normalizedData.personalInfo,
           photoUrl: currentData.personalInfo.photoUrl,
         }
       };

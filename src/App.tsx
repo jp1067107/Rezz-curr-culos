@@ -507,11 +507,8 @@ function MainApp() {
             allElements.forEach((el: any) => {
               if (el instanceof window.HTMLElement) {
                 el.style.fontVariantLigatures = 'none';
-                /* Removed optimizeLegibility */
-                // word break
-                if (el.tagName.toLowerCase() !== 'i' && el.tagName.toLowerCase() !== 'svg') {
-                  el.style.wordBreak = 'break-word';
-                }
+                el.style.letterSpacing = '0px';
+                el.style.wordBreak = 'normal';
               }
             });
             const containers = clonedDoc.querySelectorAll('.shadow-lg');
@@ -621,8 +618,8 @@ function MainApp() {
             if (el instanceof HTMLElement) {
               const htmlEl = el as HTMLElement;
               htmlEl.style.fontVariantLigatures = 'none';
-              htmlEl.style.textRendering = 'optimizeLegibility';
-              htmlEl.style.wordBreak = 'break-word';
+              htmlEl.style.letterSpacing = '0px';
+              htmlEl.style.wordBreak = 'normal';
             }
           });
           const containers = clonedDoc.querySelectorAll('.shadow-lg');
@@ -724,11 +721,8 @@ function MainApp() {
             allElements.forEach((el: any) => {
               if (el instanceof window.HTMLElement) {
                 el.style.fontVariantLigatures = 'none';
-                /* Removed optimizeLegibility */
-                // word break
-                if (el.tagName.toLowerCase() !== 'i' && el.tagName.toLowerCase() !== 'svg') {
-                  el.style.wordBreak = 'break-word';
-                }
+                el.style.letterSpacing = '0px';
+                el.style.wordBreak = 'normal';
               }
             });
             const containers = clonedDoc.querySelectorAll('.shadow-lg');
