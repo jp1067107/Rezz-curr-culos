@@ -161,7 +161,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
               {data.courses!.map((course, index) => (
                 <div key={index} className="page-break-avoid overflow-hidden">
                   <div className={`${t.sidebarSmall} font-bold text-[#ffffff] mb-0.5`}>{course.name}</div>
-                  <div className={`text-[10px] ${!isDense && 'text-xs'} text-[#94a3b8]`}>{course.institution}</div>
+                  <div className={`text-[10px] ${!isDense && 'text-xs'} text-[#94a3b8]`}>{course.institution}{course.date ? ` | ${course.date}` : ''}</div>
                 </div>
               ))}
             </div>
@@ -341,7 +341,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
             {data.courses!.map((course, index) => (
               <div key={index} className="w-full page-break-avoid overflow-hidden">
                 <div className={`font-bold ${isDense ? 'text-[13px]' : isNormal ? 'text-sm' : 'text-base'} mb-0.5`}>{course.name}</div>
-                <div className={`${t.body}`}>{course.institution}</div>
+                <div className={`${t.body}`}>{course.institution}{course.date ? ` | ${course.date}` : ''}</div>
               </div>
             ))}
           </div>
@@ -431,7 +431,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
                 {data.courses!.map((course, index) => (
                   <div key={index} className="page-break-avoid w-full">
                     <div className={`${t.body} font-bold leading-tight`}>{course.name}</div>
-                    <div className={`${t.small} text-[#6b7280]`}>{course.institution}</div>
+                    <div className={`${t.small} text-[#6b7280]`}>{course.institution}{course.date ? ` | ${course.date}` : ''}</div>
                   </div>
                 ))}
               </div>
@@ -568,7 +568,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
                    <div className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] shrink-0 mt-1"></div>
                    <div>
                      <div className="font-bold">{course.name}</div>
-                     <div className={`text-[#cbd5e1] ${isDense ? 'text-[9.5px]' : 'text-[10px]'}`}>{course.institution}</div>
+                     <div className={`text-[#cbd5e1] ${isDense ? 'text-[9.5px]' : 'text-[10px]'}`}>{course.institution}{course.date ? ` | ${course.date}` : ''}</div>
                    </div>
                 </li>
               ))}
@@ -801,7 +801,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
               {data.courses.map((course, index) => (
                 <div key={index} className="page-break-avoid w-full flex justify-between items-start">
                   <div className={`font-bold text-[#1e293b] ${t.body} leading-tight`}>{course.name}</div>
-                  <div className={`${t.small} text-[#64748b] text-right ml-4 shrink-0`}>{course.institution}</div>
+                  <div className={`${t.small} text-[#64748b] text-right ml-4 shrink-0`}>{course.institution}{course.date ? ` | ${course.date}` : ''}</div>
                 </div>
               ))}
             </div>
@@ -951,7 +951,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
                   {data.courses.map((course, index) => (
                     <div key={index} className="w-full flex items-center gap-2 page-break-avoid">
                       <div className="w-1.5 h-1.5 bg-[#2563eb] rounded-full shrink-0"></div>
-                      <div className={`font-bold text-[#0f172a] ${t.body} leading-tight`}>{course.name} <span className="font-normal text-gray-500">| {course.institution}</span></div>
+                      <div className={`font-bold text-[#0f172a] ${t.body} leading-tight`}>{course.name} <span className="font-normal text-gray-500">{course.institution ? `| ${course.institution}` : ''} {course.date ? `(${course.date})` : ''}</span></div>
                     </div>
                   ))}
                 </div>

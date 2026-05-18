@@ -152,11 +152,11 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
   const addCourse = () => {
     onChange({
       ...data,
-      courses: [...(data.courses || []), { id: uuidv4(), name: '', institution: '' }]
+      courses: [...(data.courses || []), { id: uuidv4(), name: '', institution: '', date: '' }]
     });
   };
 
-  const updateCourse = (id: string, field: 'name' | 'institution', value: string) => {
+  const updateCourse = (id: string, field: 'name' | 'institution' | 'date', value: string) => {
     onChange({
       ...data,
       courses: (data.courses || []).map(course => course.id === id ? { ...course, [field]: value } : course)
@@ -493,7 +493,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                     <Trash2 className="w-4 h-4" />
                   </button>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-10">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pr-10">
                     <div>
                       <label className={labelClass}>Nome do Curso</label>
                       <input 
@@ -512,6 +512,16 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                         onChange={(e) => updateCourse(course.id, 'institution', e.target.value)}
                         className={inputClass}
                         placeholder="Alura"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Data / Período</label>
+                      <input 
+                        type="text" 
+                        value={course.date || ''}
+                        onChange={(e) => updateCourse(course.id, 'date', e.target.value)}
+                        className={inputClass}
+                        placeholder="2022"
                       />
                     </div>
                   </div>

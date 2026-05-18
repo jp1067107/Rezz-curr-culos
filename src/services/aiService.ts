@@ -248,14 +248,15 @@ REGRAS DE CONTEÚDO E FORMATAÇÃO (CRÍTICAS):
 6. Educação e Cursos (Zero Omissão Acadêmica): NUNCA delete ou pule níveis de formação (ex: ensino médio, técnico, tecnólogo, especialização). Se houver qualificações ou cursos técnicos e formações concluídas, eles DEVEM ser incluídos na lista de \`education\` ou \`courses\`. Adicione TUDO que for acadêmico ou curso listado no original.
 7. Correção Inteligente de OCR: O processo de leitura de PDF/Imagem às vezes introduz erros bizarros de digitação (ex: "maid" ao invés de maio, "Universidadete" ao invés de Universidade, "São Pauly" ao invés de São Paulo). Você deve CORRIGIR essas falhas óbvias de OCR para o português correto, sem inventar nenhum dado novo.
 8. Seções Customizadas: Se o currículo possuir outras categorias contendo dados (ex: Idiomas, Projetos), agrupe em "customSections", cada seção deve ter "name" (como 'Idiomas') e em 'items', coloque 'title' (o idioma/curso/projeto) e, se aplicável, 'description' (nível ou detalhe). Caso contrário, deixe a lista vazia.
-9. Omita 'id' na saída do JSON.
+9. Ordem Original: Mantenha todos os itens (experiência, educação, cursos) EXATAMENTE na mesma ordem cronológica/visual em que aparecem no texto original. NÃO reordene os itens sob nenhuma hipótese.
+10. Omita 'id' na saída do JSON.
 
 Responda OBRIGATORIAMENTE com um JSON válido correspondente a este schema:
 {
   "personalInfo": { "fullName": "", "jobTitle": "", "email": "", "phone": "", "location": "", "summary": "" },
   "experience": [{ "company": "", "location": "", "position": "", "startDate": "", "endDate": "", "description": "" }],
   "education": [{ "institution": "", "degree": "", "startDate": "", "endDate": "" }],
-  "courses": [{ "name": "", "institution": "" }],
+  "courses": [{ "name": "", "institution": "", "date": "" }],
   "skills": [{ "name": "" }],
   "customSections": [{
     "name": "Idiomas",
@@ -263,25 +264,27 @@ Responda OBRIGATORIAMENTE com um JSON válido correspondente a este schema:
   }]
 }`;
 
-const EXACT_SYSTEM_PROMPT = `Você é um Especialista em Extração de Dados.
-Seu trabalho é extrair EXATAMENTE as informações contidas na imagem ou PDF e organizar no formato JSON solicitado.
+const EXACT_SYSTEM_PROMPT = `Você é um Robô de Transcrição Literal.
+Sua ÚNICA função é converter os textos e imagens recebidos em um JSON EXATAMENTE como estão.
+Você está TERMINANTEMENTE PROIBIDO de adicionar, diminuir, excluir ou aprimorar qualquer palavra.
 
-REGRAS (CRÍTICAS):
-1. NUNCA resuma, melhore ou altere o sentido das sentenças. Transcreva os fatos originais. É estritamente proibido remover especificações como '(elétrico e mecânico)'. Zero Omissão Técnica: Conserve os nomes exatos de ferramentas, peças, materiais ou processos específicos.
-2. Experiência: Divida textos longos de experiência em "bullet points", mas MANTENHA as palavras EXATAS.
-3. Habilidades (Skills): Transcreva as habilidades MENCIONADAS de forma exata. Não crie frases longas, não resuma, não substitua soft skills por hard skills, transcreva exatamente o que está na imagem/texto original.
-4. Dados Geográficos e Datas (CRÍTICO): PRESERVE rigorosamente as datas exatas. Sob NENHUMA hipótese altere anos ou meses. Se ocorreu em fevereiro de 2019, mantenha fevereiro de 2019 (ou 02/2019). Transcreva o CEP exato no cabeçalho. Você deve OBRIGATORIAMENTE extrair e incluir a cidade e estado ao lado do nome de TODAS as empresas e cursos. INSIRA A CIDADE/ESTADO APENAS UMA VEZ, SEM REPETIÇÕES na mesma linha/nome. Não force padrões de datas inventando períodos contínuos.
-5. Educação e Cursos (Zero Omissão Acadêmica): NUNCA delete formação, especialização ou nível educacional. Se houver cursos técnicos e tecnólogos, ou ensino médio, eles DEVEM ser incluídos em \`education\` ou \`courses\`. Adicione tudo o que for acadêmico que o usuário tiver listado.
-6. Correção Inteligente de OCR: O processo de leitura às vezes comete erros bizarros (ex: "maid" -> maio, "Universidadete" -> Universidade, "São Pauly" -> São Paulo). CORRIJA falhas óbvias de leitura OCR para o português correto, sem fabricar nenhum dado novo.
-7. Seções Extras: Agrupe categorias adicionais (ex: Idiomas, Projetos, Certificações de TI) em "customSections".
-8. Retorne APENAS um JSON válido.
+REGRAS (CRÍTICAS E ABSOLUTAS):
+1. TRANSCRIÇÃO LITERAL: O que está escrito deve ir para o JSON exatamente com as MESMAS palavras e a MESMA gramática. NUNCA resuma, não use sinônimos, não melhore o texto. O texto do currículo original é imutável.
+2. ZERO OMISSÃO: Você NÃO pode deletar NENHUMA informação do texto original. TUDO que for experiência, curso, conhecimento ou detalhe precisa estar presente no JSON. Copie todas as ferramentas, peças, processos, informações.
+3. SEM ADIÇÕES: NÃO crie detalhes que não existem no texto base (NUNCA). Se não está no currículo, não estará no JSON.
+4. Experiência: Se for quebrar textos longos em "bullet points", NÃO altere nenhuma palavra. Use as mesmas palavras exatas.
+5. Habilidades (Skills): Transcreva TODAS as habilidades EXATAMENTE como estão listadas no currículo original. Não adicione e não corte itens, nem tente substituir soft por hard skills. TUDO deve ser copiado.
+6. Dados Geográficos e Datas: Copie-os exatamente como aparecem. INSIRA A CIDADE/ESTADO APENAS UMA VEZ na mesma linha, caso o usuário tenha colocado. Nunca force um formato de data, deixe-o do jeito que o currículo trouxe (ex: "mai de 2019" ou "05/2019").
+7. Educação e Cursos: Adicione todos os níveis de formação, cursos técnicos, tecnólogos e especializações que a pessoa listou sem pular nenhum.
+8. ORDEM ORIGINAL: As experiências e cursos DEVEM aparecer no JSON na exata mesma ordem em que estão listadas no texto original, de cima para baixo. É ESTRITAMENTE PROIBIDO reordenar as experiências ao tentar aplicar ordem cronológica. Confie na ordem visual do texto.
+9. Retorne APENAS um JSON válido. O JSON não será rejeitado caso tenha textos mal escritos, desde que representem fielmente o que estava no documento original.
 
 Responda OBRIGATORIAMENTE com um JSON correspondente a este schema:
 {
   "personalInfo": { "fullName": "", "jobTitle": "", "email": "", "phone": "", "location": "", "summary": "" },
   "experience": [{ "company": "", "location": "", "position": "", "startDate": "", "endDate": "", "description": "" }],
   "education": [{ "institution": "", "degree": "", "startDate": "", "endDate": "" }],
-  "courses": [{ "name": "", "institution": "" }],
+  "courses": [{ "name": "", "institution": "", "date": "" }],
   "skills": [{ "name": "" }],
   "customSections": [{
     "name": "Idiomas",
@@ -353,7 +356,7 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
 
   if (!hasImage) {
     const userMessage = exactMode
-      ? `Extraia EXATAMENTE as informações do currículo a seguir, organizando-as no JSON, SEM alterar nenhuma palavra ou criar informações. Zero Omissão Acadêmica: Extraia todos os níveis educacionais e cursos. PRESERVE as datas intactas.\n\n${truncatedPdfText}`
+      ? `IMPORTANTE: TRANSCRIÇÃO LITERAL E RIGOROSA.\nExtraia EXATAMENTE as informações do currículo a seguir, organizando-as no JSON, SEM alterar, adicionar ou remover nenhuma palavra ou letramento, preservando a gramática e os fatos originais. Adicione todos os cursos. PRESERVE as datas e descrições originais. MANTENHA A ORDEM ORIGINAL DE TODOS OS ITENS, NÃO REORDENE NADA.\n\n${truncatedPdfText}`
       : `Leia atentamente o(s) texto(s) extraído(s) e preencha o JSON de forma conservadora. Regra primordial: NÃO CRIE nenhum dado. O limite da sua atuação é apenas a apresentação. Zero Omissão Técnica, Habilidades Exatas, e Zero Omissão Acadêmica. PRESERVE datas intactas. Corrija pequenos erros óbvios de OCR (ex: 'maid' -> 'maio') mas seja totalmente fiel aos fatos originais.\n\nTextos Extraídos:\n${truncatedPdfText}`;
 
     try {
@@ -386,7 +389,7 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
   // Se houver imagens, tenta usar o Gemini
   try {
     const userMessage = exactMode
-      ? `Analise as imagens e textos fornecidos. Extraia EXATAMENTE as informações. Apenas transcreva no formato JSON. Zero Omissão Técnica e Zero Omissão Acadêmica. Preserve as datas fielmente.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}`
+      ? `IMPORTANTE: TRANSCRIÇÃO LITERAL E RIGOROSA.\nAnalise as imagens e textos fornecidos. Extraia EXATAMENTE as informações. Apenas transcreva no formato JSON idêntico ao currículo, sem aprimorar ou omitir informações. Preserve descrições originais. MANTENHA A ORDEM ORIGINAL DE TODOS OS ITENS, NÃO REORDENE NADA.${allPdfText ? ' Também considere o seguinte texto extraído de arquivos PDF fornecidos junto:\n\n' + allPdfText : ''}`
       : `Leia atentamente as imagens e textos fornecidos e preencha o JSON de forma conservadora. NÃO CRIE dados. O limite da sua atuação é a apresentação. Zero Omissão Técnica e Zero Omissão Acadêmica. PRESERVE datas intactas sem recriar fluxos cronológicos. Corrija perfeitamente erros óbvios de OCR de PDFs (ex: 'maid' -> 'maio', 'Universidadete' -> Universidade).\n\nTransforme o conteúdo estritamente no formato JSON.${allPdfText ? ' Também considere este texto do PDF:\n\n' + allPdfText : ''}`;
 
     const contentParts: any[] = [
@@ -496,6 +499,7 @@ function normalizeResponse(rawData: any): ResumeData {
       id: uuidv4(),
       name: course.name || '',
       institution: course.institution || '',
+      date: course.date || '',
     })) : [],
     skills: Array.isArray(rawData.skills) ? rawData.skills.map((skill: any) => ({
       id: uuidv4(),

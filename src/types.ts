@@ -35,6 +35,7 @@ export interface Course {
   id: string;
   name: string;
   institution: string;
+  date?: string;
 }
 
 export interface CustomItem {
