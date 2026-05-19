@@ -272,14 +272,14 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
 
       {personalInfo.summary && (
         <div className={t.mb}>
-          <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1`}>Resumo Profissional</h2>
+          <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1 page-break-avoid`}>Resumo Profissional</h2>
           <p className={`${t.body} leading-relaxed whitespace-pre-line `}><HighlightText text={personalInfo.summary} keywords={data.keywords} showHighlights={data.showHighlights} /></p>
         </div>
       )}
 
       {experience.length > 0 && (
         <div className={t.mb}>
-          <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1`}>Experiência Profissional</h2>
+          <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1 page-break-avoid`}>Experiência Profissional</h2>
           <div className={isDense ? 'space-y-3' : 'space-y-4'}>
             {experience.map((exp, index) => (
               <div key={index} className="page-break-avoid w-full">
@@ -304,7 +304,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
 
       {education.length > 0 && (
         <div className={t.mb}>
-          <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1`}>Formação Acadêmica</h2>
+          <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1 page-break-avoid`}>Formação Acadêmica</h2>
           <div className={isDense ? 'space-y-2' : 'space-y-3'}>
             {education.map((edu, index) => (
               <div key={index} className="page-break-avoid w-full">
@@ -391,7 +391,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
 
           {personalInfo.summary && (
             <div>
-              <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-2 tracking-wider`}>Sobre</h2>
+              <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-2 tracking-wider page-break-avoid`}>Sobre</h2>
               <p className={`${t.body} leading-relaxed `}><HighlightText text={personalInfo.summary} keywords={data.keywords} showHighlights={data.showHighlights} /></p>
             </div>
           )}
@@ -409,7 +409,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           
           {education.length > 0 && (
             <div className={isDense ? 'mb-4' : 'mb-6'}>
-              <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-2 tracking-wider`}>Formação</h2>
+              <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-2 tracking-wider page-break-avoid`}>Formação</h2>
               <div className={isDense ? 'space-y-2' : 'space-y-3'}>
                 {education.map((edu, index) => (
                   <div key={index} className="page-break-avoid w-full">
@@ -426,7 +426,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
 
           {(data.courses || []).length > 0 && (
             <div>
-              <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-2 tracking-wider`}>Cursos</h2>
+              <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-2 tracking-wider page-break-avoid`}>Cursos</h2>
               <div className={isDense ? 'space-y-2' : 'space-y-3'}>
                 {data.courses!.map((course, index) => (
                   <div key={index} className="page-break-avoid w-full">
@@ -442,7 +442,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         <div className={`col-span-8 ${isDense ? 'space-y-5' : 'space-y-8'}`}>
           {experience.length > 0 && (
             <div>
-              <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-4 tracking-wider`}>Experiência</h2>
+              <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-4 tracking-wider page-break-avoid`}>Experiência</h2>
               <div className={isDense ? 'space-y-4' : 'space-y-6'}>
                 {experience.map((exp, index) => (
                   <div key={index} className="relative pl-5 border-l border-[#e5e7eb] page-break-avoid w-full">
@@ -463,7 +463,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
 
           {(data.customSections || []).map((section) => (
             <div key={section.id} className="pt-2">
-              <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-4 tracking-wider`}>{section.name}</h2>
+              <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-4 tracking-wider page-break-avoid`}>{section.name}</h2>
               <div className={isDense ? 'space-y-4' : 'space-y-6'}>
                 {section.items.map((item) => (
                   <div key={item.id} className="relative pl-5 border-l border-[#e5e7eb] page-break-avoid w-full">
@@ -634,7 +634,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
                   <div className="w-px bg-[#fbbf24] flex-1 mt-1 -mb-4"></div>
                </div>
                <div className="pl-3 pt-1 pb-3 flex-1">
-                 <h2 className={`${t.h3} font-black text-[#374151] uppercase mb-1.5 tracking-wider flex items-center`}>
+                 <h2 className={`${t.h3} font-black text-[#374151] uppercase mb-1.5 tracking-wider flex items-center page-break-avoid`}>
                    Resumo Profissional
                  </h2>
                  <p className={`${t.body} font-medium text-[#374151] leading-relaxed whitespace-pre-line  pr-2`}>
@@ -653,7 +653,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
                   <div className="w-px bg-[#fbbf24] flex-1 mt-1 -mb-4"></div>
                </div>
                <div className="pl-3 pt-1 pb-3 flex-1">
-                 <h2 className={`${t.h3} font-black text-[#374151] uppercase mb-3 tracking-wider`}>
+                 <h2 className={`${t.h3} font-black text-[#374151] uppercase mb-3 tracking-wider page-break-avoid`}>
                    Experiência Profissional
                  </h2>
                  <div className={t.space}>

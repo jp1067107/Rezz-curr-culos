@@ -375,6 +375,17 @@ function MainApp() {
     }
   };
 
+  const autoSaveIfAuthenticated = async (newData: ResumeData, resumeIdToSave: string) => {
+    if (!user) return;
+    try {
+      const docUnlocked = unlockedConfigs.filter(cfg => cfg.startsWith(`${resumeIdToSave}_`));
+      await saveResume(user.uid, resumeIdToSave, newData, docUnlocked.length > 0 ? docUnlocked : undefined);
+      await fetchResumes(user.uid);
+    } catch (error) {
+      console.error('Erro ao auto-salvar o currículo:', error);
+    }
+  };
+
   const handleSaveResume = async () => {
     if (!user) {
       alert("Por favor, faça login para salvar seu currículo na nuvem. Você os encontra em 'Meus Currículos'.");
@@ -1015,10 +1026,12 @@ function MainApp() {
       setIsProcessing(true);
       const extractedData = await extractResumeDataFromFiles(files);
       setData(extractedData);
-      setCurrentResumeId(uuidv4());
+      const newResumeId = uuidv4();
+      setCurrentResumeId(newResumeId);
       setLastEnhancedLength(null);
       setAppState('editor');
       setMobileView('preview');
+      autoSaveIfAuthenticated(extractedData, newResumeId);
     } catch (error: any) {
       alert(error.message || 'Falha ao extrair dados. Por favor, insira suas informações manualmente.');
     } finally {
@@ -1035,7 +1048,9 @@ function MainApp() {
       if (!data.keywords || data.keywords.length === 0) {
         const { extractKeywordsFromResume } = await import('./services/aiService');
         const keywords = await extractKeywordsFromResume(data);
-        setData({ ...data, keywords, showHighlights: !data.showHighlights });
+        const newData = { ...data, keywords, showHighlights: !data.showHighlights };
+        setData(newData);
+        autoSaveIfAuthenticated(newData, currentResumeId);
       } else {
         setData({ ...data, showHighlights: !data.showHighlights });
       }
@@ -1061,6 +1076,7 @@ function MainApp() {
       setDataBeforeAI(data);
       setData(newData);
       setLastEnhancedLength(JSON.stringify(newData).length);
+      autoSaveIfAuthenticated(newData, currentResumeId);
     } catch (error: any) {
       alert(error.message || 'Falha ao aprimorar currículo com IA.');
     } finally {
@@ -1078,6 +1094,7 @@ function MainApp() {
       setIsAiEditModalOpen(false);
       setAiEditPrompt('');
       setAiEditFiles(null);
+      autoSaveIfAuthenticated(newData, currentResumeId);
     } catch (error: any) {
       alert(error.message || 'Falha ao editar currículo com IA.');
     } finally {
@@ -1540,7 +1557,7 @@ function MainApp() {
           </header>
 
           <main className="flex-1 overflow-y-auto w-full mx-auto p-4 sm:p-8 flex flex-col gap-6 pb-20 relative">
-            <CoverLetterGenerator data={data} setData={setData} onDownloadPdf={generateCoverLetterPdf} />
+            <CoverLetterGenerator data={data} setData={setData} onDownloadPdf={generateCoverLetterPdf} onAiGenerated={(newData) => autoSaveIfAuthenticated(newData, currentResumeId)} />
             <div className="absolute top-[-9999px] left-[-9999px]">
                <CoverLetterPreview data={data} template={template} ref={coverLetterRef} />
             </div>

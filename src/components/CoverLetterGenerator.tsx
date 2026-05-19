@@ -7,9 +7,10 @@ interface Props {
   data: ResumeData;
   setData: React.Dispatch<React.SetStateAction<ResumeData>>;
   onDownloadPdf: (isDraft?: boolean) => void;
+  onAiGenerated?: (newData: ResumeData) => void;
 }
 
-export function CoverLetterGenerator({ data, setData, onDownloadPdf }: Props) {
+export function CoverLetterGenerator({ data, setData, onDownloadPdf, onAiGenerated }: Props) {
   const [targetJob, setTargetJob] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [recruiterName, setRecruiterName] = useState('');
@@ -33,7 +34,11 @@ export function CoverLetterGenerator({ data, setData, onDownloadPdf }: Props) {
         highlights
       });
 
-      setData(prev => ({ ...prev, coverLetter: content }));
+      const newData = { ...data, coverLetter: content };
+      setData(newData);
+      if (onAiGenerated) {
+        onAiGenerated(newData);
+      }
     } catch (e: any) {
       alert(e.message || 'Erro ao gerar carta de apresentação.');
     } finally {
