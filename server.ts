@@ -52,12 +52,18 @@ async function startServer() {
     } catch (e: any) {
       // console.error removed to prevent test runner from flagging it as crash
       let errorMsg = e.message || String(e);
+      let statusCode = e.status || 500;
+      
       if (typeof errorMsg === 'string' && (errorMsg.includes("API key not valid") || errorMsg.includes("expired") || errorMsg.includes("API_KEY_INVALID"))) {
          errorMsg = `A chave de API que você inseriu é inválida ou incorreta (erro: API_KEY_INVALID). Acesse https://aistudio.google.com/app/apikey, gere uma chave nova, copie-a e atualize a variável CUSTOM_GEMINI_API_KEY no menu 'Settings > Secrets' (ou na sua hospedagem).`;
-      } else if (e.status === 429 || (typeof errorMsg === 'string' && (errorMsg.toLowerCase().includes("quota") || errorMsg.includes("429")))) {
+         statusCode = 400;
+      } else if (statusCode === 429 || (typeof errorMsg === 'string' && (errorMsg.toLowerCase().includes("quota") || errorMsg.includes("429")))) {
          errorMsg = "O sistema atingiu o limite de consultas por minuto. Por favor, aguarde de 1 a 2 minutos e tente enviar novamente.";
+         statusCode = 429;
+      } else if (statusCode === 503 || (typeof errorMsg === 'string' && (errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE") || errorMsg.includes("high demand")))) {
+         statusCode = 503;
       }
-      res.status(500).json({ error: errorMsg });
+      res.status(statusCode).json({ error: errorMsg });
     }
   });
 

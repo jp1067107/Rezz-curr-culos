@@ -5,75 +5,100 @@ import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-async function callGeminiAPI(requestBody: any) {
-  try {
-    const response = await fetch('/api/gemini', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (response.ok) {
-      return await response.json();
-    }
-    
-    // If we get 405 (Method Not Allowed) or 404, it means we are in a static deployment (like Cloudflare Pages) without the server
-    if (response.status === 404 || response.status === 405) {
-      throw new Error("STATIC_DEPLOYMENT");
-    }
-
-    let errText = 'Erro desconhecido';
-    const rawErrText = await response.text();
+async function callGeminiAPI(requestBody: any, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const errBody = JSON.parse(rawErrText);
-      errText = errBody.error || rawErrText;
-    } catch {
-      errText = rawErrText;
-    }
-    throw new Error(`Erro do Servidor Gemini (${response.status}): ${errText}`);
-  } catch (e: any) {
-    if (e.message === "STATIC_DEPLOYMENT" || e.name === "TypeError" /* fetch failed entirely */) {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "undefined") {
-        throw new Error("A chave VITE_GEMINI_API_KEY não foi configurada! Como o aplicativo foi publicado externamente (e sem backend NodeJS), você OBRIGATORIAMENTE precisa criar essa variável de ambiente (Environment Variable) no painel da sua hospedagem (ex: Cloudflare Pages) com a sua chave gratuita do Google AI Studio para que o aplicativo funcione.");
-      }
-
-      const model = requestBody.model || "gemini-flash-latest";
-      
-      const restPayload: any = {
-        contents: requestBody.contents,
-        generationConfig: requestBody.config ? { ...requestBody.config } : undefined
-      };
-      
-      if (restPayload.generationConfig?.systemInstruction) {
-        restPayload.system_instruction = {
-          parts: [{ text: restPayload.generationConfig.systemInstruction }]
-        };
-        delete restPayload.generationConfig.systemInstruction;
-      }
-
-      const directResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(restPayload)
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
       });
 
-      if (!directResponse.ok) {
-        const errorText = await directResponse.text();
-        if (directResponse.status === 429 || errorText.toLowerCase().includes("quota")) {
-           throw new Error("O limite de uso gratuito da sua chave Gemini foi excedido (429). Aguarde alguns instantes ou adicione sua própria VITE_GEMINI_API_KEY nas variáveis de ambiente da sua hospedagem.");
-        }
-        if (directResponse.status === 400 && (errorText.includes("API key not valid") || errorText.includes("API_KEY_INVALID") || errorText.includes("invalid"))) {
-           throw new Error(`A chave de API configurada no VITE_GEMINI_API_KEY (ou no Settings do servidor) é INVÁLIDA. Para corrigir, acesse https://aistudio.google.com/app/apikey, copie uma nova chave e coloque-a nas variáveis de ambiente.`);
-        }
-        throw new Error(`Erro da API Direta do Gemini (${directResponse.status}): ${errorText}`);
+      if (response.ok) {
+        return await response.json();
+      }
+      
+      // If we get 405 (Method Not Allowed) or 404, it means we are in a static deployment (like Cloudflare Pages) without the server
+      if (response.status === 404 || response.status === 405) {
+        throw new Error("STATIC_DEPLOYMENT");
       }
 
-      const rawResult = await directResponse.json();
-      const text = rawResult.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-      return { text };
+      let errText = 'Erro desconhecido';
+      const rawErrText = await response.text();
+      try {
+        const errBody = JSON.parse(rawErrText);
+        errText = errBody.error || rawErrText;
+      } catch {
+        errText = rawErrText;
+      }
+      
+      // se for 503 e não for a última tentativa, tenta novamente
+      if (response.status === 503 || errText.includes("503") || errText.includes("UNAVAILABLE")) {
+         if (attempt < maxRetries) {
+           await new Promise(r => setTimeout(r, 2000 * attempt)); // wait 2s, 4s...
+           continue;
+         } else {
+           throw new Error("O servidor de Inteligência Artificial está com muita demanda no momento (503). Por favor, tente novamente em alguns instantes.");
+         }
+      }
+
+      throw new Error(`Erro do Servidor Gemini (${response.status}): ${errText}`);
+    } catch (e: any) {
+      if (e.message === "STATIC_DEPLOYMENT" || e.name === "TypeError" /* fetch failed entirely */) {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "undefined") {
+          throw new Error("A chave VITE_GEMINI_API_KEY não foi configurada! Como o aplicativo foi publicado externamente (e sem backend NodeJS), você OBRIGATORIAMENTE precisa criar essa variável de ambiente (Environment Variable) no painel da sua hospedagem (ex: Cloudflare Pages) com a sua chave gratuita do Google AI Studio para que o aplicativo funcione.");
+        }
+
+        const model = requestBody.model || "gemini-flash-latest";
+        
+        const restPayload: any = {
+          contents: requestBody.contents,
+          generationConfig: requestBody.config ? { ...requestBody.config } : undefined
+        };
+        
+        if (restPayload.generationConfig?.systemInstruction) {
+          restPayload.system_instruction = {
+            parts: [{ text: restPayload.generationConfig.systemInstruction }]
+          };
+          delete restPayload.generationConfig.systemInstruction;
+        }
+
+        const directResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(restPayload)
+        });
+
+        if (!directResponse.ok) {
+          const errorText = await directResponse.text();
+          if (directResponse.status === 503 || errorText.includes("503") || errorText.includes("UNAVAILABLE")) {
+             if (attempt < maxRetries) {
+                await new Promise(r => setTimeout(r, 2000 * attempt)); // wait 2s, 4s...
+                continue;
+             } else {
+                throw new Error("O servidor de Inteligência Artificial está com muita demanda no momento. Por favor, tente novamente em alguns instantes.");
+             }
+          }
+          if (directResponse.status === 429 || errorText.toLowerCase().includes("quota")) {
+             if (attempt < maxRetries) {
+                await new Promise(r => setTimeout(r, 2000 * attempt));
+                continue;
+             }
+             throw new Error("O limite de uso gratuito da sua chave Gemini foi excedido (429). Aguarde alguns instantes ou adicione sua própria VITE_GEMINI_API_KEY nas variáveis de ambiente da sua hospedagem.");
+          }
+          if (directResponse.status === 400 && (errorText.includes("API key not valid") || errorText.includes("API_KEY_INVALID") || errorText.includes("invalid"))) {
+             throw new Error(`A chave de API configurada no VITE_GEMINI_API_KEY (ou no Settings do servidor) é INVÁLIDA. Para corrigir, acesse https://aistudio.google.com/app/apikey, copie uma nova chave e coloque-a nas variáveis de ambiente.`);
+          }
+          throw new Error(`Erro da API Direta do Gemini (${directResponse.status}): ${errorText}`);
+        }
+
+        const rawResult = await directResponse.json();
+        const text = rawResult.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+        return { text };
+      }
+      throw e;
     }
-    throw e;
   }
 }
 
