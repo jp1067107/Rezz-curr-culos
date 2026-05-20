@@ -466,8 +466,6 @@ function MainApp() {
     if (!elementToPrint) return;
 
     try {
-      alert("Para um currículo 100% legível por sistemas ATS, geramos o layout usando o motor nativo do seu navegador. Por favor, selecione 'Salvar como PDF' na janela que será aberta.");
-      
       const clonedContainer = elementToPrint.cloneNode(true) as HTMLElement;
       
       // Fix width to ensure standard layout rendering
