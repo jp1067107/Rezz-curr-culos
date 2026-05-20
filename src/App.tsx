@@ -466,38 +466,34 @@ function MainApp() {
     if (!elementToPrint) return;
 
     try {
-      setIsProcessing(true);
-      await document.fonts.ready;
-      
       const { jsPDF } = await import('jspdf');
-      const html2canvas = (await import('html2canvas-pro')).default;
-
-      // 1. Capture the image using a clean unscaled clone
+      
       const clonedContainer = elementToPrint.cloneNode(true) as HTMLElement;
       
+      // Fix width to ensure standard layout rendering
       clonedContainer.style.width = '794px';
       clonedContainer.style.maxWidth = '794px';
       clonedContainer.style.minWidth = '794px';
       clonedContainer.style.margin = '0';
       clonedContainer.style.padding = '0';
       clonedContainer.style.position = 'relative';
-      clonedContainer.style.transform = 'none';
 
       const containers = clonedContainer.querySelectorAll('.shadow-lg');
       containers.forEach(c => {
          if (c instanceof HTMLElement) {
-             c.style.boxShadow = 'none';
+             c.classList.remove('shadow-lg', 'rounded-xl', 'rounded-2xl', 'mx-auto', 'my-8');
              c.style.margin = '0';
+             c.style.boxShadow = 'none';
          }
       });
       
       if (isDraft) {
          const watermark = document.createElement('div');
-         watermark.style.position = 'absolute';
+         watermark.style.position = 'fixed';
          watermark.style.top = '0';
          watermark.style.left = '0';
-         watermark.style.width = '100%';
-         watermark.style.height = '100%';
+         watermark.style.width = '100vw';
+         watermark.style.height = '100vh';
          watermark.style.display = 'flex';
          watermark.style.alignItems = 'center';
          watermark.style.justifyContent = 'center';
@@ -506,11 +502,11 @@ function MainApp() {
          
          const text = document.createElement('div');
          text.innerText = "VERSÃO DE AMOSTRA - BAIXE O PDF PREMIUM PARA REMOVER";
-         text.style.color = 'rgba(0, 0, 0, 0.15)';
-         text.style.fontSize = '80px';
+         text.style.color = 'rgba(0, 0, 0, 0.2)';
+         text.style.fontSize = '40px';
          text.style.fontWeight = 'bold';
          text.style.transform = 'rotate(-45deg)';
-         text.style.whiteSpace = 'nowrap';
+         text.style.textAlign = 'center';
          text.style.fontFamily = 'sans-serif';
          
          watermark.appendChild(text);
@@ -526,6 +522,12 @@ function MainApp() {
       
       document.body.appendChild(wrapperElement);
 
+      const html2canvas = (await import('html2canvas-pro')).default;
+
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = 210;
+      const pageHeight = 297;
+
       const canvas = await html2canvas(clonedContainer, {
         scale: 2,
         useCORS: true,
@@ -537,12 +539,6 @@ function MainApp() {
       });
 
       const imgData = canvas.toDataURL('image/jpeg', 1.0);
-      
-      document.body.removeChild(wrapperElement);
-
-      const doc = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = 210;
-      const pageHeight = 297;
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
       // Render the high-quality image first
@@ -563,15 +559,10 @@ function MainApp() {
         }
       }
 
-      // 2. Map coordinates from the ORIGINAL visible on-screen element for perfect accuracy
-      const originalRect = elementToPrint.getBoundingClientRect();
-      const scaleFactor = pdfWidth / originalRect.width;
+      // Make it selectable over the image by mapping original DOM nodes exactly
+      const containerRect = clonedContainer.getBoundingClientRect();
+      const scale = pdfWidth / containerRect.width;
       const totalPages = doc.internal.getNumberOfPages();
-
-      // Configure jsPDF to make text completely transparent but selectable
-      // opacity: 0.0 makes it invisible, renderingMode doesn't break copy/paste
-      doc.setGState(new doc.GState({ opacity: 0.0 }));
-      doc.setTextColor(0, 0, 0);
 
       const walkDOM = (node: Node) => {
         if (node.nodeType === Node.TEXT_NODE) {
@@ -586,29 +577,24 @@ function MainApp() {
                    range.selectNodeContents(node);
                    const rects = range.getClientRects();
                    if (rects.length > 0) {
-                     for (let i = 0; i < rects.length; i++) {
-                       const rect = rects[i];
-                       if (rect.width > 0 && rect.height > 0) {
-                         const xInMm = (rect.x - originalRect.x) * scaleFactor;
-                         const yInMm = (rect.y - originalRect.y) * scaleFactor;
-                         const heightInMm = rect.height * scaleFactor;
-                         
-                         const pageNum = Math.floor(yInMm / pageHeight) + 1;
-                         const yOnPage = yInMm - ((pageNum - 1) * pageHeight);
-                         
-                         if (pageNum > 0 && pageNum <= totalPages) {
-                           doc.setPage(pageNum);
-                           const fontSizePt = Math.max(2, (heightInMm / 0.352778) * 0.95);
-                           doc.setFontSize(fontSizePt);
-                           
-                           // Try to slice text by rect width approx if it breaks line, but for simplicity we dump the whole word
-                           // Add an offset to push text baseline down
-                           doc.text(text, xInMm, yOnPage + heightInMm * 0.82);
-                         }
-                       }
+                     const rect = rects[0];
+                     const xInMm = (rect.x - containerRect.x) * scale;
+                     const yInMm = (rect.y - containerRect.y) * scale;
+                     const heightInMm = rect.height * scale;
+                     
+                     const pageNum = Math.floor(yInMm / pageHeight) + 1;
+                     const yOnPage = yInMm - ((pageNum - 1) * pageHeight);
+                     
+                     if (pageNum > 0 && pageNum <= totalPages) {
+                       doc.setPage(pageNum);
+                       const fontSizePt = Math.max(2, (heightInMm / 0.352778) * 0.9);
+                       doc.setFontSize(fontSizePt);
+                       doc.setTextColor(0, 0, 0);
+                       // We add text at the baseline using precise coordinates
+                       doc.text(text, xInMm, yOnPage + heightInMm * 0.8, { renderingMode: "invisible" });
                      }
                    }
-                 } catch (e) { /* ignore range limits */ }
+                 } catch (e) { /* ignore layout errors for specific nodes */ }
                }
             }
           }
@@ -622,26 +608,20 @@ function MainApp() {
         }
       };
 
-      walkDOM(elementToPrint);
+      walkDOM(clonedContainer);
 
-      // Restore opacity for debugging or other layers if needed
-      doc.setGState(new doc.GState({ opacity: 1.0 }));
-
-      // Append ATS encoded data
-      if (data && data.personalInfo && !isDraft) {
+      if (data && data.personalInfo) {
          doc.setPage(totalPages);
-         doc.setFontSize(1);
-         doc.setTextColor(255, 255, 255); // White on white
-         doc.text("REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data)))), 0, pageHeight - 1);
+         doc.setFontSize(2);
+         doc.text("REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data)))), 2, pageHeight - 2, { align: "left", renderingMode: "invisible" });
       }
 
       doc.save((isDraft ? "Amostra_" : "") + defaultTitle + ".pdf");
       
+      document.body.removeChild(wrapperElement);
     } catch (err) {
       console.error('Error in PDF generation:', err);
       throw err;
-    } finally {
-      setIsProcessing(false);
     }
   };
 
