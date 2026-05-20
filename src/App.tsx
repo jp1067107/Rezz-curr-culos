@@ -1310,6 +1310,23 @@ function MainApp() {
                   </p>
                 </button>
 
+                {/* Carta de Apresentação */}
+                <button
+                  onClick={() => setAppState('cover-letter')}
+                  className="col-span-1 md:col-span-2 flex flex-col sm:flex-row items-center justify-between text-center sm:text-left p-6 sm:p-8 bg-pink-900/10 hover:bg-pink-900/20 border border-pink-500/10 hover:border-pink-500/30 rounded-3xl transition-all group gap-4 mt-2"
+                >
+                  <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 bg-pink-500/10 rounded-2xl flex items-center justify-center text-pink-400 group-hover:scale-110 group-hover:bg-pink-500/20 transition-all shrink-0">
+                      <Wand2 className="w-7 h-7 sm:w-8 sm:h-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg sm:text-xl font-bold text-pink-50 mb-1">Carta de Apresentação</h3>
+                      <p className="text-pink-500/70 text-sm font-medium">Gere uma carta de apresentação sob medida para sua vaga usando IA</p>
+                    </div>
+                  </div>
+                  <ArrowLeft className="hidden sm:block w-5 h-5 text-pink-500/50 rotate-180 group-hover:translate-x-1 transition-all" />
+                </button>
+
                 {/* Programa de Afiliados */}
                 <button
                   onClick={() => setAppState('affiliate')}
