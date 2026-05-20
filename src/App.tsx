@@ -461,170 +461,128 @@ function MainApp() {
     await generatePdf(true);
   };
 
-  const generateCoverLetterPdf = async (isDraft: boolean = false) => {
-    if (!coverLetterRef.current) return;
-
-    await document.fonts.ready;
-
-    setIsProcessing(true);
-    
-    try {
-      const wrapperElement = coverLetterRef.current.parentElement;
-      const originalTransform = wrapperElement?.style.transform || '';
-      const originalTransition = wrapperElement?.style.transition || '';
-      const originalHeight = wrapperElement?.style.height || '';
-      const originalWidth = wrapperElement?.style.width || '';
-      const originalPosition = wrapperElement?.style.position || '';
+  const generatePdfNative = async (targetRef: React.RefObject<HTMLElement | null>, defaultTitle: string, isDraft: boolean) => {
+    return new Promise<void>((resolve) => {
+      const originalTitle = document.title;
+      document.title = defaultTitle;
       
-      if (wrapperElement) {
-        // Prepare for capture: fix width to exactly 210mm (~794px) and remove scaling
-        wrapperElement.style.transition = 'none';
-        wrapperElement.style.transform = 'scale(1)';
-        wrapperElement.style.width = '794px';
-        wrapperElement.style.height = 'auto';
-        wrapperElement.style.position = 'relative';
+      const elementToPrint = targetRef.current;
+      if (!elementToPrint) {
+        document.title = originalTitle;
+        resolve();
+        return;
       }
       
-      // Force a synchronous reflow
-      void coverLetterRef.current.offsetHeight;
+      const clonedContainer = elementToPrint.cloneNode(true) as HTMLElement;
 
-      // Small delay to ensure the DOM paints at 100% scale and images are ready
-      await new Promise(resolve => setTimeout(resolve, 150));
+      const styleWrapperId = 'native-print-wrapper';
+      const wrapperElement = document.createElement('div');
+      wrapperElement.id = styleWrapperId;
 
-      const element = coverLetterRef.current;
+      // Fix width to ensure standard desktop layout rendering in print
+      clonedContainer.style.width = '794px';
+      clonedContainer.style.maxWidth = '794px';
+      clonedContainer.style.minWidth = '794px';
+      clonedContainer.style.margin = '0 auto';
 
-      const fileName = data.personalInfo.fullName 
-        ? `${data.personalInfo.fullName.replace(/\s+/g, '_')}_Carta_Apresentacao.pdf` 
-        : 'Carta_Apresentacao.pdf';
-
-      const html2canvas = (await import('html2canvas-pro')).default;
-      const { jsPDF } = await import('jspdf');
-
-      // Paginator logic: Adds margins to prevent elements from breaking across A4 pages
-      const A4_HEIGHT_PX = 794 * (297 / 210); // ~1122.94px
-      const avoidElements = Array.from(element.querySelectorAll('.page-break-avoid')) as HTMLElement[];
-      const originalMargins = new Map<HTMLElement, string>();
+      const containers = clonedContainer.querySelectorAll('.shadow-lg');
+      containers.forEach(c => {
+         if (c instanceof HTMLElement) {
+             c.classList.remove('shadow-lg', 'rounded-xl', 'rounded-2xl', 'mx-auto', 'my-8');
+             c.style.margin = '0';
+             c.style.boxShadow = 'none';
+         }
+      });
       
-      let shouldMeasure = true;
-      let iterationCount = 0;
+      if (isDraft) {
+         const watermark = document.createElement('div');
+         watermark.style.position = 'fixed';
+         watermark.style.top = '0';
+         watermark.style.left = '0';
+         watermark.style.width = '100vw';
+         watermark.style.height = '100vh';
+         watermark.style.display = 'flex';
+         watermark.style.alignItems = 'center';
+         watermark.style.justifyContent = 'center';
+         watermark.style.zIndex = '99999';
+         watermark.style.pointerEvents = 'none';
+         
+         const text = document.createElement('div');
+         text.innerText = "VERSÃO DE AMOSTRA - BAIXE O PDF PREMIUM PARA REMOVER";
+         text.style.color = 'rgba(0, 0, 0, 0.15)';
+         text.style.fontSize = '35px';
+         text.style.fontWeight = 'bold';
+         text.style.transform = 'rotate(-45deg)';
+         text.style.textAlign = 'center';
+         text.style.fontFamily = 'sans-serif';
+         
+         watermark.appendChild(text);
+         wrapperElement.appendChild(watermark);
+      }
       
-      while (shouldMeasure && iterationCount < 50) {
-        shouldMeasure = false;
-        iterationCount++;
-        
-        const containerRect = element.getBoundingClientRect();
-        
-        for (const el of avoidElements) {
-          const rect = el.getBoundingClientRect();
-          const topRel = rect.top - containerRect.top;
-          const bottomRel = rect.bottom - containerRect.top;
-          
-          if (topRel < 0 || rect.height === 0) continue;
-          
-          const pageIndexTop = Math.floor((topRel + 2) / A4_HEIGHT_PX);
-          const pageIndexBottom = Math.floor((bottomRel - 2) / A4_HEIGHT_PX);
-          
-          if (pageIndexBottom > pageIndexTop) {
-            // Only push down if element itself is smaller than ~80% of a page
-            if (rect.height < A4_HEIGHT_PX * 0.8) {
-              const pageBoundary = (pageIndexTop + 1) * A4_HEIGHT_PX;
-              let pushAmount = pageBoundary - topRel;
-              pushAmount += 20; 
-              
-              if (!originalMargins.has(el)) {
-                originalMargins.set(el, el.style.marginTop);
-              }
-              
-              const currentMT = parseFloat(window.getComputedStyle(el).marginTop) || 0;
-              el.style.marginTop = (currentMT + pushAmount) + 'px';
-              
-              shouldMeasure = true;
-              break;
-            }
+      // Hidden data embedding for backward compatibility checks (not visible)
+      const dataContainer = document.createElement('div');
+      dataContainer.innerText = "REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+      dataContainer.style.display = 'none';
+      wrapperElement.appendChild(dataContainer);
+
+      wrapperElement.appendChild(clonedContainer);
+      document.body.appendChild(wrapperElement);
+      
+      const printStyle = document.createElement('style');
+      printStyle.id = 'native-print-style';
+      printStyle.innerHTML = `
+        @media print {
+          body > *:not(#${styleWrapperId}) {
+            display: none !important;
+          }
+          body {
+            background-color: white !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          #${styleWrapperId} {
+            position: relative;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+          }
+          @page {
+            margin: 0;
+            size: A4 portrait;
           }
         }
-      }
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: 794,
-        windowWidth: 1024,
-        onclone: (clonedDoc) => {
-          const containers = clonedDoc.querySelectorAll('.shadow-lg');
-          containers.forEach((c) => {
-              if (c instanceof HTMLElement) {
-                  c.classList.remove('shadow-lg', 'rounded-sm', 'mx-auto');
-                  c.style.margin = '0';
-              }
-          });
-        }
-      });
-
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = 210;
-      const pageHeight = 297;
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      if (pdfHeight <= pageHeight * 1.015) {
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      } else {
-        let heightLeft = pdfHeight;
-        let position = 0;
-
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
-
-        while (heightLeft > 0.1) {
-          position = position - pageHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-          heightLeft -= pageHeight;
-        }
-      }
-
-      pdf.setFontSize(0.1);
-      pdf.setTextColor(255, 255, 255);
-      const textToEmbed = "REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-      const textLines = pdf.splitTextToSize(textToEmbed, pdf.internal.pageSize.getWidth() - 2);
-      pdf.text(textLines, -5000, -5000);
-
-      if (isDraft) {
-        const totalPages = (pdf as any).getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-          pdf.setPage(i);
-          pdf.saveGraphicsState();
-          pdf.setGState(new (pdf as any).GState({opacity: 0.25}));
-          pdf.setTextColor(100, 100, 100);
-          pdf.setFontSize(80);
-          pdf.text("AMOSTRA", 105, 140, { angle: 45, align: "center" });
-          pdf.setFontSize(40);
-          pdf.text("NÃO É A VERSÃO FINAL", 105, 170, { angle: 45, align: "center" });
-          pdf.restoreGraphicsState();
-        }
-      }
-
-      pdf.save(isDraft ? "Amostra_" + fileName : fileName);
-
-      // Restore the original layout
-      if (wrapperElement) {
-        wrapperElement.style.transform = originalTransform;
-        wrapperElement.style.height = originalHeight;
-        wrapperElement.style.width = originalWidth;
-        wrapperElement.style.position = originalPosition;
+      `;
+      document.head.appendChild(printStyle);
+      
+      setTimeout(() => {
+        window.print();
+        
         setTimeout(() => {
-          if (wrapperElement) wrapperElement.style.transition = originalTransition;
-        }, 50);
-      }
-      originalMargins.forEach((marginTop, el) => {
-        el.style.marginTop = marginTop;
-      });
+          document.body.removeChild(wrapperElement);
+          document.head.removeChild(printStyle);
+          document.title = originalTitle;
+          resolve();
+        }, 300);
+      }, 150);
+    });
+  };
+
+  const generateCoverLetterPdf = async (isDraft: boolean = false) => {
+    if (!coverLetterRef.current) return;
+    await document.fonts.ready;
+    setIsProcessing(true);
+    try {
+      const fileName = data.personalInfo.fullName 
+        ? `${data.personalInfo.fullName.replace(/\s+/g, '_')}_Carta_Apresentacao` 
+        : 'Carta_Apresentacao';
+      await generatePdfNative(coverLetterRef, fileName, isDraft);
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      console.error(error);
       alert('Erro ao gerar PDF. Tente novamente mais tarde.');
     } finally {
       setIsProcessing(false);
@@ -723,167 +681,14 @@ function MainApp() {
     if (!componentRef.current || !containerRef.current) return;
 
     await document.fonts.ready;
-
     setIsProcessing(true);
     
     try {
-      const wrapperElement = componentRef.current.parentElement;
-      const originalTransform = wrapperElement?.style.transform || '';
-      const originalTransition = wrapperElement?.style.transition || '';
-      const originalHeight = wrapperElement?.style.height || '';
-      const originalWidth = wrapperElement?.style.width || '';
-      const originalPosition = wrapperElement?.style.position || '';
-      
-      if (wrapperElement) {
-        // Prepare for capture: fix width to exactly 210mm (~794px) and remove scaling
-        wrapperElement.style.transition = 'none';
-        wrapperElement.style.transform = 'scale(1)';
-        wrapperElement.style.width = '794px';
-        wrapperElement.style.height = 'auto';
-        wrapperElement.style.position = 'relative';
-      }
-      
-      // Force a synchronous reflow
-      void componentRef.current.offsetHeight;
-
-      // Small delay to ensure the DOM paints at 100% scale and images are ready
-      await new Promise(resolve => setTimeout(resolve, 150));
-
-      const element = componentRef.current;
-
       const fileName = data.personalInfo.fullName 
-        ? `${data.personalInfo.fullName.replace(/\s+/g, '_')}_Curriculo.pdf` 
-        : 'Curriculo.pdf';
+        ? `${data.personalInfo.fullName.replace(/\s+/g, '_')}_Curriculo` 
+        : 'Curriculo';
 
-      // Use html2canvas-pro and jsPDF manually to avoid html2pdf.js bugs with layout
-      const html2canvas = (await import('html2canvas-pro')).default;
-      const { jsPDF } = await import('jspdf');
-
-      // Paginator logic: Adds margins to prevent elements from breaking across A4 pages
-      const A4_HEIGHT_PX = 794 * (297 / 210); // ~1122.94px
-      const avoidElements = Array.from(element.querySelectorAll('.page-break-avoid')) as HTMLElement[];
-      const originalMargins = new Map<HTMLElement, string>();
-      
-      let shouldMeasure = true;
-      let iterationCount = 0;
-      
-      while (shouldMeasure && iterationCount < 50) {
-        shouldMeasure = false;
-        iterationCount++;
-        
-        const containerRect = element.getBoundingClientRect();
-        
-        for (const el of avoidElements) {
-          const rect = el.getBoundingClientRect();
-          const topRel = rect.top - containerRect.top;
-          const bottomRel = rect.bottom - containerRect.top;
-          
-          if (topRel < 0 || rect.height === 0) continue;
-          
-          const pageIndexTop = Math.floor((topRel + 2) / A4_HEIGHT_PX);
-          const pageIndexBottom = Math.floor((bottomRel - 2) / A4_HEIGHT_PX);
-          
-          if (pageIndexBottom > pageIndexTop) {
-            // Only push down if element itself is smaller than ~80% of a page
-            if (rect.height < A4_HEIGHT_PX * 0.8) {
-              const pageBoundary = (pageIndexTop + 1) * A4_HEIGHT_PX;
-              let pushAmount = pageBoundary - topRel;
-              pushAmount += 20; 
-              
-              if (!originalMargins.has(el)) {
-                originalMargins.set(el, el.style.marginTop);
-              }
-              
-              const currentMT = parseFloat(window.getComputedStyle(el).marginTop) || 0;
-              el.style.marginTop = (currentMT + pushAmount) + 'px';
-              
-              shouldMeasure = true;
-              break;
-            }
-          }
-        }
-      }
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: 794,
-        windowWidth: 1024,
-        onclone: (clonedDoc) => {
-          const containers = clonedDoc.querySelectorAll('.shadow-lg');
-          containers.forEach((c) => {
-              if (c instanceof HTMLElement) {
-                  c.classList.remove('shadow-lg', 'rounded-sm', 'mx-auto');
-                  c.style.margin = '0';
-              }
-          });
-        }
-      });
-
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = 210;
-      const pageHeight = 297;
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      // Se a diferença de altura for muito pequena para valer a pena criar outra página
-      // por exemplo um padding vazando, forçamos caber em 1 página
-      if (pdfHeight <= pageHeight * 1.015) {
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      } else {
-        let heightLeft = pdfHeight;
-        let position = 0;
-
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
-
-        while (heightLeft > 0.1) {
-          position = position - pageHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-          heightLeft -= pageHeight;
-        }
-      }
-
-      pdf.setFontSize(0.1);
-      pdf.setTextColor(255, 255, 255);
-      const textToEmbed = "REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-      const textLines = pdf.splitTextToSize(textToEmbed, pdf.internal.pageSize.getWidth() - 2);
-      pdf.text(textLines, -5000, -5000);
-
-      if (isDraft) {
-        const totalPages = (pdf as any).getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-          pdf.setPage(i);
-          pdf.saveGraphicsState();
-          pdf.setGState(new (pdf as any).GState({opacity: 0.25}));
-          pdf.setTextColor(100, 100, 100);
-          pdf.setFontSize(80);
-          pdf.text("AMOSTRA", 105, 140, { angle: 45, align: "center" });
-          pdf.setFontSize(40);
-          pdf.text("NÃO É A VERSÃO FINAL", 105, 170, { angle: 45, align: "center" });
-          pdf.restoreGraphicsState();
-        }
-      }
-
-      pdf.save(isDraft ? "Amostra_" + fileName : fileName);
-
-      // Restore the original layout
-      if (wrapperElement) {
-        wrapperElement.style.transform = originalTransform;
-        wrapperElement.style.height = originalHeight;
-        wrapperElement.style.width = originalWidth;
-        wrapperElement.style.position = originalPosition;
-        setTimeout(() => {
-          if (wrapperElement) wrapperElement.style.transition = originalTransition;
-        }, 50);
-      }
-      originalMargins.forEach((marginTop, el) => {
-        el.style.marginTop = marginTop;
-      });
+      await generatePdfNative(componentRef, fileName, isDraft);
     } catch (error: any) {
       console.error('Error generating PDF:', error);
       alert('Erro ao gerar Currículo (PDF): ' + (error?.message || String(error)));
