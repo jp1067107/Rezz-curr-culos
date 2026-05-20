@@ -462,28 +462,20 @@ function MainApp() {
   };
 
   const generatePdfNative = async (targetRef: React.RefObject<HTMLElement | null>, defaultTitle: string, isDraft: boolean) => {
-    return new Promise<void>((resolve) => {
-      const originalTitle = document.title;
-      document.title = defaultTitle;
-      
-      const elementToPrint = targetRef.current;
-      if (!elementToPrint) {
-        document.title = originalTitle;
-        resolve();
-        return;
-      }
+    const elementToPrint = targetRef.current;
+    if (!elementToPrint) return;
+
+    try {
+      const { jsPDF } = await import('jspdf');
       
       const clonedContainer = elementToPrint.cloneNode(true) as HTMLElement;
-
-      const styleWrapperId = 'native-print-wrapper';
-      const wrapperElement = document.createElement('div');
-      wrapperElement.id = styleWrapperId;
-
+      
       // Fix width to ensure standard desktop layout rendering in print
       clonedContainer.style.width = '794px';
       clonedContainer.style.maxWidth = '794px';
       clonedContainer.style.minWidth = '794px';
       clonedContainer.style.margin = '0 auto';
+      clonedContainer.style.padding = '0';
 
       const containers = clonedContainer.querySelectorAll('.shadow-lg');
       containers.forEach(c => {
@@ -516,53 +508,39 @@ function MainApp() {
          text.style.fontFamily = 'sans-serif';
          
          watermark.appendChild(text);
-         wrapperElement.appendChild(watermark);
+         clonedContainer.appendChild(watermark);
       }
-
+      
+      const wrapperElement = document.createElement('div');
       wrapperElement.appendChild(clonedContainer);
+      wrapperElement.style.position = 'absolute';
+      wrapperElement.style.top = '-9999px';
+      wrapperElement.style.left = '-9999px';
+      wrapperElement.style.background = 'white';
+      
       document.body.appendChild(wrapperElement);
+
+      const doc = new jsPDF('p', 'pt', 'a4');
       
-      const printStyle = document.createElement('style');
-      printStyle.id = 'native-print-style';
-      printStyle.innerHTML = `
-        @media print {
-          body > *:not(#${styleWrapperId}) {
-            display: none !important;
-          }
-          body {
-            background-color: white !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          #${styleWrapperId} {
-            position: relative;
-            width: 100%;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-          }
-          @page {
-            margin: 0;
-            size: A4 portrait;
-          }
-        }
-      `;
-      document.head.appendChild(printStyle);
+      await doc.html(clonedContainer, {
+        x: 0,
+        y: 0,
+        html2canvas: { 
+          scale: 595.28 / 794, // A4 width in pt divided by element width in px
+          useCORS: true,
+          logging: false 
+        },
+        width: 595.28,
+        windowWidth: 794
+      });
       
-      setTimeout(() => {
-        window.print();
-        
-        setTimeout(() => {
-          document.body.removeChild(wrapperElement);
-          document.head.removeChild(printStyle);
-          document.title = originalTitle;
-          resolve();
-        }, 300);
-      }, 150);
-    });
+      doc.save((isDraft ? "Amostra_" : "") + defaultTitle + ".pdf");
+      
+      document.body.removeChild(wrapperElement);
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
   };
 
   const generateCoverLetterPdf = async (isDraft: boolean = false) => {
