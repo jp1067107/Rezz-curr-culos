@@ -467,15 +467,17 @@ function MainApp() {
 
     try {
       const { jsPDF } = await import('jspdf');
+      const html2canvas = (await import('html2canvas-pro')).default;
       
       const clonedContainer = elementToPrint.cloneNode(true) as HTMLElement;
       
-      // Fix width to ensure standard desktop layout rendering in print
+      // Fix width to ensure standard layout rendering
       clonedContainer.style.width = '794px';
       clonedContainer.style.maxWidth = '794px';
       clonedContainer.style.minWidth = '794px';
-      clonedContainer.style.margin = '0 auto';
+      clonedContainer.style.margin = '0';
       clonedContainer.style.padding = '0';
+      clonedContainer.style.position = 'relative';
 
       const containers = clonedContainer.querySelectorAll('.shadow-lg');
       containers.forEach(c => {
@@ -496,14 +498,15 @@ function MainApp() {
          watermark.style.display = 'flex';
          watermark.style.alignItems = 'center';
          watermark.style.justifyContent = 'center';
-         watermark.style.zIndex = '-1';
+         watermark.style.zIndex = '99999';
          watermark.style.pointerEvents = 'none';
          
          const text = document.createElement('div');
          text.innerText = "VERSÃO DE AMOSTRA - BAIXE O PDF PREMIUM PARA REMOVER";
-         text.style.color = 'rgba(0, 0, 0, 0.15)';
-         text.style.fontSize = '35px';
+         text.style.color = 'rgba(0, 0, 0, 0.2)';
+         text.style.fontSize = '40px';
          text.style.fontWeight = 'bold';
+         text.style.transform = 'rotate(-45deg)';
          text.style.textAlign = 'center';
          text.style.fontFamily = 'sans-serif';
          
@@ -520,20 +523,56 @@ function MainApp() {
       
       document.body.appendChild(wrapperElement);
 
-      const doc = new jsPDF('p', 'pt', 'a4');
-      
-      await doc.html(clonedContainer, {
-        x: 0,
-        y: 0,
-        html2canvas: { 
-          scale: 595.28 / 794, // A4 width in pt divided by element width in px
-          useCORS: true,
-          logging: false 
-        },
-        width: 595.28,
+      const canvas = await html2canvas(clonedContainer, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: 794,
         windowWidth: 794
       });
-      
+
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = 210;
+      const pageHeight = 297;
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      // ATS-Friendly text layer behind the image
+      // We extract raw text from element and put it beneath the image overlay
+      try {
+         let rawText = elementToPrint.innerText || '';
+         if (data && data.personalInfo) {
+            rawText = rawText + "\\nREZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+         }
+         doc.setPage(1);
+         doc.setFontSize(2);
+         doc.setTextColor(200, 200, 200); // Light gray
+         const textLines = doc.splitTextToSize(rawText, pdfWidth - 2);
+         // Render the text at coordinates on the page so ATS sees it
+         doc.text(textLines, 1, 1, { align: "left", baseline: "top" });
+      } catch(e) {
+          // ignore
+      }
+
+      if (pdfHeight <= pageHeight * 1.015) {
+        doc.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      } else {
+        let heightLeft = pdfHeight;
+        let position = 0;
+
+        doc.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft > 0.1) {
+          position = position - pageHeight;
+          doc.addPage();
+          doc.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+          heightLeft -= pageHeight;
+        }
+      }
+
       doc.save((isDraft ? "Amostra_" : "") + defaultTitle + ".pdf");
       
       document.body.removeChild(wrapperElement);

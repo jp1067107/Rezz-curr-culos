@@ -40,15 +40,35 @@ async function startServer() {
       const { GoogleGenAI } = await import("@google/genai");
       const ai = new GoogleGenAI({ apiKey });
 
-      const payload: any = {
-        model: model || "gemini-flash-latest",
-        contents,
-        config
-      };
+      let lastError;
+      const modelsToTry = [model || "gemini-flash-latest", "gemini-1.5-pro", "gemini-2.5-flash", "gemini-1.5-flash-8b"];
+      let responseText;
+      
+      for (const m of modelsToTry) {
+         try {
+            const payload: any = {
+              model: m,
+              contents,
+              config
+            };
+            const response = await ai.models.generateContent(payload);
+            responseText = response.text;
+            break; // Success
+         } catch (err: any) {
+            lastError = err;
+            if (err.status !== 503 && err.status !== 429 && !(err.message || '').includes('503') && !(err.message || '').includes('quota')) {
+               break; // For other errors, don't fallback to another model immediately, but if it is 503, we try the next one.
+            }
+            // wait a little bit
+            await new Promise(r => setTimeout(r, 1000));
+         }
+      }
 
-      const response = await ai.models.generateContent(payload);
+      if (!responseText && lastError) {
+         throw lastError;
+      }
 
-      res.json({ text: response.text });
+      res.json({ text: responseText });
     } catch (e: any) {
       // console.error removed to prevent test runner from flagging it as crash
       let errorMsg = e.message || String(e);
