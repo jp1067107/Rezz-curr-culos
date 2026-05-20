@@ -504,7 +504,7 @@ function MainApp() {
          watermark.style.display = 'flex';
          watermark.style.alignItems = 'center';
          watermark.style.justifyContent = 'center';
-         watermark.style.zIndex = '99999';
+         watermark.style.zIndex = '-1';
          watermark.style.pointerEvents = 'none';
          
          const text = document.createElement('div');
@@ -512,19 +512,12 @@ function MainApp() {
          text.style.color = 'rgba(0, 0, 0, 0.15)';
          text.style.fontSize = '35px';
          text.style.fontWeight = 'bold';
-         text.style.transform = 'rotate(-45deg)';
          text.style.textAlign = 'center';
          text.style.fontFamily = 'sans-serif';
          
          watermark.appendChild(text);
          wrapperElement.appendChild(watermark);
       }
-      
-      // Hidden data embedding for backward compatibility checks (not visible)
-      const dataContainer = document.createElement('div');
-      dataContainer.innerText = "REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-      dataContainer.style.display = 'none';
-      wrapperElement.appendChild(dataContainer);
 
       wrapperElement.appendChild(clonedContainer);
       document.body.appendChild(wrapperElement);

@@ -491,8 +491,8 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
     <div className="relative font-sans text-[#1f2937] bg-[#ffffff] w-[794px] min-h-[1122px] shadow-lg rounded-sm mx-auto flex print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-[transparent]">
       {/* Absolute background covering left sidebar */}
       <div className="absolute left-0 top-0 bottom-0 w-[35%] bg-[#374151] z-0 overflow-hidden print:block">
-        <div className="absolute top-0 left-[-20%] w-[140%] h-64 bg-[#fbbf24] z-0 opacity-10" style={{ transform: 'rotate(-10deg) translateY(-20px)' }}></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-48 h-48 bg-[#ffffff] opacity-[0.03]" style={{ transform: 'rotate(45deg)' }}></div>
+        <div className="absolute top-0 left-[-20%] w-[140%] h-64 bg-[#fbbf24] z-0 opacity-10 print:hidden" style={{ transform: 'rotate(-10deg) translateY(-20px)' }}></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-48 h-48 bg-[#ffffff] opacity-[0.03] print:hidden" style={{ transform: 'rotate(45deg)' }}></div>
       </div>
       
       <div className={`relative z-10 w-[35%] text-[#ffffff] ${t.p} flex flex-col`}>
@@ -848,8 +848,8 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
       {/* Header Container */}
       <div className="w-full flex items-center gap-6 border-b-4 border-gray-100 pb-6 mb-6 mt-4 page-break-avoid">
         {shouldRenderPhotoArea && personalInfo.photoUrl && (
-          <div className="shrink-0 w-28 h-28 rounded-xl overflow-hidden border-2 border-[#2563eb] shadow-sm transform -rotate-2">
-             <img src={personalInfo.photoUrl} alt="Profile" className="w-full h-full object-cover transform rotate-2 scale-110" />
+          <div className="shrink-0 w-28 h-28 rounded-xl overflow-hidden border-2 border-[#2563eb] shadow-sm transform -rotate-2 print:transform-none">
+             <img src={personalInfo.photoUrl} alt="Profile" className="w-full h-full object-cover transform rotate-2 print:transform-none scale-110" />
           </div>
         )}
         <div className="flex-1">
