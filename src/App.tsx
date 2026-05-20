@@ -466,7 +466,7 @@ function MainApp() {
     if (!elementToPrint) return;
 
     try {
-      const { jsPDF } = await import('jspdf');
+      alert("Para um currículo 100% legível por sistemas ATS, geramos o layout usando o motor nativo do seu navegador. Por favor, selecione 'Salvar como PDF' na janela que será aberta.");
       
       const clonedContainer = elementToPrint.cloneNode(true) as HTMLElement;
       
@@ -474,15 +474,16 @@ function MainApp() {
       clonedContainer.style.width = '794px';
       clonedContainer.style.maxWidth = '794px';
       clonedContainer.style.minWidth = '794px';
-      clonedContainer.style.margin = '0';
+      clonedContainer.style.margin = '0 auto';
       clonedContainer.style.padding = '0';
       clonedContainer.style.position = 'relative';
+      clonedContainer.style.backgroundColor = '#ffffff';
 
       const containers = clonedContainer.querySelectorAll('.shadow-lg');
       containers.forEach(c => {
          if (c instanceof HTMLElement) {
              c.classList.remove('shadow-lg', 'rounded-xl', 'rounded-2xl', 'mx-auto', 'my-8');
-             c.style.margin = '0';
+             c.style.margin = '0 auto';
              c.style.boxShadow = 'none';
          }
       });
@@ -514,111 +515,60 @@ function MainApp() {
       }
       
       const wrapperElement = document.createElement('div');
+      wrapperElement.id = 'ezza-print-wrapper';
       wrapperElement.appendChild(clonedContainer);
-      wrapperElement.style.position = 'absolute';
-      wrapperElement.style.top = '-9999px';
-      wrapperElement.style.left = '-9999px';
-      wrapperElement.style.background = 'white';
       
+      const style = document.createElement('style');
+      style.id = 'ezza-print-style';
+      style.innerHTML = `
+        @media print {
+          body > *:not(#ezza-print-wrapper) {
+            display: none !important;
+          }
+          #ezza-print-wrapper {
+            display: block !important;
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white;
+            margin: 0;
+            padding: 0;
+            overflow: visible !important;
+          }
+          #ezza-print-wrapper * {
+            overflow: visible !important;
+          }
+          @page {
+            margin: 0;
+            size: A4 portrait;
+          }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+        }
+      `;
+      
+      document.head.appendChild(style);
       document.body.appendChild(wrapperElement);
 
-      const html2canvas = (await import('html2canvas-pro')).default;
-
-      const doc = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = 210;
-      const pageHeight = 297;
-
-      const canvas = await html2canvas(clonedContainer, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: 794,
-        windowWidth: 794
-      });
-
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      // Render the high-quality image first
-      if (pdfHeight <= pageHeight * 1.015) {
-        doc.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      } else {
-        let heightLeft = pdfHeight;
-        let position = 0;
-
-        doc.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
-
-        while (heightLeft > 0.1) {
-          position = position - pageHeight;
-          doc.addPage();
-          doc.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-          heightLeft -= pageHeight;
-        }
-      }
-
-      // Make it selectable over the image by mapping original DOM nodes exactly
-      const containerRect = clonedContainer.getBoundingClientRect();
-      const scale = pdfWidth / containerRect.width;
-      const totalPages = doc.internal.getNumberOfPages();
-
-      const walkDOM = (node: Node) => {
-        if (node.nodeType === Node.TEXT_NODE) {
-          const text = node.textContent?.replace(/\s+/g, ' ').trim();
-          if (text) {
-            const parent = node.parentElement;
-            if (parent) {
-               const style = window.getComputedStyle(parent);
-               if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
-                 try {
-                   const range = document.createRange();
-                   range.selectNodeContents(node);
-                   const rects = range.getClientRects();
-                   if (rects.length > 0) {
-                     const rect = rects[0];
-                     const xInMm = (rect.x - containerRect.x) * scale;
-                     const yInMm = (rect.y - containerRect.y) * scale;
-                     const heightInMm = rect.height * scale;
-                     
-                     const pageNum = Math.floor(yInMm / pageHeight) + 1;
-                     const yOnPage = yInMm - ((pageNum - 1) * pageHeight);
-                     
-                     if (pageNum > 0 && pageNum <= totalPages) {
-                       doc.setPage(pageNum);
-                       const fontSizePt = Math.max(2, (heightInMm / 0.352778) * 0.9);
-                       doc.setFontSize(fontSizePt);
-                       doc.setTextColor(0, 0, 0);
-                       // We add text at the baseline using precise coordinates
-                       doc.text(text, xInMm, yOnPage + heightInMm * 0.8, { renderingMode: "invisible" });
-                     }
-                   }
-                 } catch (e) { /* ignore layout errors for specific nodes */ }
-               }
-            }
-          }
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-          const el = node as Element;
-          if (el.tagName.toLowerCase() === 'svg' || el.tagName.toLowerCase() === 'img') return;
-          const style = window.getComputedStyle(el);
-          if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
-            node.childNodes.forEach(walkDOM);
-          }
-        }
-      };
-
-      walkDOM(clonedContainer);
-
-      if (data && data.personalInfo) {
-         doc.setPage(totalPages);
-         doc.setFontSize(2);
-         doc.text("REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data)))), 2, pageHeight - 2, { align: "left", renderingMode: "invisible" });
-      }
-
-      doc.save((isDraft ? "Amostra_" : "") + defaultTitle + ".pdf");
+      // Force synchronous reflow, then print
+      void wrapperElement.offsetHeight;
       
-      document.body.removeChild(wrapperElement);
+      // Wait a moment so styles are fully applied
+      setTimeout(() => {
+        window.print();
+        
+        // Cleanup after the print dialog closes
+        if (document.body.contains(wrapperElement)) {
+           document.body.removeChild(wrapperElement);
+        }
+        if (document.head.contains(style)) {
+           document.head.removeChild(style);
+        }
+      }, 500);
+
     } catch (err) {
       console.error('Error in PDF generation:', err);
       throw err;
