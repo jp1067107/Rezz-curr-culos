@@ -467,7 +467,6 @@ function MainApp() {
 
     try {
       const { jsPDF } = await import('jspdf');
-      const html2canvas = (await import('html2canvas-pro')).default;
       
       const clonedContainer = elementToPrint.cloneNode(true) as HTMLElement;
       
@@ -523,24 +522,22 @@ function MainApp() {
       
       document.body.appendChild(wrapperElement);
 
-      const canvas = await html2canvas(clonedContainer, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: 794,
+      const doc = new jsPDF('p', 'pt', 'a4');
+      
+      // html method parses elements and places real text
+      await doc.html(clonedContainer, {
+        x: 0,
+        y: 0,
+        html2canvas: { 
+          scale: 595.28 / 794,
+          useCORS: true,
+          logging: false 
+        },
+        width: 595.28,
         windowWidth: 794
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
-      const doc = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = 210;
-      const pageHeight = 297;
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      // ATS-Friendly text layer behind the image
-      // We extract raw text from element and put it beneath the image overlay
+      // Embed ATS backup metadata invisibly
       try {
          let rawText = elementToPrint.innerText || '';
          if (data && data.personalInfo) {
@@ -548,36 +545,16 @@ function MainApp() {
          }
          doc.setPage(1);
          doc.setFontSize(2);
-         doc.setTextColor(200, 200, 200); // Light gray
-         const textLines = doc.splitTextToSize(rawText, pdfWidth - 2);
-         // Render the text at coordinates on the page so ATS sees it
-         doc.text(textLines, 1, 1, { align: "left", baseline: "top" });
-      } catch(e) {
-          // ignore
-      }
-
-      if (pdfHeight <= pageHeight * 1.015) {
-        doc.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      } else {
-        let heightLeft = pdfHeight;
-        let position = 0;
-
-        doc.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
-
-        while (heightLeft > 0.1) {
-          position = position - pageHeight;
-          doc.addPage();
-          doc.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-          heightLeft -= pageHeight;
-        }
-      }
+         doc.setTextColor(255, 255, 255);
+         const textLines = doc.splitTextToSize(rawText, 590);
+         doc.text(textLines, -5000, -5000, { align: "left", baseline: "top" });
+      } catch(e) { /* ignore */ }
 
       doc.save((isDraft ? "Amostra_" : "") + defaultTitle + ".pdf");
       
       document.body.removeChild(wrapperElement);
     } catch (err) {
-      console.error(err);
+      console.error('Error in PDF generation:', err);
       throw err;
     }
   };

@@ -56,8 +56,12 @@ async function startServer() {
             break; // Success
          } catch (err: any) {
             lastError = err;
-            if (err.status !== 503 && err.status !== 429 && !(err.message || '').includes('503') && !(err.message || '').includes('quota')) {
-               break; // For other errors, don't fallback to another model immediately, but if it is 503, we try the next one.
+            const errStr = (err.message || String(err)).toLowerCase();
+            const is503 = err.status === 503 || errStr.includes('503') || errStr.includes('unavailable') || errStr.includes('high demand');
+            const is429 = err.status === 429 || errStr.includes('429') || errStr.includes('quota');
+            
+            if (!is503 && !is429) {
+               break; // For other errors, don't fallback; wait is only for rate limits or overloads
             }
             // wait a little bit
             await new Promise(r => setTimeout(r, 1000));
