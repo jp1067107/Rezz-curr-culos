@@ -541,20 +541,7 @@ function MainApp() {
       const imgData = canvas.toDataURL('image/jpeg', 1.0);
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      // Extract raw text for ATS parsing
-      let rawText = elementToPrint.innerText || '';
-      if (data && data.personalInfo) {
-         rawText = rawText + "\n\nREZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-      }
-      
-      // Render the ATS text layer on page 1
-      doc.setPage(1);
-      doc.setFontSize(2);
-      doc.setTextColor(240, 240, 240); // Very light gray, won't show through
-      const textLines = doc.splitTextToSize(rawText, pdfWidth - 2);
-      doc.text(textLines, 1, 1, { align: "left", baseline: "top" });
-
-      // Render the high-quality image ON TOP of the text
+      // Render the high-quality image first
       if (pdfHeight <= pageHeight * 1.015) {
         doc.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       } else {
@@ -570,6 +557,63 @@ function MainApp() {
           doc.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
           heightLeft -= pageHeight;
         }
+      }
+
+      // Make it selectable over the image by mapping original DOM nodes exactly
+      const containerRect = clonedContainer.getBoundingClientRect();
+      const scale = pdfWidth / containerRect.width;
+      const totalPages = doc.internal.getNumberOfPages();
+
+      const walkDOM = (node: Node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          const text = node.textContent?.replace(/\s+/g, ' ').trim();
+          if (text) {
+            const parent = node.parentElement;
+            if (parent) {
+               const style = window.getComputedStyle(parent);
+               if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
+                 try {
+                   const range = document.createRange();
+                   range.selectNodeContents(node);
+                   const rects = range.getClientRects();
+                   if (rects.length > 0) {
+                     const rect = rects[0];
+                     const xInMm = (rect.x - containerRect.x) * scale;
+                     const yInMm = (rect.y - containerRect.y) * scale;
+                     const heightInMm = rect.height * scale;
+                     
+                     const pageNum = Math.floor(yInMm / pageHeight) + 1;
+                     const yOnPage = yInMm - ((pageNum - 1) * pageHeight);
+                     
+                     if (pageNum > 0 && pageNum <= totalPages) {
+                       doc.setPage(pageNum);
+                       const fontSizePt = Math.max(2, (heightInMm / 0.352778) * 0.9);
+                       doc.setFontSize(fontSizePt);
+                       doc.setTextColor(0, 0, 0);
+                       // We add text at the baseline using precise coordinates
+                       doc.text(text, xInMm, yOnPage + heightInMm * 0.8, { renderingMode: "invisible" });
+                     }
+                   }
+                 } catch (e) { /* ignore layout errors for specific nodes */ }
+               }
+            }
+          }
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          const el = node as Element;
+          if (el.tagName.toLowerCase() === 'svg' || el.tagName.toLowerCase() === 'img') return;
+          const style = window.getComputedStyle(el);
+          if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
+            node.childNodes.forEach(walkDOM);
+          }
+        }
+      };
+
+      walkDOM(clonedContainer);
+
+      if (data && data.personalInfo) {
+         doc.setPage(totalPages);
+         doc.setFontSize(2);
+         doc.text("REZZ_APP_INTERNAL_DATA ::: " + btoa(unescape(encodeURIComponent(JSON.stringify(data)))), 2, pageHeight - 2, { align: "left", renderingMode: "invisible" });
       }
 
       doc.save((isDraft ? "Amostra_" : "") + defaultTitle + ".pdf");
