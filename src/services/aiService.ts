@@ -2,6 +2,7 @@ import { ResumeData } from "../types";
 import { v4 as uuidv4 } from "uuid";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.min.mjs";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { jsonrepair } from "jsonrepair";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -223,6 +224,7 @@ REGRAS DE CONTEÚDO E FORMATAÇÃO (CRÍTICAS):
 8. Seções Customizadas: Se o currículo possuir outras categorias contendo dados (ex: Idiomas, Projetos), agrupe em "customSections", cada seção deve ter "name" (como 'Idiomas') e em 'items', coloque 'title' (o idioma/curso/projeto) e, se aplicável, 'description' (nível ou detalhe). Caso contrário, deixe a lista vazia.
 9. Ordem Original: Mantenha todos os itens (experiência, educação, cursos) EXATAMENTE na mesma ordem cronológica/visual em que aparecem no texto original. NÃO reordene os itens sob nenhuma hipótese.
 10. Omita 'id' na saída do JSON.
+11. FORMATO DO JSON (CRÍTICO): Você DEVE escapar obrigatoriamente quaisquer aspas duplas (") que apareçam dentro dos valores de texto usando uma barra invertida (\\"). Jamais deixe aspas duplas sem escape no meio de um valor string. O JSON deve ser 100% válido sintaticamente.
 
 Responda OBRIGATORIAMENTE com um JSON válido correspondente a este schema:
 {
@@ -251,6 +253,7 @@ REGRAS (CRÍTICAS E ABSOLUTAS):
 7. Educação e Cursos: Adicione todos os níveis de formação, cursos técnicos, tecnólogos e especializações que a pessoa listou sem pular nenhum.
 8. ORDEM ORIGINAL: As experiências e cursos DEVEM aparecer no JSON na exata mesma ordem em que estão listadas no texto original, de cima para baixo. É ESTRITAMENTE PROIBIDO reordenar as experiências ao tentar aplicar ordem cronológica. Confie na ordem visual do texto.
 9. Retorne APENAS um JSON válido. O JSON não será rejeitado caso tenha textos mal escritos, desde que representem fielmente o que estava no documento original.
+10. FORMATO DO JSON (CRÍTICO): Você DEVE escapar obrigatoriamente quaisquer aspas duplas (") que apareçam dentro dos valores de texto usando uma barra invertida (\\"). Jamais deixe aspas duplas sem escape no meio de um valor string. O JSON deve ser 100% válido sintaticamente.
 
 Responda OBRIGATORIAMENTE com um JSON correspondente a este schema:
 {
@@ -435,7 +438,19 @@ function parseJsonResponse(parsedText: string) {
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
     text = text.substring(firstBrace, lastBrace + 1);
   }
-  return JSON.parse(text);
+  
+  try {
+    return JSON.parse(text);
+  } catch (err: any) {
+    console.warn("Standard JSON parse failed, attempting repair:", err.message);
+    try {
+      const repaired = jsonrepair(text);
+      return JSON.parse(repaired);
+    } catch (repairErr: any) {
+      console.error("JSON repair also failed:", repairErr);
+      throw new Error(`Falha ao ler o currículo documentado: ${err.message}`);
+    }
+  }
 }
 
 function normalizeResponse(rawData: any): ResumeData {
@@ -733,7 +748,7 @@ export async function editResumeWithAI(currentData: ResumeData, editPrompt: stri
   
       const rawResult = await callAnthropicAPI({
         model: "claude-sonnet-4-6",
-        system: "Retorne ESTRITAMENTE um objeto JSON válido. Responda apenas com o JSON na estrutura da interface ResumeData fornecida e nada mais.",
+        system: "Retorne ESTRITAMENTE um objeto JSON válido. Obgigatoriamente escape as aspas duplas internas de valores usando barra invertida. Responda apenas com o JSON na estrutura da interface ResumeData fornecida e nada mais.",
         messages: [{ role: "user", content: contentParts }],
         temperature: 0.5,
         max_tokens: 4096
@@ -757,7 +772,7 @@ export async function editResumeWithAI(currentData: ResumeData, editPrompt: stri
     } else {
       const rawResult = await callAnthropicAPI({
           model: "claude-sonnet-4-6",
-          system: "Retorne ESTRITAMENTE um objeto JSON válido. Responda apenas com o JSON na estrutura da interface ResumeData fornecida e nada mais. Use a língua solicitada na instrução.",
+          system: "Retorne ESTRITAMENTE um objeto JSON válido. Obgigatoriamente escape as aspas duplas internas de valores usando barra invertida. Responda apenas com o JSON na estrutura da interface ResumeData fornecida e nada mais. Use a língua solicitada na instrução.",
           messages: [
             { role: "user", content: modelPrompt }
           ],
