@@ -32,9 +32,9 @@ async function callAnthropicAPI(requestBody: any) {
     throw new Error(`Erro do Servidor Anthropic (${response.status}): ${errText}`);
   } catch (e: any) {
     if (e.message === "STATIC_DEPLOYMENT" || e.name === "TypeError" || e.name === "SyntaxError") {
-      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+      const apiKey = localStorage.getItem('rezz_anthropic_api_key') || import.meta.env.VITE_ANTHROPIC_API_KEY;
       if (!apiKey || apiKey === "MY_ANTHROPIC_API_KEY") {
-        throw new Error("Não foi possível conectar ao servidor e a variável VITE_ANTHROPIC_API_KEY não está configurada (Erro original: " + e.message + "). Configure a chave no menu de variáveis para uso direto.");
+        throw new Error("API Key da Anthropic não encontrada. Clique no ícone de Configuração (engrenagem) no topo/rodapé da página para inserir sua chave.");
       }
 
       const modelsToTry = [

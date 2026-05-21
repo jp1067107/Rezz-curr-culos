@@ -12,7 +12,7 @@ import { CoverLetterPreview } from './components/CoverLetterPreview';
 import { extractResumeDataFromFiles, extractInternalResumeData } from './services/aiService';
 import { auth, signInWithGoogle, signOut, saveResume, loadResumes, deleteResume, ResumeDoc, checkPremiumPrivilege } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown, Trash2, Highlighter, BarChart, Upload } from 'lucide-react';
+import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown, Trash2, Highlighter, BarChart, Upload, Settings } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import LZString from 'lz-string';
 
@@ -215,6 +215,8 @@ function MainApp() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [simulateOrderBump, setSimulateOrderBump] = useState(false);
   const [isInsufficientDataModalOpen, setIsInsufficientDataModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [anthropicApiKeyInput, setAnthropicApiKeyInput] = useState(() => localStorage.getItem('rezz_anthropic_api_key') || '');
   const [unlockedConfigs, setUnlockedConfigs] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem('rezz_unlocked') || '[]');
@@ -1035,6 +1037,9 @@ function MainApp() {
                     <UserCircle className="w-4 h-4" />
                   </div>
                   <span className="text-xs sm:text-sm font-medium text-slate-300 truncate max-w-[100px] sm:max-w-none">{user.displayName?.split(' ')[0] || 'Usuário'}</span>
+                  <button onClick={() => setIsSettingsOpen(true)} className="ml-1 sm:ml-2 text-slate-500 hover:text-slate-300" title="Configurações">
+                    <Settings className="w-4 h-4" />
+                  </button>
                   <button onClick={() => {
                     signOut();
                     setLocalPurchasedResumes([]);
@@ -1052,12 +1057,17 @@ function MainApp() {
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={signInWithGoogle}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl transition-all shadow-md shadow-indigo-500/20"
-                >
-                  <LogIn className="w-4 h-4" /> Entrar
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setIsSettingsOpen(true)} className="p-2 text-slate-400 hover:text-slate-200" title="Configurações">
+                    <Settings className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={signInWithGoogle}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl transition-all shadow-md shadow-indigo-500/20"
+                  >
+                    <LogIn className="w-4 h-4" /> Entrar
+                  </button>
+                </div>
               )}
             </div>
           </header>
@@ -2167,6 +2177,58 @@ function MainApp() {
     )}
 
 
+
+    {isSettingsOpen && (
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+        <div className="bg-slate-800 rounded-2xl w-full max-w-md p-6 sm:p-8 shadow-2xl border border-white/10 relative">
+          <button onClick={() => setIsSettingsOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors bg-slate-700/50 hover:bg-slate-600 rounded-full p-1.5">
+            <X className="w-5 h-5" />
+          </button>
+          
+          <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
+            <Settings className="w-6 h-6 text-indigo-400" /> Configurações Gerais
+          </h2>
+          <p className="text-slate-400 text-sm mb-6">Configure os parâmetros técnicos do sistema.</p>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Chave da API Anthropic
+              </label>
+              <input
+                type="password"
+                value={anthropicApiKeyInput}
+                onChange={(e) => setAnthropicApiKeyInput(e.target.value)}
+                placeholder="sk-ant-api03-..."
+                className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              />
+              <p className="text-xs text-slate-500 mt-2">
+                Como este painel interno opera na nuvem estática, insira a chave da API para permitir a geração de resultados via IA para os currículos gerenciados localmente.
+              </p>
+            </div>
+          </div>
+          
+          <div className="mt-8 flex justify-end gap-3">
+            <button
+              onClick={() => setIsSettingsOpen(false)}
+              className="px-5 py-2.5 font-bold text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-xl transition-all border border-transparent"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => {
+                localStorage.setItem('rezz_anthropic_api_key', anthropicApiKeyInput.trim());
+                setIsSettingsOpen(false);
+                alert('Configurações salvas!');
+              }}
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all shadow-md shadow-indigo-600/20"
+            >
+              Salvar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     </div>
   );
