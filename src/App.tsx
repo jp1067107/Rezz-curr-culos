@@ -10,7 +10,7 @@ import { ResumePreview } from './components/ResumePreview';
 import { CoverLetterGenerator } from './components/CoverLetterGenerator';
 import { CoverLetterPreview } from './components/CoverLetterPreview';
 import { extractResumeDataFromFiles, extractInternalResumeData } from './services/aiService';
-import { auth, signInWithGoogle, signOut, saveResume, loadResumes, deleteResume, ResumeDoc, checkPremiumPrivilege } from './lib/firebase';
+import { auth, signInWithGoogle, signOut, saveResume, loadResumes, deleteResume, ResumeDoc, checkPremiumPrivilege, createSharedDraft, getSharedDraft } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown, Trash2, Highlighter, BarChart, Upload, Settings } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -123,22 +123,6 @@ function MainApp() {
   }, []);
   const [isPurchasedEditing, setIsPurchasedEditing] = useState(false);
   const [data, setData] = useState<ResumeData>(() => {
-    try {
-      if (window.location.hash.startsWith('#share=')) {
-        const compressed = window.location.hash.substring(7);
-        const jsonStr = LZString.decompressFromEncodedURIComponent(compressed);
-        if (jsonStr) {
-          const parsed = JSON.parse(jsonStr);
-          parsed.id = uuidv4();
-          localStorage.setItem('rezz_draft_data', JSON.stringify(parsed));
-          window.history.replaceState(null, '', window.location.pathname + window.location.search);
-          return parsed;
-        }
-      }
-    } catch (e) {
-      console.error('Failed to import shared data', e);
-    }
-
     const saved = localStorage.getItem('rezz_draft_data');
     if (saved) {
       try {
@@ -151,6 +135,33 @@ function MainApp() {
     }
     return getInitialData();
   });
+
+  const [isLoadingShared, setIsLoadingShared] = useState(false);
+
+  useEffect(() => {
+    const checkSharedLink = async () => {
+      if (window.location.hash.startsWith('#shared=')) {
+        const draftId = window.location.hash.substring(8);
+        setIsLoadingShared(true);
+        try {
+          const sharedData = await getSharedDraft(draftId);
+          if (sharedData) {
+            sharedData.id = uuidv4(); // Generate new ID so they don't overwrite
+            setData(sharedData);
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            alert("Currículo compartilhado carregado com sucesso!");
+          } else {
+            alert("Currículo compartilhado não encontrado ou expirado.");
+          }
+        } catch (error) {
+          console.error("Failed to load shared draft", error);
+        } finally {
+          setIsLoadingShared(false);
+        }
+      }
+    };
+    checkSharedLink();
+  }, []);
 
   const [template, setTemplate] = useState<TemplateType>(() => {
     return (localStorage.getItem('rezz_template') as TemplateType) || 'modern';
@@ -474,21 +485,22 @@ function MainApp() {
     await generatePdf(true);
   };
 
-  const handleShareClick = () => {
+  const handleShareClick = async () => {
     try {
-      const jsonStr = JSON.stringify(data);
-      const compressed = LZString.compressToEncodedURIComponent(jsonStr);
-      const url = `${window.location.origin}${window.location.pathname}#share=${compressed}`;
+      const draftId = uuidv4().substring(0, 8); // Short ID for sharing
+      await createSharedDraft(draftId, data);
+      
+      const url = `${window.location.origin}${window.location.pathname}#shared=${draftId}`;
       
       navigator.clipboard.writeText(url).then(() => {
         alert("Link de compartilhamento copiado! Envie este link para que sua equipe continue a edição de onde você parou.");
       }).catch(err => {
         console.error("Failed to copy link", err);
-        alert("Ocorreu um erro ao copiar o link. Tente novamente.");
+        alert(`Copie o link manualmente: ${url}`);
       });
     } catch(e) {
       console.error(e);
-      alert("Ocorreu um erro ao gerar o link.");
+      alert("Ocorreu um erro ao gerar o link. Verifique sua conexão.");
     }
   };
 

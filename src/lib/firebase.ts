@@ -198,3 +198,31 @@ export const deleteResume = async (userId: string, resumeId: string) => {
   }
 };
 
+export const createSharedDraft = async (draftId: string, resumeData: ResumeData) => {
+  const path = `shared_drafts/${draftId}`;
+  try {
+    const docRef = doc(db, 'shared_drafts', draftId);
+    await setDoc(docRef, {
+      id: draftId,
+      data: resumeData,
+      createdAt: new Date().toISOString()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+};
+
+export const getSharedDraft = async (draftId: string): Promise<ResumeData | null> => {
+  const path = `shared_drafts/${draftId}`;
+  try {
+    const docRef = doc(db, 'shared_drafts', draftId);
+    const snap = await getDocFromServer(docRef);
+    if (snap.exists()) {
+      return snap.data().data as ResumeData;
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.READ, path);
+  }
+  return null;
+};
+

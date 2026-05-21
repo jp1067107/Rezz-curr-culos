@@ -7,6 +7,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /shared_drafts/{draftId} {
+      allow read, write: if true;
+    }
+
     match /premium_accounts/{email} {
       allow read: if request.auth != null && request.auth.token.email == email;
       allow write: if false;
