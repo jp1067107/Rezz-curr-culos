@@ -598,9 +598,6 @@ function MainApp() {
             padding: 0;
             overflow: visible !important;
           }
-          #ezza-print-wrapper * {
-            overflow: visible !important;
-          }
           @page {
             margin: 0;
             size: A4 portrait;
@@ -608,6 +605,11 @@ function MainApp() {
           * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+          }
+          /* Fix for Chrome flex items breaking */
+          .page-break-avoid {
+             break-inside: avoid !important;
+             page-break-inside: avoid !important;
           }
         }
       `;
