@@ -1086,36 +1086,34 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           </section>
         )}
 
-        <div className="flex flex-wrap items-start w-full gap-8">
-          {skills.length > 0 && (
-            <section className={`flex-1 min-w-[250px]`}>
-              <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest border-b-2 border-gray-100 pb-2 mb-4 flex items-center gap-2 page-break-avoid`}>
-                 <div className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm transform rotate-45"></div> Habilidades
-              </h2>
-              <div className="flex flex-wrap gap-2 pl-5">
-                {skills.map((skill, index) => (
-                  <span key={index} className={`px-2.5 py-1 bg-white text-[#0f172a] rounded-sm ${t.small} font-bold border-2 border-gray-200 shadow-sm page-break-avoid`}>{skill.name}</span>
-                ))}
-              </div>
-            </section>
-          )}
+        {skills.length > 0 && (
+          <section className={`w-full`}>
+            <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest border-b-2 border-gray-100 pb-2 mb-4 flex items-center gap-2 page-break-avoid`}>
+               <div className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm transform rotate-45"></div> Habilidades
+            </h2>
+            <div className="flex flex-wrap gap-2 pl-5">
+              {skills.map((skill, index) => (
+                <span key={index} className={`px-2.5 py-1 bg-white text-[#0f172a] rounded-sm ${t.small} font-bold border-2 border-gray-200 shadow-sm page-break-avoid`}>{skill.name}</span>
+              ))}
+            </div>
+          </section>
+        )}
 
-          {(data.courses || []).length > 0 && (
-            <section className={`flex-1 min-w-[250px]`}>
-              <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest border-b-2 border-gray-100 pb-2 mb-4 flex items-center gap-2 page-break-avoid`}>
-                 <div className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm transform rotate-45"></div> Cursos
-              </h2>
-              <div className="space-y-2 text-justify pl-5">
-                {(data.courses || []).map((course, index) => (
-                  <div key={index} className="page-break-avoid relative pl-3 border-l-2 border-[#2563eb]/30 py-0.5">
-                    <span className={`font-black text-[#0f172a] ${t.small}`}>{course.name}</span>
-                    <span className={`${t.small} text-gray-500 ml-1 font-medium`}>— {course.institution} {course.date && `(${course.date})`}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
+        {(data.courses || []).length > 0 && (
+          <section className={`w-full`}>
+            <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest border-b-2 border-gray-100 pb-2 mb-4 flex items-center gap-2 page-break-avoid`}>
+               <div className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm transform rotate-45"></div> Cursos
+            </h2>
+            <div className="space-y-2 text-justify pl-5">
+              {(data.courses || []).map((course, index) => (
+                <div key={index} className="page-break-avoid relative pl-3 border-l-2 border-[#2563eb]/30 py-0.5">
+                  <span className={`font-black text-[#0f172a] ${t.small}`}>{course.name}</span>
+                  <span className={`${t.small} text-gray-500 ml-1 font-medium`}>— {course.institution} {course.date && `(${course.date})`}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {(data.customSections || []).map((section) => (
           <section key={section.id} className={`w-full`}>
@@ -1217,36 +1215,34 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           </section>
         )}
 
-        <div className="flex flex-wrap gap-6 w-full">
-          {skills.length > 0 && (
-            <section className="flex-1 min-w-[250px]">
-              <h2 className={`${t.h3} font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center`}>
-                <span className="bg-gray-800 text-white px-1.5 py-0.5 rounded-sm mr-2 text-xs">★</span> Habilidades
-              </h2>
-              <div className="flex flex-wrap gap-1.5 border-l-2 border-gray-200 pl-4">
-                {skills.map((s, i) => (
-                  <span key={i} className={`px-2 py-0.5 bg-gray-100 text-gray-800 border border-gray-200 rounded-sm ${t.small} font-medium page-break-avoid`}>{s.name}</span>
-                ))}
-              </div>
-            </section>
-          )}
+        {skills.length > 0 && (
+          <section className="w-full">
+            <h2 className={`${t.h3} font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center`}>
+              <span className="bg-gray-800 text-white px-1.5 py-0.5 rounded-sm mr-2 text-xs">★</span> Habilidades
+            </h2>
+            <div className="flex flex-wrap gap-1.5 border-l-2 border-gray-200 pl-4">
+              {skills.map((s, i) => (
+                <span key={i} className={`px-2 py-0.5 bg-gray-100 text-gray-800 border border-gray-200 rounded-sm ${t.small} font-medium page-break-avoid`}>{s.name}</span>
+              ))}
+            </div>
+          </section>
+        )}
 
-          {(data.courses || []).length > 0 && (
-            <section className="flex-1 min-w-[250px]">
-              <h2 className={`${t.h3} font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center`}>
-                <span className="bg-gray-800 text-white px-1.5 py-0.5 rounded-sm mr-2 text-xs">★</span> Cursos
-              </h2>
-              <div className="space-y-2 border-l-2 border-gray-200 pl-4">
-                {(data.courses || []).map((course, index) => (
-                  <div key={index} className="page-break-avoid flex flex-col">
-                    <span className={`${t.body} font-bold text-gray-900`}>{course.name}</span>
-                    <span className={`${t.small} text-gray-600`}>{course.institution} {course.date && `(${course.date})`}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
+        {(data.courses || []).length > 0 && (
+          <section className="w-full">
+            <h2 className={`${t.h3} font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center`}>
+              <span className="bg-gray-800 text-white px-1.5 py-0.5 rounded-sm mr-2 text-xs">★</span> Cursos
+            </h2>
+            <div className="space-y-2 border-l-2 border-gray-200 pl-4">
+              {(data.courses || []).map((course, index) => (
+                <div key={index} className="page-break-avoid flex flex-col">
+                  <span className={`${t.body} font-bold text-gray-900`}>{course.name}</span>
+                  <span className={`${t.small} text-gray-600`}>{course.institution} {course.date && `(${course.date})`}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {(data.customSections || []).map((section, idx) => (
           <section key={section.id} className="w-full">

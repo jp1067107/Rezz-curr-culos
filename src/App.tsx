@@ -741,6 +741,132 @@ function MainApp() {
     }
   };
 
+  const generateAllPngsWatermarked = async () => {
+    if (!componentRef.current || !containerRef.current) return;
+    
+    const html2canvas = (await import('html2canvas-pro')).default;
+    const JSZip = (await import('jszip')).default;
+
+    await document.fonts.ready;
+    setIsProcessing(true);
+
+    if (user && hasActiveResume) {
+      handleSaveResume();
+    }
+    
+    const zip = new JSZip();
+    const originalTemplate = template;
+
+    try {
+      const _templates: TemplateType[] = ['modern', 'classic', 'minimal', 'creative', 'executive', 'corporate', 'detailed', 'academic'];
+
+      const wrapperElement = componentRef.current.parentElement;
+      const originalTransform = wrapperElement?.style.transform || '';
+      const originalTransition = wrapperElement?.style.transition || '';
+      const originalHeight = wrapperElement?.style.height || '';
+      const originalWidth = wrapperElement?.style.width || '';
+      const originalPosition = wrapperElement?.style.position || '';
+      
+      if (wrapperElement) {
+        wrapperElement.style.transition = 'none';
+        wrapperElement.style.transform = 'scale(1)';
+        wrapperElement.style.width = '794px';
+        wrapperElement.style.height = 'auto';
+        wrapperElement.style.position = 'relative';
+      }
+
+      for (const tpl of _templates) {
+        setTemplate(tpl);
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
+        void componentRef.current.offsetHeight;
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        const element = componentRef.current;
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: false,
+          logging: false,
+          backgroundColor: '#ffffff',
+          width: 794,
+          windowWidth: 1024,
+          onclone: (clonedDoc) => {
+            const containers = clonedDoc.querySelectorAll('.shadow-lg');
+            containers.forEach((c) => {
+                if (c instanceof HTMLElement) {
+                    c.classList.remove('shadow-lg', 'rounded-sm', 'mx-auto', 'my-8');
+                    c.style.margin = '0';
+                }
+            });
+          }
+        });
+
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.save();
+          // Add diagonal watermark
+          ctx.font = 'bold 80px Arial';
+          ctx.fillStyle = 'rgba(128, 128, 128, 0.4)';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          ctx.rotate(-Math.PI / 4);
+          ctx.fillText('MARCA D\'ÁGUA', 0, 0);
+          ctx.restore();
+          
+          // Add tiled watermark
+          ctx.save();
+          ctx.font = 'bold 30px Arial';
+          ctx.fillStyle = 'rgba(128, 128, 128, 0.15)';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          for(let x = 0; x < canvas.width * 2; x += 300) {
+             for(let y = -canvas.height; y < canvas.height * 2; y += 300) {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(-Math.PI / 4);
+                ctx.fillText('AMOSTRA', 0, 0);
+                ctx.restore();
+             }
+          }
+          ctx.restore();
+        }
+
+        const imgData = canvas.toDataURL('image/png').split(',')[1];
+        zip.file(`${tpl}_${data.personalInfo.fullName?.replace(/\s+/g, '_') || 'Curriculo'}.png`, imgData, {base64: true});
+      }
+
+      if (wrapperElement) {
+        wrapperElement.style.transform = originalTransform;
+        wrapperElement.style.height = originalHeight;
+        wrapperElement.style.width = originalWidth;
+        wrapperElement.style.position = originalPosition;
+        setTimeout(() => {
+          if (wrapperElement) wrapperElement.style.transition = originalTransition;
+        }, 50);
+      }
+      
+      setTemplate(originalTemplate);
+
+      const content = await zip.generateAsync({type: 'blob'});
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(content);
+      link.download = `Amostras_${data.personalInfo.fullName?.replace(/\s+/g, '_') || 'Curriculo'}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+
+    } catch (error) {
+      console.error('Error generating PNGs:', error);
+      alert('Erro ao gerar PNGs. Tente novamente mais tarde.');
+    } finally {
+      setIsProcessing(false);
+      setTemplate(originalTemplate);
+    }
+  };
+
   const generatePdf = async (isDraft: boolean = false) => {
     if (!componentRef.current || !containerRef.current) return;
 
@@ -814,7 +940,6 @@ function MainApp() {
   const [aiEditFiles, setAiEditFiles] = useState<FileList | null>(null);
   const aiEditFileInputRef = useRef<HTMLInputElement>(null);
   const [isAiEditing, setIsAiEditing] = useState(false);
-  const isAdmin = user?.email === 'jp1067107@gmail.com';
 
   const handleEvaluateFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -1549,6 +1674,15 @@ function MainApp() {
                 <span className="hidden sm:inline">Exportar PDF</span>
               </button>
               
+              <button
+                onClick={generateAllPngsWatermarked}
+                className="hidden lg:flex items-center gap-2 px-4 sm:px-6 py-2 bg-orange-600 hover:bg-orange-500 shadow-lg shadow-orange-600/30 text-white text-sm font-bold rounded-xl transition-all"
+                title="Baixar amostras de todos os modelos em PNG com marca d'água"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">PNGs (Amostras)</span>
+              </button>
+              
               {isPremium && (
                 <button
                   onClick={async () => {
@@ -1862,6 +1996,14 @@ function MainApp() {
             >
               <Download className="w-4 h-4" /> <span className="whitespace-nowrap">Exportar PDF</span>
             </button>
+            
+            <button
+              onClick={generateAllPngsWatermarked}
+              className={`hidden lg:flex items-center justify-center gap-2 px-6 py-2 text-sm font-bold rounded-xl transition-all shrink-0 ${hasActiveResume ? 'bg-orange-600 shadow-md shadow-orange-500/20 hover:bg-orange-500 text-white' : 'bg-slate-800 border border-white/5 text-slate-500 opacity-50'}`}
+              title="Baixar amostras de todos os modelos em PNG com marca d'água"
+            >
+              <Download className="w-4 h-4" /> <span className="whitespace-nowrap">PNGs (Amostras)</span>
+            </button>
 
             {isPremium && (
               <button
@@ -1921,17 +2063,15 @@ function MainApp() {
                 {isPrompting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Wand2 className="w-4 h-4 shrink-0" />}
                 <span className="whitespace-nowrap">{isPrompting ? "Aprimorando..." : dataBeforeAI ? "Desfazer IA" : "Aprimorar com IA"}</span>
               </button>
-              {isAdmin && (
-                <button
-                  onClick={() => setIsAiEditModalOpen(true)}
-                  disabled={!hasActiveResume}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-pink-500/20 border border-pink-500/50 hover:bg-pink-500/40 text-pink-200 text-sm font-bold rounded-xl transition-all shadow-sm shrink-0"
-                  title="Editar currículo usando IA (Apenas Admins)"
-                >
-                  <Edit2 className="w-4 h-4 shrink-0" />
-                  <span className="whitespace-nowrap">Editar (Admin)</span>
-                </button>
-              )}
+              <button
+                onClick={() => setIsAiEditModalOpen(true)}
+                disabled={!hasActiveResume}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 text-sm font-bold rounded-xl transition-all shadow-sm shrink-0"
+                title="Editar currículo usando Inteligência Artificial"
+              >
+                <Edit2 className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">Editar com IA</span>
+              </button>
               <button
                 onClick={() => {
                   if (fileInputRef.current) {
@@ -2000,17 +2140,15 @@ function MainApp() {
               {isPrompting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Wand2 className="w-4 h-4 shrink-0" />}
               <span className="whitespace-nowrap">{isPrompting ? "Aprimorando..." : dataBeforeAI ? "Desfazer IA" : "Aprimorar com IA"}</span>
             </button>
-            {isAdmin && (
-              <button
-                onClick={() => setIsAiEditModalOpen(true)}
-                disabled={!hasActiveResume}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-pink-500/20 border border-pink-500/50 hover:bg-pink-500/40 text-pink-200 text-sm font-bold rounded-xl transition-all shadow-sm mt-2"
-                title="Editar currículo usando IA (Apenas Admins)"
-              >
-                <Edit2 className="w-4 h-4 shrink-0" />
-                <span className="whitespace-nowrap">Editar (Admin)</span>
-              </button>
-            )}
+            <button
+              onClick={() => setIsAiEditModalOpen(true)}
+              disabled={!hasActiveResume}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 text-sm font-bold rounded-xl transition-all shadow-sm mt-2"
+              title="Editar currículo usando Inteligência Artificial"
+            >
+              <Edit2 className="w-4 h-4 shrink-0" />
+              <span className="whitespace-nowrap">Editar com IA</span>
+            </button>
           </div>
           
           <div className="flex-1 overflow-y-auto flex justify-center items-start pt-2 lg:pt-0 pb-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent rounded-lg" ref={containerRef}>
@@ -2126,7 +2264,7 @@ function MainApp() {
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col p-6 animate-in fade-in zoom-in duration-300">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <Edit2 className="w-5 h-5 text-pink-500" /> Editar via Prompt (Admin)
+                  <Edit2 className="w-5 h-5 text-purple-500" /> Editar com IA
                 </h3>
                 <button onClick={() => {
                   setIsAiEditModalOpen(false);
@@ -2136,7 +2274,7 @@ function MainApp() {
                 </button>
               </div>
               <p className="text-sm text-slate-600 mb-4">
-                Descreva exatamente o que deseja alterar, adicionar ou remover do currículo atual. Apenas Admins possuem acesso a essa função.
+                Descreva exatamente o que deseja alterar, adicionar ou remover do currículo atual. A inteligência artificial fará todo o trabalho pesado.
               </p>
               <textarea
                 value={aiEditPrompt}
@@ -2241,7 +2379,7 @@ function MainApp() {
                 className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
               />
               <p className="text-xs text-slate-500 mt-2">
-                Como este painel interno opera na nuvem estática, insira a chave da API para permitir a geração de resultados via IA para os currículos gerenciados localmente.
+                Insira sua própria chave da API da Anthropic para utilizar os recursos de inteligência artificial na edição do currículo.
               </p>
             </div>
           </div>
