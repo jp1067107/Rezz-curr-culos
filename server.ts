@@ -21,110 +21,88 @@ async function startServer() {
 
   app.use(express.json({ limit: '50mb' }));
 
-  app.post("/api/gemini", async (req, res) => {
-    let apiKey = process.env.CUSTOM_GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  app.post("/api/anthropic", async (req, res) => {
     try {
-      const { model, contents, config } = req.body;
-      
-      if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "" || apiKey === "undefined") {
-        if (systemDefaultKey) {
-           apiKey = systemDefaultKey;
+      const { model, system, messages, max_tokens, temperature } = req.body;
+      const apiKey = process.env.ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY;
+
+      if (!apiKey || apiKey.trim() === "") {
+        return res.status(500).json({ error: "A chave da API Anthropic (ANTHROPIC_API_KEY) não está configurada." });
+      }
+
+      const modelsToTry = [
+        model || "claude-sonnet-4-6",
+        "claude-sonnet-4-6",
+        "claude-opus-4-7",
+        "claude-sonnet-4-6",
+        "claude-sonnet-4-5-20250929",
+        "claude-haiku-4-5-20251001",
+        "claude-opus-4-5-20251101"
+      ];
+
+      // Remove duplicates
+      const uniqueModels = Array.from(new Set(modelsToTry));
+
+      let lastErrorResponse = null;
+      let lastErrorStatus = 500;
+      let successfulResponse = null;
+
+      for (const currentModel of uniqueModels) {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01"
+          },
+          body: JSON.stringify({
+            model: currentModel,
+            system,
+            messages,
+            temperature: temperature || 0,
+            max_tokens: max_tokens || 4096
+          })
+        });
+
+        if (response.ok) {
+          successfulResponse = await response.json();
+          break; // Success!
         } else {
-          return res.status(500).json({ 
-            error: "Sua chave não está configurada! Crie a variável CUSTOM_GEMINI_API_KEY no painel 'Settings > Secrets' e cole sua chave gratuita lá, pois o campo padrão não pode ser editado." 
-          });
+          lastErrorStatus = response.status;
+          const errText = await response.text();
+          lastErrorResponse = errText;
+          
+          let isNotFoundError = false;
+          try {
+             const parsedErr = JSON.parse(errText);
+             if (parsedErr?.error?.type === "not_found_error") {
+                isNotFoundError = true;
+             }
+          } catch (e) {
+             // Ignore parse error
+          }
+
+          // If the model was not found, we continue to the next one
+          if (response.status === 404 || isNotFoundError) {
+             console.warn(`[Anthropic] Model ${currentModel} failed with 404, trying next...`);
+             continue; 
+          }
+          
+          // Overloaded API (wait and retry once if we only tried 1 or 2 models? Let's just break on other errors)
+          if (response.status !== 429 && response.status !== 503 && response.status !== 529) {
+             break; // Stop and return this error (e.g. 401 unauthorized, or 400 bad request)
+          } else {
+             // Rate limit or overloaded, backoff minimally before continuing
+             await new Promise(r => setTimeout(r, 1500));
+          }
         }
       }
 
-      console.log("Using API key in route");
-      const { GoogleGenAI } = await import("@google/genai");
-      const ai = new GoogleGenAI({ apiKey });
-
-      let lastError;
-      const modelsToTry = [model || "gemini-flash-latest", "gemini-1.5-pro", "gemini-2.5-flash", "gemini-1.5-flash-8b"];
-      let responseText;
-      
-      for (const m of modelsToTry) {
-         try {
-            const payload: any = {
-              model: m,
-              contents,
-              config
-            };
-            const response = await ai.models.generateContent(payload);
-            responseText = response.text;
-            break; // Success
-         } catch (err: any) {
-            lastError = err;
-            const errStr = (err.message || String(err)).toLowerCase();
-            const is503 = err.status === 503 || errStr.includes('503') || errStr.includes('unavailable') || errStr.includes('high demand');
-            const is429 = err.status === 429 || errStr.includes('429') || errStr.includes('quota');
-            
-            if (!is503 && !is429) {
-               break; // For other errors, don't fallback; wait is only for rate limits or overloads
-            }
-            // wait a little bit
-            await new Promise(r => setTimeout(r, 1000));
-         }
+      if (successfulResponse) {
+        return res.json(successfulResponse);
+      } else {
+        return res.status(lastErrorStatus).json({ error: lastErrorResponse || "Unknown error" });
       }
-
-      if (!responseText && lastError) {
-         throw lastError;
-      }
-
-      res.json({ text: responseText });
-    } catch (e: any) {
-      // console.error removed to prevent test runner from flagging it as crash
-      let errorMsg = e.message || String(e);
-      let statusCode = e.status || 500;
-      
-      if (typeof errorMsg === 'string' && (errorMsg.includes("API key not valid") || errorMsg.includes("expired") || errorMsg.includes("API_KEY_INVALID"))) {
-         errorMsg = `A chave de API que você inseriu é inválida ou incorreta (erro: API_KEY_INVALID). Acesse https://aistudio.google.com/app/apikey, gere uma chave nova, copie-a e atualize a variável CUSTOM_GEMINI_API_KEY no menu 'Settings > Secrets' (ou na sua hospedagem).`;
-         statusCode = 400;
-      } else if (statusCode === 429 || (typeof errorMsg === 'string' && (errorMsg.toLowerCase().includes("quota") || errorMsg.includes("429")))) {
-         errorMsg = "O sistema atingiu o limite de consultas por minuto. Por favor, aguarde de 1 a 2 minutos e tente enviar novamente.";
-         statusCode = 429;
-      } else if (statusCode === 503 || (typeof errorMsg === 'string' && (errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE") || errorMsg.includes("high demand")))) {
-         statusCode = 503;
-      }
-      res.status(statusCode).json({ error: errorMsg });
-    }
-  });
-
-  app.post("/api/groq", async (req, res) => {
-    try {
-      const { messages, model, temperature, max_tokens, response_format } = req.body;
-      const apiKey = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY;
-
-      if (!apiKey || apiKey === "MY_GROQ_API_KEY" || apiKey.trim() === "") {
-        return res.status(500).json({ error: "A chave da API Groq não está configurada corretamente. Como não é possível excluí-la pela interface, gere uma chave gratuita em https://console.groq.com/keys e cole no valor de GROQ_API_KEY no painel de Secrets." });
-      }
-
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          messages,
-          model,
-          temperature,
-          max_tokens,
-          response_format
-        })
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        if (errText.includes("invalid_api_key") || errText.includes("AuthenticationError")) {
-           return res.status(401).json({ error: "A chave da API Groq fornecida nos secrets é inválida. Por favor, acesse o menu Configurações/Secrets e atualize a variável GROQ_API_KEY com uma chave válida." });
-        }
-        return res.status(response.status).json({ error: errText });
-      }
-
-      const rawResult = await response.json();
-      res.json(rawResult);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }

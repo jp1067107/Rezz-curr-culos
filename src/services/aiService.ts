@@ -5,106 +5,9 @@ import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-async function callGeminiAPI(requestBody: any, maxRetries = 3) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (response.ok) {
-        return await response.json();
-      }
-      
-      // If we get 405 (Method Not Allowed) or 404, it means we are in a static deployment (like Cloudflare Pages) without the server
-      if (response.status === 404 || response.status === 405) {
-        throw new Error("STATIC_DEPLOYMENT");
-      }
-
-      let errText = 'Erro desconhecido';
-      const rawErrText = await response.text();
-      try {
-        const errBody = JSON.parse(rawErrText);
-        errText = errBody.error || rawErrText;
-      } catch {
-        errText = rawErrText;
-      }
-      
-      // se for 503 e não for a última tentativa, tenta novamente
-      if (response.status === 503 || errText.includes("503") || errText.includes("UNAVAILABLE")) {
-         if (attempt < maxRetries) {
-           await new Promise(r => setTimeout(r, 2000 * attempt)); // wait 2s, 4s...
-           continue;
-         } else {
-           throw new Error("O servidor de Inteligência Artificial está com muita demanda no momento (503). Por favor, tente novamente em alguns instantes.");
-         }
-      }
-
-      throw new Error(`Erro do Servidor Gemini (${response.status}): ${errText}`);
-    } catch (e: any) {
-      if (e.message === "STATIC_DEPLOYMENT" || e.name === "TypeError" /* fetch failed entirely */) {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "undefined") {
-          throw new Error("A chave VITE_GEMINI_API_KEY não foi configurada! Como o aplicativo foi publicado externamente (e sem backend NodeJS), você OBRIGATORIAMENTE precisa criar essa variável de ambiente (Environment Variable) no painel da sua hospedagem (ex: Cloudflare Pages) com a sua chave gratuita do Google AI Studio para que o aplicativo funcione.");
-        }
-
-        const model = requestBody.model || "gemini-flash-latest";
-        
-        const restPayload: any = {
-          contents: requestBody.contents,
-          generationConfig: requestBody.config ? { ...requestBody.config } : undefined
-        };
-        
-        if (restPayload.generationConfig?.systemInstruction) {
-          restPayload.system_instruction = {
-            parts: [{ text: restPayload.generationConfig.systemInstruction }]
-          };
-          delete restPayload.generationConfig.systemInstruction;
-        }
-
-        const directResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(restPayload)
-        });
-
-        if (!directResponse.ok) {
-          const errorText = await directResponse.text();
-          if (directResponse.status === 503 || errorText.includes("503") || errorText.includes("UNAVAILABLE")) {
-             if (attempt < maxRetries) {
-                await new Promise(r => setTimeout(r, 2000 * attempt)); // wait 2s, 4s...
-                continue;
-             } else {
-                throw new Error("O servidor de Inteligência Artificial está com muita demanda no momento. Por favor, tente novamente em alguns instantes.");
-             }
-          }
-          if (directResponse.status === 429 || errorText.toLowerCase().includes("quota")) {
-             if (attempt < maxRetries) {
-                await new Promise(r => setTimeout(r, 2000 * attempt));
-                continue;
-             }
-             throw new Error("O limite de uso gratuito da sua chave Gemini foi excedido (429). Aguarde alguns instantes ou adicione sua própria VITE_GEMINI_API_KEY nas variáveis de ambiente da sua hospedagem.");
-          }
-          if (directResponse.status === 400 && (errorText.includes("API key not valid") || errorText.includes("API_KEY_INVALID") || errorText.includes("invalid"))) {
-             throw new Error(`A chave de API configurada no VITE_GEMINI_API_KEY (ou no Settings do servidor) é INVÁLIDA. Para corrigir, acesse https://aistudio.google.com/app/apikey, copie uma nova chave e coloque-a nas variáveis de ambiente.`);
-          }
-          throw new Error(`Erro da API Direta do Gemini (${directResponse.status}): ${errorText}`);
-        }
-
-        const rawResult = await directResponse.json();
-        const text = rawResult.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-        return { text };
-      }
-      throw e;
-    }
-  }
-}
-
-async function callGroqAPI(requestBody: any) {
+async function callAnthropicAPI(requestBody: any) {
   try {
-    const response = await fetch('/api/groq', {
+    const response = await fetch('/api/anthropic', {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestBody)
@@ -126,30 +29,75 @@ async function callGroqAPI(requestBody: any) {
     } catch {
       errText = rawErrText;
     }
-    throw new Error(`Erro do Servidor Groq (${response.status}): ${errText}`);
+    throw new Error(`Erro do Servidor Anthropic (${response.status}): ${errText}`);
   } catch (e: any) {
-    if (e.message === "STATIC_DEPLOYMENT" || e.name === "TypeError") {
-      const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-      if (!apiKey || apiKey === "MY_GROQ_API_KEY") {
-        throw new Error("O aplicativo está rodando em modo estático pré-compilado sem servidor. Falta a variável VITE_GROQ_API_KEY.");
+    if (e.message === "STATIC_DEPLOYMENT" || e.name === "TypeError" || e.name === "SyntaxError") {
+      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+      if (!apiKey || apiKey === "MY_ANTHROPIC_API_KEY") {
+        throw new Error("Não foi possível conectar ao servidor e a variável VITE_ANTHROPIC_API_KEY não está configurada (Erro original: " + e.message + "). Configure a chave no menu de variáveis para uso direto.");
       }
 
-      const directResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify(requestBody)
-      });
+      const modelsToTry = [
+        requestBody.model || "claude-sonnet-4-6",
+        "claude-sonnet-4-6",
+        "claude-opus-4-7",
+        "claude-sonnet-4-6",
+        "claude-sonnet-4-5-20250929",
+        "claude-haiku-4-5-20251001",
+        "claude-opus-4-5-20251101"
+      ];
+      const uniqueModels = Array.from(new Set(modelsToTry));
 
-      if (!directResponse.ok) {
+      let lastErrorText = "";
+      let lastStatus = 500;
+
+      for (const currentModel of uniqueModels) {
+        const directResponse = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerous-direct-browser-access": "true"
+          },
+          body: JSON.stringify({
+            model: currentModel,
+            system: requestBody.system,
+            messages: requestBody.messages,
+            temperature: requestBody.temperature || 0.1,
+            max_tokens: requestBody.max_tokens || 4096
+          })
+        });
+
+        if (directResponse.ok) {
+           return await directResponse.json();
+        }
+
         const errorText = await directResponse.text();
-        throw new Error(`Erro da API Direta da Groq (${directResponse.status}): ${errorText}`);
+        lastErrorText = errorText;
+        lastStatus = directResponse.status;
+
+        let isNotFoundError = false;
+        try {
+           const parsedErr = JSON.parse(errorText);
+           if (parsedErr?.error?.type === "not_found_error") {
+              isNotFoundError = true;
+           }
+        } catch (err) {}
+
+        if (directResponse.status === 404 || isNotFoundError) {
+           console.warn(`[Anthropic Direct] Model ${currentModel} failed with 404, trying next...`);
+           continue;
+        }
+
+        if (directResponse.status !== 429 && directResponse.status !== 503 && directResponse.status !== 529) {
+           break;
+        } else {
+           await new Promise(r => setTimeout(r, 1500));
+        }
       }
 
-      const rawResult = await directResponse.json();
-      return rawResult;
+      throw new Error(`Erro da API Direta da Anthropic (${lastStatus}): ${lastErrorText}`);
     }
     throw e;
   }
@@ -385,18 +333,17 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
       : `Leia atentamente o(s) texto(s) extraído(s) e preencha o JSON de forma conservadora. Regra primordial: NÃO CRIE nenhum dado. O limite da sua atuação é apenas a apresentação. Zero Omissão Técnica, Habilidades Exatas, e Zero Omissão Acadêmica. PRESERVE datas intactas. Corrija pequenos erros óbvios de OCR (ex: 'maid' -> 'maio') mas seja totalmente fiel aos fatos originais.\n\nTextos Extraídos:\n${truncatedPdfText}`;
 
     try {
-      const rawResult = await callGroqAPI({
-        model: "llama-3.3-70b-versatile",
+      const rawResult = await callAnthropicAPI({
+        model: "claude-sonnet-4-6",
+        system: selectedSystemPrompt + "\nRetorne um objeto JSON.",
         messages: [
-          { role: "system", content: selectedSystemPrompt },
           { role: "user", content: userMessage }
         ],
         temperature: 0.1,
-        max_completion_tokens: 3500,
-        response_format: { type: "json_object" }
+        max_tokens: 4096
       });
 
-      const parsedText = rawResult.choices?.[0]?.message?.content || "{}";
+      const parsedText = rawResult.content?.[0]?.text || "{}";
       const rawData = parseJsonResponse(parsedText);
       
       const isEmpty = !rawData || (!rawData.personalInfo?.fullName && !rawData.experience?.length && !rawData.education?.length && !rawData.skills?.length);
@@ -418,27 +365,25 @@ export async function extractResumeDataFromFiles(files: FileList | File[], exact
       : `Leia atentamente as imagens e textos fornecidos e preencha o JSON de forma conservadora. NÃO CRIE dados. O limite da sua atuação é a apresentação. Zero Omissão Técnica e Zero Omissão Acadêmica. PRESERVE datas intactas sem recriar fluxos cronológicos. Corrija perfeitamente erros óbvios de OCR de PDFs (ex: 'maid' -> 'maio', 'Universidadete' -> Universidade).\n\nTransforme o conteúdo estritamente no formato JSON.${allPdfText ? ' Também considere este texto do PDF:\n\n' + allPdfText : ''}`;
 
     const contentParts: any[] = [
-      { text: userMessage }
+      { type: "text", text: userMessage }
     ];
 
     for (const img of base64Images) {
       contentParts.push({ 
-        inlineData: { mimeType: img.mimeType, data: img.data } 
+        type: "image",
+        source: { type: "base64", media_type: img.mimeType, data: img.data }
       });
     }
 
-    const requestBody = {
-      model: "gemini-flash-latest",
-      contents: [{ role: "user", parts: contentParts }],
-      config: {
-        systemInstruction: selectedSystemPrompt,
-        temperature: 0.1,
-        responseMimeType: "application/json",
-      }
-    };
+    const rawResult = await callAnthropicAPI({
+      model: "claude-sonnet-4-6",
+      system: selectedSystemPrompt + "\nRetorne ESTRITAMENTE um objeto JSON.",
+      messages: [{ role: "user", content: contentParts }],
+      temperature: 0.1,
+      max_tokens: 4096
+    });
 
-    const rawResult = await callGeminiAPI(requestBody);
-    const textResponse = rawResult.text || "{}";
+    const textResponse = rawResult.content?.[0]?.text || "{}";
     const rawData = parseJsonResponse(textResponse);
     
     const isEmpty = !rawData || (!rawData.personalInfo?.fullName && !rawData.experience?.length && !rawData.education?.length && !rawData.skills?.length);
@@ -566,17 +511,16 @@ ${JSON.stringify(dataForAi, null, 2)}
 `;
 
   try {
-    const rawResult = await callGroqAPI({
-        model: "llama-3.3-70b-versatile",
+    const rawResult = await callAnthropicAPI({
+        model: "claude-sonnet-4-6",
+        system: SYSTEM_PROMPT + "\nRetorne ESTRITAMENTE um JSON.",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: modelPrompt }
         ],
         temperature: 0.1,
-        max_completion_tokens: 3000,
-        response_format: { type: "json_object" },
+        max_tokens: 4096
       });
-    const parsedText = rawResult.choices?.[0]?.message?.content || "{}";
+    const parsedText = rawResult.content?.[0]?.text || "{}";
     const rawData = parseJsonResponse(parsedText);
     
     return {
@@ -609,16 +553,15 @@ ${JSON.stringify({
 `;
 
   try {
-    const rawResult = await callGroqAPI({
-        model: "llama-3.3-70b-versatile",
+    const rawResult = await callAnthropicAPI({
+        model: "claude-sonnet-4-6",
         messages: [
           { role: "user", content: modelPrompt }
         ],
         temperature: 0.2,
-        max_completion_tokens: 500,
-        response_format: { type: "json_object" },
+        max_tokens: 1024
       });
-    const parsedText = rawResult.choices?.[0]?.message?.content || '{"keywords":[]}';
+    const parsedText = rawResult.content?.[0]?.text || '{"keywords":[]}';
     const data = JSON.parse(parsedText);
     return Array.isArray(data.keywords) ? data.keywords : [];
   } catch (e) {
@@ -658,17 +601,17 @@ IMPORTANTE: Você deve retornar SOMENTE O TEXTO DA CARTA. Não adicione observa�
 `;
 
   try {
-    const rawResult = await callGroqAPI({
-        model: "llama-3.3-70b-versatile",
+    const rawResult = await callAnthropicAPI({
+        model: "claude-sonnet-4-6",
+        system: "Você é um assistente gerador de cartas de apresentação baseadas em perfis profissionais. Responda única e exclusivamente com o conteúdo da carta final.",
         messages: [
-          { role: "system", content: "Você é um assistente gerador de cartas de apresentação baseadas em perfis profissionais. Responda única e exclusivamente com o conteúdo da carta final." },
           { role: "user", content: modelPrompt }
         ],
         temperature: 0.6,
-        max_completion_tokens: 2000,
+        max_tokens: 2048,
       });
 
-    return rawResult.choices?.[0]?.message?.content || "";
+    return rawResult.content?.[0]?.text || "";
   } catch (e) {
     console.error("Erro ao gerar cover letter", e);
     return "";
@@ -722,19 +665,19 @@ ${JSON.stringify(dataForAi, null, 2)}
 `;
 
   try {
-    const rawResult = await callGroqAPI({
-        model: "llama-3.3-70b-versatile",
+    const rawResult = await callAnthropicAPI({
+        model: "claude-sonnet-4-6",
         messages: [
           { role: "user", content: modelPrompt }
         ],
         temperature: 0.4,
-        max_completion_tokens: 2500,
+        max_tokens: 2500,
       });
 
-    return rawResult.choices?.[0]?.message?.content || "Avaliação não disponível.";
+    return rawResult.content?.[0]?.text || "Avaliação não disponível.";
   } catch (e) {
     console.error("Erro ao avaliar currículo", e);
-    throw new Error("Falha ao avaliar currículo. Verifique sua chave da API Groq e tente novamente.");
+    throw new Error("Falha ao avaliar currículo. Verifique sua chave da API Anthropic e tente novamente.");
   }
 }
 
@@ -778,27 +721,25 @@ export async function editResumeWithAI(currentData: ResumeData, editPrompt: stri
   try {
     if (hasImage) {
       const contentParts: any[] = [
-        { text: modelPrompt }
+        { type: "text", text: modelPrompt }
       ];
   
       for (const img of base64Images) {
         contentParts.push({ 
-          inlineData: { mimeType: img.mimeType, data: img.data } 
+          type: "image",
+          source: { type: "base64", media_type: img.mimeType, data: img.data }
         });
       }
   
-      const requestBody = {
-        model: "gemini-flash-latest",
-        contents: [{ role: "user", parts: contentParts }],
-        config: {
-          systemInstruction: "Retorne ESTRITAMENTE um objeto JSON válido. Responda apenas com o JSON na estrutura da interface ResumeData fornecida e nada mais.",
-          temperature: 0.5,
-          responseMimeType: "application/json",
-        }
-      };
+      const rawResult = await callAnthropicAPI({
+        model: "claude-sonnet-4-6",
+        system: "Retorne ESTRITAMENTE um objeto JSON válido. Responda apenas com o JSON na estrutura da interface ResumeData fornecida e nada mais.",
+        messages: [{ role: "user", content: contentParts }],
+        temperature: 0.5,
+        max_tokens: 4096
+      });
   
-      const rawResult = await callGeminiAPI(requestBody);
-      const textResponse = rawResult.text || "{}";
+      const textResponse = rawResult.content?.[0]?.text || "{}";
       const rawData = parseJsonResponse(textResponse);
       const normalizedData = normalizeResponse(rawData);
       
@@ -814,17 +755,16 @@ export async function editResumeWithAI(currentData: ResumeData, editPrompt: stri
         }
       };
     } else {
-      const rawResult = await callGroqAPI({
-          model: "llama-3.3-70b-versatile",
+      const rawResult = await callAnthropicAPI({
+          model: "claude-sonnet-4-6",
+          system: "Retorne ESTRITAMENTE um objeto JSON válido. Responda apenas com o JSON na estrutura da interface ResumeData fornecida e nada mais. Use a língua solicitada na instrução.",
           messages: [
-            { role: "system", content: "Retorne ESTRITAMENTE um objeto JSON válido. Responda apenas com o JSON na estrutura da interface ResumeData fornecida e nada mais. Use a língua solicitada na instrução." },
             { role: "user", content: modelPrompt }
           ],
           temperature: 0.5,
-          max_completion_tokens: 3500,
-          response_format: { type: "json_object" },
+          max_tokens: 4096
         });
-      const parsedText = rawResult.choices?.[0]?.message?.content || "{}";
+      const parsedText = rawResult.content?.[0]?.text || "{}";
       const rawData = parseJsonResponse(parsedText);
       const normalizedData = normalizeResponse(rawData);
       
