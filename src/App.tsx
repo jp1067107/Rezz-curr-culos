@@ -596,7 +596,7 @@ function MainApp() {
             overflow: visible !important;
           }
           @page {
-            margin: 12mm 0;
+            margin: 0;
             size: A4 portrait;
           }
           * {
