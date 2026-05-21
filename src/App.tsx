@@ -14,6 +14,7 @@ import { auth, signInWithGoogle, signOut, saveResume, loadResumes, deleteResume,
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown, Trash2, Highlighter, BarChart, Upload } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import LZString from 'lz-string';
 
 import { v4 as uuidv4 } from 'uuid';
 
@@ -122,6 +123,22 @@ function MainApp() {
   }, []);
   const [isPurchasedEditing, setIsPurchasedEditing] = useState(false);
   const [data, setData] = useState<ResumeData>(() => {
+    try {
+      if (window.location.hash.startsWith('#share=')) {
+        const compressed = window.location.hash.substring(7);
+        const jsonStr = LZString.decompressFromEncodedURIComponent(compressed);
+        if (jsonStr) {
+          const parsed = JSON.parse(jsonStr);
+          parsed.id = uuidv4();
+          localStorage.setItem('rezz_draft_data', JSON.stringify(parsed));
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to import shared data', e);
+    }
+
     const saved = localStorage.getItem('rezz_draft_data');
     if (saved) {
       try {
@@ -244,8 +261,8 @@ function MainApp() {
   }, [data, currentResumeId, template, unlockedConfigs, user]);
   
   const signature = `${currentResumeId}_${template}`;
-  const hasPaid = isPremium || unlockedConfigs.includes(signature);
-  const hasCoverLetter = isPremium || unlockedConfigs.includes(`${currentResumeId}_cover_letter`);
+  const hasPaid = true; // Liberado internamente
+  const hasCoverLetter = true; // Liberado internamente
 
   useEffect(() => {
     localStorage.setItem('rezz_unlocked', JSON.stringify(unlockedConfigs));
@@ -440,12 +457,6 @@ function MainApp() {
       return;
     }
 
-    if (!hasPaid) {
-      setSimulateOrderBump(false);
-      setIsPaymentModalOpen(true);
-      return;
-    }
-
     if (user && hasActiveResume) {
       handleSaveResume();
     }
@@ -459,6 +470,24 @@ function MainApp() {
       return;
     }
     await generatePdf(true);
+  };
+
+  const handleShareClick = () => {
+    try {
+      const jsonStr = JSON.stringify(data);
+      const compressed = LZString.compressToEncodedURIComponent(jsonStr);
+      const url = `${window.location.origin}${window.location.pathname}#share=${compressed}`;
+      
+      navigator.clipboard.writeText(url).then(() => {
+        alert("Link de compartilhamento copiado! Envie este link para que sua equipe continue a edição de onde você parou.");
+      }).catch(err => {
+        console.error("Failed to copy link", err);
+        alert("Ocorreu um erro ao copiar o link. Tente novamente.");
+      });
+    } catch(e) {
+      console.error(e);
+      alert("Ocorreu um erro ao gerar o link.");
+    }
   };
 
   const generatePdfNative = async (targetRef: React.RefObject<HTMLElement | null>, defaultTitle: string, isDraft: boolean) => {
@@ -1041,10 +1070,10 @@ function MainApp() {
             <div className="max-w-4xl w-full space-y-10 relative z-10 flex flex-col items-center">
               <div className="text-center space-y-4 max-w-2xl">
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">
-                  O que você deseja<br/>fazer hoje?
+                  Painel de<br/>Currículos
                 </h1>
                 <p className="text-base sm:text-lg text-slate-400 font-medium px-4">
-                  Acesse seus documentos salvos, crie um novo currículo vencedor ou participe do nosso programa de parceiros.
+                  Crie, avalie e gerencie os currículos dos clientes centralizados nesta ferramenta interna de produtividade.
                 </p>
               </div>
 
@@ -1060,10 +1089,10 @@ function MainApp() {
                   </div>
                   <div>
                     <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 flex flex-col sm:flex-row items-center gap-3">
-                      Criar Novo com IA
+                      Criar via Inteligência Artificial
                     </h2>
                     <p className="text-slate-400 text-sm sm:text-base">
-                      Transforme uma foto ou PDF antigo em um currículo de alto nível em segundos usando inteligência artificial.
+                      Faça o upload do documento bruto do cliente para preenchimento rápido via IA conservadora.
                     </p>
                   </div>
                   <div className="hidden sm:flex ml-auto pl-4">
@@ -1083,9 +1112,9 @@ function MainApp() {
                   <div className="w-14 h-14 bg-slate-700/50 text-slate-300 group-hover:bg-slate-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-all">
                     <Edit2 className="w-7 h-7" />
                   </div>
-                  <h2 className="text-lg sm:text-xl font-bold text-white mb-2">Editor Manual</h2>
+                  <h2 className="text-lg sm:text-xl font-bold text-white mb-2">Novo Manualmente</h2>
                   <p className="text-slate-400 text-sm">
-                    Acesse o editor avançado. O seu progresso é salvo automaticamente no navegador enquanto você preenche os dados.
+                    Inicie o editor e preencha você mesmo. O rascunho fica salvo localmente no navegador em tempo real.
                   </p>
                 </button>
 
@@ -1104,50 +1133,16 @@ function MainApp() {
                     <FolderOpen className="w-7 h-7" />
                   </div>
                   <h2 className="text-lg sm:text-xl font-bold text-white mb-2 flex flex-col sm:flex-row items-center sm:items-start gap-2">
-                    Meus Currículos
+                    Banco de Clientes
                   </h2>
                   <div className="mb-3">
                     <span className="px-2.5 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">
-                      {purchasedResumes.length > 0 ? `${purchasedResumes.length} salvos` : (user ? 'Nuvem' : 'Acesse seus currículos')}
+                      Gestão
                     </span>
                   </div>
                   <p className="text-slate-400 text-sm">
-                    Acesse, edite ou exporte os currículos que você já criou. Tudo salvo com segurança na sua conta.
+                    Acesse todos os currículos criados para seus clientes. Compartilhe-os ou gere PDFs.
                   </p>
-                </button>
-
-                {/* Carta de Apresentação */}
-                <button
-                  onClick={() => setAppState('cover-letter')}
-                  className="col-span-1 md:col-span-2 flex flex-col sm:flex-row items-center justify-between text-center sm:text-left p-6 sm:p-8 bg-pink-900/10 hover:bg-pink-900/20 border border-pink-500/10 hover:border-pink-500/30 rounded-3xl transition-all group gap-4 mt-2"
-                >
-                  <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 bg-pink-500/10 rounded-2xl flex items-center justify-center text-pink-400 group-hover:scale-110 group-hover:bg-pink-500/20 transition-all shrink-0">
-                      <Wand2 className="w-7 h-7 sm:w-8 sm:h-8" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg sm:text-xl font-bold text-pink-50 mb-1">Carta de Apresentação</h3>
-                      <p className="text-pink-500/70 text-sm font-medium">Gere uma carta de apresentação sob medida para sua vaga usando IA</p>
-                    </div>
-                  </div>
-                  <ArrowLeft className="hidden sm:block w-5 h-5 text-pink-500/50 rotate-180 group-hover:translate-x-1 transition-all" />
-                </button>
-
-                {/* Programa de Afiliados */}
-                <button
-                  onClick={() => setAppState('affiliate')}
-                  className="col-span-1 md:col-span-2 flex flex-col sm:flex-row items-center justify-between text-center sm:text-left p-6 sm:p-8 bg-emerald-900/10 hover:bg-emerald-900/20 border border-emerald-500/10 hover:border-emerald-500/30 rounded-3xl transition-all group gap-4 mt-2"
-                >
-                  <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-400 group-hover:scale-110 group-hover:bg-emerald-500/20 transition-all shrink-0">
-                      <DollarSign className="w-7 h-7 sm:w-8 sm:h-8" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg sm:text-xl font-bold text-emerald-50 mb-1">Programa de Afiliados</h3>
-                      <p className="text-emerald-500/70 text-sm font-medium">Ganhe 45% de comissão indicando o Rezz</p>
-                    </div>
-                  </div>
-                  <ArrowLeft className="hidden sm:block w-5 h-5 text-emerald-500/50 rotate-180 group-hover:translate-x-1 transition-all" />
                 </button>
 
                 {/* Avaliar com IA - Featured */}
@@ -1418,6 +1413,13 @@ function MainApp() {
               {/* Mobile Download Button (Visible only on small screens) */}
               <div className="flex lg:hidden items-center gap-2">
                 <button
+                  onClick={handleShareClick}
+                  className="flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 border border-white/10 text-slate-300 hover:bg-slate-700 font-bold rounded-xl transition-all"
+                  title="Compartilhar Link"
+                >
+                  <Share2 className="w-4 h-4" />
+                </button>
+                <button
                   onClick={handleDownloadDraftClick}
                   className="flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 border border-white/10 text-slate-300 hover:bg-slate-700 font-bold rounded-xl transition-all"
                   title="Baixar Amostra"
@@ -1473,7 +1475,16 @@ function MainApp() {
                 </button>
               )}
 
-                            <button
+              <button
+                onClick={handleShareClick}
+                className="hidden lg:flex items-center gap-2 px-4 sm:px-6 py-2 bg-slate-800 border border-white/10 hover:border-white/20 text-slate-300 text-sm font-bold rounded-xl transition-all"
+                title="Copiar link para outra pessoa continuar editando"
+              >
+                <Share2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Compartilhar</span>
+              </button>
+              
+              <button
                 onClick={handleDownloadDraftClick}
                 className="hidden lg:flex items-center gap-2 px-4 sm:px-6 py-2 bg-slate-800 border border-white/10 hover:border-white/20 text-slate-300 text-sm font-bold rounded-xl transition-all"
                 title="Baixar versão de amostra com marca d'água para mostrar ao cliente"
@@ -1716,6 +1727,13 @@ function MainApp() {
 
           <div className="flex lg:hidden items-center gap-2">
             <button
+              onClick={handleShareClick}
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 border border-white/10 text-slate-300 hover:bg-slate-700 font-bold rounded-xl transition-all"
+              title="Compartilhar Link"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+            <button
               onClick={handleDownloadDraftClick}
               className="flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 border border-white/10 text-slate-300 hover:bg-slate-700 font-bold rounded-xl transition-all"
               title="Baixar Amostra"
@@ -1773,6 +1791,14 @@ function MainApp() {
             </button>
 
             <div className="w-px h-6 bg-white/10 mx-1 hidden sm:block"></div>
+
+            <button
+              onClick={handleShareClick}
+              className="hidden lg:flex items-center justify-center gap-2 px-6 py-2 bg-slate-800 border border-white/10 hover:border-white/20 text-slate-300 text-sm font-bold rounded-xl transition-all shrink-0"
+              title="Copiar link para equipe"
+            >
+              <Share2 className="w-4 h-4" /> <span className="whitespace-nowrap">Compartilhar</span>
+            </button>
 
             <button
               onClick={handleDownloadDraftClick}
