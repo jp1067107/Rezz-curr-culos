@@ -93,6 +93,10 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
   const renderPhoto = (className: string, innerClassName: string = "w-full h-full object-cover") => {
     if (!shouldRenderPhotoArea) return null;
     
+    // Fix print overflow bug where child image stretches outside container
+    const isRoundedFull = className.includes('rounded-full');
+    const isRounded2xl = className.includes('rounded-2xl');
+    
     return (
       <div className={`${className} bg-[#f1f5f9] flex items-center justify-center overflow-hidden`}>
         {hasPhoto ? (
@@ -104,7 +108,8 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
               display: 'block',
               maxWidth: '100%',
               maxHeight: '100%',
-              objectFit: 'cover'
+              objectFit: 'cover',
+              borderRadius: isRoundedFull ? '9999px' : isRounded2xl ? '1rem' : 'inherit'
             }} 
           />
         ) : null}
@@ -849,7 +854,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
       <div className="w-full flex items-center gap-6 border-b-4 border-gray-100 pb-6 mb-6 mt-4 page-break-avoid">
         {shouldRenderPhotoArea && personalInfo.photoUrl && (
           <div className="shrink-0 w-28 h-28 rounded-xl overflow-hidden border-2 border-[#2563eb] shadow-sm transform -rotate-2 print:transform-none">
-             <img src={personalInfo.photoUrl} alt="Profile" className="w-full h-full object-cover transform rotate-2 print:transform-none scale-110" />
+             <img src={personalInfo.photoUrl} alt="Profile" className="w-full h-full object-cover rounded-xl transform rotate-2 print:transform-none scale-110" style={{ borderRadius: '0.75rem' }} />
           </div>
         )}
         <div className="flex-1">
