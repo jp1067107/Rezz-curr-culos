@@ -243,24 +243,21 @@ function MainApp() {
       console.warn("Could not save draft data to local storage, likely due to quota exceeded.", error);
     }
     
-    // Auto-update local purchased list if currently editing a purchased resume
-    const signaturePrefix = `${currentResumeId}_`;
-    if (unlockedConfigs.some(cfg => cfg.startsWith(signaturePrefix))) {
-      setLocalPurchasedResumes(prev => {
-        const index = prev.findIndex(r => r.id === currentResumeId);
-        if (index >= 0) {
-           const newResumes = [...prev];
-           // Only update if data actually changed to avoid unnecessary re-renders
-           if (JSON.stringify(newResumes[index].data) !== JSON.stringify(data)) {
-             newResumes[index] = { ...newResumes[index], data, updatedAt: new Date().toISOString() };
-             return newResumes;
-           }
-           return prev;
-        } else {
-            return [...prev, { id: currentResumeId, ownerId: 'local', data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ResumeDoc];
-        }
-      });
-    }
+    // Auto-update local list with the draft
+    setLocalPurchasedResumes(prev => {
+      const index = prev.findIndex(r => r.id === currentResumeId);
+      if (index >= 0) {
+         const newResumes = [...prev];
+         // Only update if data actually changed to avoid unnecessary re-renders
+         if (JSON.stringify(newResumes[index].data) !== JSON.stringify(data)) {
+           newResumes[index] = { ...newResumes[index], data, updatedAt: new Date().toISOString() };
+           return newResumes;
+         }
+         return prev;
+      } else {
+          return [...prev, { id: currentResumeId, ownerId: 'local', data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ResumeDoc];
+      }
+    });
 
     // Auto-save to Firebase if logged in
     if (user) {
@@ -990,11 +987,15 @@ function MainApp() {
   const purchasedResumes = (() => {
     // Combine cloud resumes + local purchased resumes
     const combined = [...resumesList, ...localPurchasedResumes];
-    // Filter only those that are actually unlocked/purchased
-    const filtered = combined.filter(resume => unlockedConfigs.some(cfg => cfg.startsWith(`${resume.id}_`)));
     // Remove duplicates by ID
-    const unique = Array.from(new Map(filtered.map(item => [item.id, item])).values());
-    return unique;
+    const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+    
+    // Sort by most recently updated
+    return unique.sort((a, b) => {
+       const dateA = new Date(typeof a.updatedAt === 'string' ? a.updatedAt : (typeof a.updatedAt?.toMillis === 'function' ? a.updatedAt.toMillis() : (a.updatedAt?.seconds ? a.updatedAt.seconds * 1000 : 0))).getTime();
+       const dateB = new Date(typeof b.updatedAt === 'string' ? b.updatedAt : (typeof b.updatedAt?.toMillis === 'function' ? b.updatedAt.toMillis() : (b.updatedAt?.seconds ? b.updatedAt.seconds * 1000 : 0))).getTime();
+       return dateB - dateA;
+    });
   })();
 
   const hasActiveResume = Boolean(
