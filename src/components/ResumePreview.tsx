@@ -1003,6 +1003,273 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
     </div>
   );
 
+  const renderDetailed = () => (
+    <div className={`font-sans text-[#1f2937] bg-white w-[794px] min-h-[1122px] shadow-lg rounded-sm mx-auto px-12 py-10 print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-transparent print:p-8 relative`}>
+      <div className="absolute top-0 bottom-0 left-0 w-2.5 bg-[#2563eb] print:hidden"></div>
+      <div className="absolute top-0 bottom-0 left-0 w-2.5 bg-[#2563eb] hidden print:block"></div>
+      
+      <header className={`border-b-4 border-[#0f172a] ${isDense ? 'pb-4 mb-5' : 'pb-6 mb-7'} pl-2`}>
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <h1 className={`${isDense ? 'text-3xl' : isNormal ? 'text-4xl' : 'text-5xl'} font-black uppercase text-[#0f172a] tracking-tight mb-2`}>{personalInfo.fullName || 'Seu Nome'}</h1>
+            <p className={`${isDense ? 'text-base' : isNormal ? 'text-lg' : 'text-xl'} text-[#2563eb] font-extrabold uppercase tracking-widest bg-[#2563eb]/10 inline-block px-3 py-1 rounded-sm`}>{personalInfo.jobTitle || 'Seu Cargo'}</p>
+          </div>
+          {shouldRenderPhotoArea && personalInfo.photoUrl && (
+            <div className={`shrink-0 ${isDense ? 'w-24 h-24' : 'w-28 h-28'} rounded-xl overflow-hidden ml-6 print:ml-6 border-2 border-[#0f172a] shadow-sm transform rotate-1 print:transform-none`} style={{ WebkitTransform: 'translateZ(0)', transform: 'translateZ(0) rotate(1deg)' }}>
+              <img src={personalInfo.photoUrl} alt="Profile" className="w-full h-full object-cover scale-110" style={{ clipPath: 'inset(0% 0% 0% 0% round 0.75rem)', WebkitClipPath: 'inset(0% 0% 0% 0% round 0.75rem)' }} />
+            </div>
+          )}
+        </div>
+        <div className={`flex flex-wrap gap-x-6 gap-y-2 mt-4 ${t.small} text-gray-700 font-bold`}>
+          {personalInfo.email && <div className="flex items-center gap-1.5"><Mail className="w-4 h-4 text-[#2563eb]"/> {personalInfo.email}</div>}
+          {personalInfo.phone && <div className="flex items-center gap-1.5"><Phone className="w-4 h-4 text-[#2563eb]"/> {personalInfo.phone}</div>}
+          {personalInfo.location && <div className="flex items-center gap-1.5"><MapPin className="w-4 h-4 text-[#2563eb]"/> {personalInfo.location}</div>}
+        </div>
+      </header>
+
+      <div className="pl-2 flex flex-col gap-y-6">
+        {personalInfo.summary && (
+          <section className={`w-full`}>
+            <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest border-b-2 border-gray-100 pb-2 mb-3 flex items-center gap-2 page-break-avoid`}>
+               <div className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm transform rotate-45"></div> Resumo Profissional
+            </h2>
+            <p className={`${t.body} leading-relaxed text-gray-700 text-justify pl-5`}><HighlightText text={personalInfo.summary} keywords={data.keywords} showHighlights={data.showHighlights} /></p>
+          </section>
+        )}
+
+        {experience.length > 0 && (
+          <section className={`w-full`}>
+            <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest border-b-2 border-gray-100 pb-2 mb-4 flex items-center gap-2 page-break-avoid`}>
+               <div className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm transform rotate-45"></div> Experiência Profissional
+            </h2>
+            <div className="space-y-4">
+              {experience.map((exp, index) => (
+                <div key={index} className="page-break-avoid w-full flex flex-col pt-1">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline mb-1">
+                    <h3 className={`font-black text-[#0f172a] ${t.h3} leading-tight pl-5 relative`}>
+                      <span className="absolute left-0 top-2 w-1.5 h-1.5 bg-[#0f172a] rounded-full"></span>
+                      {exp.position}
+                    </h3>
+                    <span className={`${t.small} font-bold text-[#2563eb] bg-[#2563eb]/10 px-2.5 py-0.5 rounded-sm print:border print:border-[#2563eb] ml-5 sm:ml-0 mt-1 sm:mt-0 shrink-0`}>
+                      {exp.startDate} {exp.startDate && exp.endDate ? 'até' : ''} {exp.endDate}
+                    </span>
+                  </div>
+                  <div className={`${t.small} text-[#0f172a] font-extrabold uppercase tracking-wide mb-2 pl-5`}>{exp.company}{exp.location && <span className="text-gray-400 font-medium normal-case tracking-normal"> • {exp.location}</span>}</div>
+                  <div className={`${t.body} leading-relaxed text-gray-600 text-justify pl-5`}><HighlightText text={exp.description} keywords={data.keywords} showHighlights={data.showHighlights} /></div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {education.length > 0 && (
+          <section className={`w-full`}>
+            <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest border-b-2 border-gray-100 pb-2 mb-4 flex items-center gap-2 page-break-avoid`}>
+               <div className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm transform rotate-45"></div> Formação Acadêmica
+            </h2>
+            <div className="space-y-4">
+              {education.map((edu, index) => (
+                <div key={index} className="page-break-avoid w-full flex flex-col pt-1">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline mb-1">
+                    <h3 className={`font-black text-[#0f172a] ${t.h3} leading-tight pl-5 relative`}>
+                      <span className="absolute left-0 top-2 w-1.5 h-1.5 bg-[#0f172a] rounded-full"></span>
+                      {edu.degree}
+                    </h3>
+                    <span className={`${t.small} font-bold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-sm print:border print:border-gray-200 ml-5 sm:ml-0 mt-1 sm:mt-0 shrink-0`}>
+                      {edu.startDate} {edu.startDate && edu.endDate ? 'até' : ''} {edu.endDate}
+                    </span>
+                  </div>
+                  <div className={`${t.body} text-[#2563eb] font-bold pl-5`}>{edu.institution}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <div className="flex flex-wrap items-start w-full gap-8">
+          {skills.length > 0 && (
+            <section className={`flex-1 min-w-[250px]`}>
+              <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest border-b-2 border-gray-100 pb-2 mb-4 flex items-center gap-2 page-break-avoid`}>
+                 <div className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm transform rotate-45"></div> Habilidades
+              </h2>
+              <div className="flex flex-wrap gap-2 pl-5">
+                {skills.map((skill, index) => (
+                  <span key={index} className={`px-2.5 py-1 bg-white text-[#0f172a] rounded-sm ${t.small} font-bold border-2 border-gray-200 shadow-sm page-break-avoid`}>{skill.name}</span>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {(data.courses || []).length > 0 && (
+            <section className={`flex-1 min-w-[250px]`}>
+              <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest border-b-2 border-gray-100 pb-2 mb-4 flex items-center gap-2 page-break-avoid`}>
+                 <div className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm transform rotate-45"></div> Cursos
+              </h2>
+              <div className="space-y-2 text-justify pl-5">
+                {(data.courses || []).map((course, index) => (
+                  <div key={index} className="page-break-avoid relative pl-3 border-l-2 border-[#2563eb]/30 py-0.5">
+                    <span className={`font-black text-[#0f172a] ${t.small}`}>{course.name}</span>
+                    <span className={`${t.small} text-gray-500 ml-1 font-medium`}>— {course.institution} {course.date && `(${course.date})`}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+        {(data.customSections || []).map((section) => (
+          <section key={section.id} className={`w-full`}>
+            <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest border-b-2 border-gray-100 pb-2 mb-4 flex items-center gap-2 page-break-avoid`}>
+               <div className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm transform rotate-45"></div> {section.name}
+            </h2>
+            <div className="space-y-4">
+              {section.items.map((item) => (
+                <div key={item.id} className="page-break-avoid w-full flex flex-col pt-1">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline mb-1">
+                    <h3 className={`font-black text-[#0f172a] ${t.h3} leading-tight pl-5 relative`}>
+                      <span className="absolute left-0 top-2 w-1.5 h-1.5 bg-[#0f172a] rounded-full"></span>
+                      {item.title} {item.subtitle && <span className="text-gray-400 font-medium normal-case">| {item.subtitle}</span>}
+                    </h3>
+                    {item.date && (
+                      <span className={`${t.small} font-bold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-sm print:border print:border-gray-200 ml-5 sm:ml-0 mt-1 sm:mt-0 shrink-0`}>
+                        {item.date}
+                      </span>
+                    )}
+                  </div>
+                  {item.description && <div className={`${t.body} leading-relaxed text-gray-600 mt-1 text-justify pl-5`}><HighlightText text={item.description} keywords={data.keywords} showHighlights={data.showHighlights} /></div>}
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderAcademic = () => (
+    <div className={`font-sans text-gray-900 bg-white w-[794px] min-h-[1122px] shadow-lg rounded-sm mx-auto px-12 py-10 print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-transparent print:p-8`}>
+      <header className={`border-b-2 border-gray-300 pb-5 mb-6 flex flex-col sm:flex-row justify-between items-start gap-4`}>
+        <div className="flex-1">
+          <h1 className={`${isDense ? 'text-3xl' : isNormal ? 'text-4xl' : 'text-5xl'} font-bold uppercase tracking-tight text-gray-900 mb-1`}>{personalInfo.fullName || 'Seu Nome'}</h1>
+          <p className={`${t.body} font-bold text-gray-500 uppercase tracking-widest`}>{personalInfo.jobTitle || 'Seu Cargo'}</p>
+          <div className={`flex flex-wrap gap-x-4 gap-y-1.5 mt-3 ${t.small} text-gray-600`}>
+            {personalInfo.email && <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5 text-gray-400"/> {personalInfo.email}</span>}
+            {personalInfo.phone && <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-gray-400"/> {personalInfo.phone}</span>}
+            {personalInfo.location && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-gray-400"/> {personalInfo.location}</span>}
+          </div>
+        </div>
+        {shouldRenderPhotoArea && personalInfo.photoUrl && (
+          <div className={`shrink-0 ${isDense ? 'w-24 h-24' : 'w-28 h-28'} overflow-hidden rounded bg-gray-100 border border-gray-200`} style={{ WebkitTransform: 'translateZ(0)', transform: 'translateZ(0)' }}>
+            <img src={personalInfo.photoUrl} alt="Profile" className="w-full h-full object-cover" />
+          </div>
+        )}
+      </header>
+
+      <div className="flex flex-col gap-y-6">
+        {personalInfo.summary && (
+          <section className="w-full">
+            <h2 className={`${t.h3} font-bold text-gray-900 uppercase tracking-wider mb-2 flex items-center`}>
+              <span className="bg-gray-800 text-white px-2 py-0.5 rounded-sm mr-2 text-xs">01</span> Resumo
+            </h2>
+            <p className={`${t.body} leading-relaxed text-gray-700 text-justify whitespace-pre-line border-l-2 border-gray-200 pl-4`}><HighlightText text={personalInfo.summary} keywords={data.keywords} showHighlights={data.showHighlights} /></p>
+          </section>
+        )}
+
+        {experience.length > 0 && (
+          <section className="w-full">
+            <h2 className={`${t.h3} font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center`}>
+              <span className="bg-gray-800 text-white px-2 py-0.5 rounded-sm mr-2 text-xs">02</span> Experiência
+            </h2>
+            <div className="space-y-4 border-l-2 border-gray-200 pl-4">
+              {experience.map((exp, index) => (
+                <div key={index} className="page-break-avoid w-full">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline mb-0.5">
+                    <h3 className={`font-bold text-gray-900 ${t.h3}`}>{exp.position}</h3>
+                    <span className={`${t.small} font-bold text-gray-500`}>{exp.startDate} {exp.startDate && exp.endDate ? '–' : ''} {exp.endDate}</span>
+                  </div>
+                  <div className={`${t.body} text-gray-800 font-medium mb-1.5`}>
+                    {exp.company}
+                    {exp.location && <span className="font-normal text-gray-500"> • {exp.location}</span>}
+                  </div>
+                  <p className={`${t.body} leading-relaxed text-gray-700 whitespace-pre-line text-justify`}><HighlightText text={exp.description} keywords={data.keywords} showHighlights={data.showHighlights} /></p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {education.length > 0 && (
+          <section className="w-full">
+            <h2 className={`${t.h3} font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center`}>
+              <span className="bg-gray-800 text-white px-2 py-0.5 rounded-sm mr-2 text-xs">03</span> Educação
+            </h2>
+            <div className="space-y-3 border-l-2 border-gray-200 pl-4">
+              {education.map((edu, index) => (
+                <div key={index} className="page-break-avoid w-full">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline mb-0.5">
+                    <h3 className={`font-bold text-gray-900 ${t.h3}`}>{edu.degree}</h3>
+                    <span className={`${t.small} font-bold text-gray-500`}>{edu.startDate} {edu.startDate && edu.endDate ? '–' : ''} {edu.endDate}</span>
+                  </div>
+                  <div className={`${t.body} text-gray-700`}>{edu.institution}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <div className="flex flex-wrap gap-6 w-full">
+          {skills.length > 0 && (
+            <section className="flex-1 min-w-[250px]">
+              <h2 className={`${t.h3} font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center`}>
+                <span className="bg-gray-800 text-white px-1.5 py-0.5 rounded-sm mr-2 text-xs">★</span> Habilidades
+              </h2>
+              <div className="flex flex-wrap gap-1.5 border-l-2 border-gray-200 pl-4">
+                {skills.map((s, i) => (
+                  <span key={i} className={`px-2 py-0.5 bg-gray-100 text-gray-800 border border-gray-200 rounded-sm ${t.small} font-medium page-break-avoid`}>{s.name}</span>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {(data.courses || []).length > 0 && (
+            <section className="flex-1 min-w-[250px]">
+              <h2 className={`${t.h3} font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center`}>
+                <span className="bg-gray-800 text-white px-1.5 py-0.5 rounded-sm mr-2 text-xs">★</span> Cursos
+              </h2>
+              <div className="space-y-2 border-l-2 border-gray-200 pl-4">
+                {(data.courses || []).map((course, index) => (
+                  <div key={index} className="page-break-avoid flex flex-col">
+                    <span className={`${t.body} font-bold text-gray-900`}>{course.name}</span>
+                    <span className={`${t.small} text-gray-600`}>{course.institution} {course.date && `(${course.date})`}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+        {(data.customSections || []).map((section, idx) => (
+          <section key={section.id} className="w-full">
+            <h2 className={`${t.h3} font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center`}>
+              <span className="bg-gray-800 text-white px-2 py-0.5 rounded-sm mr-2 text-xs">0{4 + idx}</span> {section.name}
+            </h2>
+            <div className="space-y-4 border-l-2 border-gray-200 pl-4">
+              {section.items.map((item) => (
+                <div key={item.id} className="page-break-avoid w-full">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline mb-0.5">
+                    <h3 className={`font-bold text-gray-900 ${t.h3}`}>{item.title} {item.subtitle && <span className="font-normal text-gray-500">| {item.subtitle}</span>}</h3>
+                    {item.date && <span className={`${t.small} font-bold text-gray-500`}>{item.date}</span>}
+                  </div>
+                  {item.description && <p className={`${t.body} leading-relaxed text-gray-700 whitespace-pre-wrap mt-1 text-justify`}><HighlightText text={item.description} keywords={data.keywords} showHighlights={data.showHighlights} /></p>}
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div ref={ref} className="origin-top print:shadow-none print:m-0 print:p-0">
       {template === 'modern' && renderModern()}
@@ -1011,6 +1278,8 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
       {template === 'creative' && renderCreative()}
       {template === 'executive' && renderExecutive()}
       {template === 'corporate' && renderCorporate()}
+      {template === 'detailed' && renderDetailed()}
+      {template === 'academic' && renderAcademic()}
     </div>
   );
 });

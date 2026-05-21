@@ -596,7 +596,7 @@ function MainApp() {
             overflow: visible !important;
           }
           @page {
-            margin: 0;
+            margin: 12mm 0;
             size: A4 portrait;
           }
           * {
@@ -981,7 +981,9 @@ function MainApp() {
     minimal: 'Minimalista',
     creative: 'Criativo',
     executive: 'Executivo',
-    corporate: 'Corporativo (Única Coluna)'
+    corporate: 'Corporativo (Única Coluna)',
+    detailed: 'Detalhado (Extenso)',
+    academic: 'Acadêmico (Extenso)'
   };
 
   const purchasedResumes = (() => {
@@ -1430,7 +1432,7 @@ function MainApp() {
       )}
 
       {appState === 'purchased-view' && (() => {
-        const _templates: TemplateType[] = ['modern', 'classic', 'minimal', 'creative', 'executive', 'corporate'];
+        const _templates: TemplateType[] = ['modern', 'classic', 'minimal', 'creative', 'executive', 'corporate', 'detailed', 'academic'];
         const purchasedTemplates = isPremium ? _templates : _templates.filter(t => unlockedConfigs.includes(`${currentResumeId}_${t}`));
         
         return (
@@ -1962,7 +1964,7 @@ function MainApp() {
           </div>
 
           <div className="flex items-center justify-between p-1 bg-slate-900 border border-white/10 rounded-xl shrink-0 w-full mb-4 overflow-x-auto">
-            {(['modern', 'classic', 'minimal', 'creative', 'executive', 'corporate'] as const).map(t => (
+            {(['modern', 'classic', 'minimal', 'creative', 'executive', 'corporate', 'detailed', 'academic'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTemplate(t as TemplateType)}

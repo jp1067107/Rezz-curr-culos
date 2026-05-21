@@ -66,4 +66,4 @@ export interface ResumeData {
   showHighlights?: boolean;
 }
 
-export type TemplateType = 'modern' | 'classic' | 'minimal' | 'creative' | 'executive' | 'corporate';
+export type TemplateType = 'modern' | 'classic' | 'minimal' | 'creative' | 'executive' | 'corporate' | 'detailed' | 'academic';
