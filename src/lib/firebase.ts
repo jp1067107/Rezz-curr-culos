@@ -221,7 +221,7 @@ export const getSharedDraft = async (draftId: string): Promise<ResumeData | null
       return snap.data().data as ResumeData;
     }
   } catch (error) {
-    handleFirestoreError(error, OperationType.READ, path);
+    handleFirestoreError(error, OperationType.GET, path);
   }
   return null;
 };

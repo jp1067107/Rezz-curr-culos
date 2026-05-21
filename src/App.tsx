@@ -268,6 +268,27 @@ function MainApp() {
         const docUnlocked = unlockedConfigs.filter(cfg => cfg.startsWith(`${currentResumeId}_`));
         saveResume(user.uid, currentResumeId, data, docUnlocked.length > 0 ? docUnlocked : undefined)
           .catch(err => console.error("Auto-save failed", err));
+          
+        setResumesList(prev => {
+          const index = prev.findIndex(r => r.id === currentResumeId);
+          if (index >= 0) {
+            const newResumes = [...prev];
+            if (JSON.stringify(newResumes[index].data) !== JSON.stringify(data)) {
+               newResumes[index] = { ...newResumes[index], data, updatedAt: new Date().toISOString() };
+               return newResumes;
+            }
+            return prev;
+          } else {
+             return [...prev, { 
+               id: currentResumeId, 
+               ownerId: user.uid, 
+               data, 
+               createdAt: new Date().toISOString(), 
+               updatedAt: new Date().toISOString(),
+               unlockedTemplates: docUnlocked.length > 0 ? docUnlocked : undefined
+             } as ResumeDoc];
+          }
+        });
       }, 2000); // 2 segundos debounce
       return () => clearTimeout(timeoutId);
     }
