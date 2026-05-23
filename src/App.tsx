@@ -10,7 +10,7 @@ import { ResumePreview } from './components/ResumePreview';
 import { CoverLetterGenerator } from './components/CoverLetterGenerator';
 import { CoverLetterPreview } from './components/CoverLetterPreview';
 import { extractResumeDataFromFiles, extractInternalResumeData } from './services/aiService';
-import { auth, signInWithGoogle, signOut, saveResume, loadResumes, deleteResume, ResumeDoc, checkPremiumPrivilege, createSharedDraft, getSharedDraft } from './lib/firebase';
+import { auth, signInWithGoogle, signOut, saveResume, loadResumes, deleteResume, saveCoverLetter, loadCoverLetters, deleteCoverLetter, ResumeDoc, checkPremiumPrivilege, createSharedDraft, getSharedDraft } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown, Trash2, Highlighter, BarChart, Upload, Settings } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -96,7 +96,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 }
 
 function MainApp() {
-  const [appState, setAppStateInternal] = useState<'onboarding' | 'ai-info' | 'editor' | 'payment-success' | 'affiliate' | 'cover-letter' | 'my-resumes' | 'purchased-view'>(() => {
+  const [appState, setAppStateInternal] = useState<'onboarding' | 'ai-info' | 'editor' | 'payment-success' | 'affiliate' | 'cover-letter' | 'my-cover-letters' | 'my-resumes' | 'purchased-view'>(() => {
     return (window.history.state?.appState) || 'onboarding';
   });
 
@@ -205,6 +205,14 @@ function MainApp() {
   useEffect(() => {
     localStorage.setItem('rezz_current_id', currentResumeId);
   }, [currentResumeId]);
+
+  const [currentCoverLetterId, setCurrentCoverLetterId] = useState<string>(() => {
+    return localStorage.getItem('rezz_current_cover_letter_id') || uuidv4();
+  });
+
+  useEffect(() => {
+    localStorage.setItem('rezz_current_cover_letter_id', currentCoverLetterId);
+  }, [currentCoverLetterId]);
   const [resumesList, setResumesList] = useState<ResumeDoc[]>([]);
   const [localPurchasedResumes, setLocalPurchasedResumes] = useState<ResumeDoc[]>(() => {
     try {
@@ -221,6 +229,23 @@ function MainApp() {
       console.warn("Could not save purchased resumes to local storage", e);
     }
   }, [localPurchasedResumes]);
+
+  const [coverLettersList, setCoverLettersList] = useState<ResumeDoc[]>([]);
+  const [localPurchasedCoverLetters, setLocalPurchasedCoverLetters] = useState<ResumeDoc[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('rezz_local_cover_letters') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('rezz_local_cover_letters', JSON.stringify(localPurchasedCoverLetters));
+    } catch (e) {
+      console.warn("Could not save purchased cover letters to local storage", e);
+    }
+  }, [localPurchasedCoverLetters]);
   const [isSaving, setIsSaving] = useState(false);
 
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -396,18 +421,38 @@ function MainApp() {
             localStorage.removeItem('rezz_local_purchased');
             setLocalPurchasedResumes([]);
           }
+
+          const localCoverStr = localStorage.getItem('rezz_local_cover_letters');
+          if (localCoverStr) {
+            const localCoverArr = JSON.parse(localCoverStr);
+            if (Array.isArray(localCoverArr) && localCoverArr.length > 0) {
+              const promises = localCoverArr.map((localCover: any) => {
+                return saveCoverLetter(currentUser.uid, localCover.id, localCover.data);
+              });
+              await Promise.all(promises);
+            }
+            localStorage.removeItem('rezz_local_cover_letters');
+            setLocalPurchasedCoverLetters([]);
+          }
         } catch (err) {
-          console.error("Failed to sync local resumes to cloud", err);
+          console.error("Failed to sync local data to cloud", err);
         }
         
         fetchResumes(currentUser.uid);
+        fetchCoverLetters(currentUser.uid);
       } else {
         setIsPremium(false);
         setResumesList([]);
+        setCoverLettersList([]);
       }
     });
     return () => unsubscribe();
   }, []);
+
+  const fetchCoverLetters = async (userId: string) => {
+    const list = await loadCoverLetters(userId);
+    setCoverLettersList(list);
+  };
 
   const fetchResumes = async (userId: string) => {
     const list = await loadResumes(userId);
@@ -431,6 +476,16 @@ function MainApp() {
       await fetchResumes(user.uid);
     } catch (error) {
       console.error('Erro ao auto-salvar o currículo:', error);
+    }
+  };
+
+  const autoSaveCoverLetterIfAuthenticated = async (newData: ResumeData, letterIdToSave: string) => {
+    if (!user) return;
+    try {
+      await saveCoverLetter(user.uid, letterIdToSave, newData);
+      await fetchCoverLetters(user.uid);
+    } catch (error) {
+      console.error('Erro ao auto-salvar a carta:', error);
     }
   };
 
@@ -469,6 +524,14 @@ function MainApp() {
     } else {
       setAppState('editor');
     }
+  };
+
+  const handleLoadCoverLetter = (doc: ResumeDoc) => {
+    setCurrentCoverLetterId(doc.id);
+    setData(doc.data);
+    setIsPurchasedEditing(false);
+    setLastEnhancedLength(null);
+    setAppState('cover-letter');
   };
 
   const isResumeWellFormed = () => {
@@ -1125,6 +1188,16 @@ function MainApp() {
     });
   })();
 
+  const purchasedCoverLetters = (() => {
+    const combined = [...coverLettersList, ...localPurchasedCoverLetters];
+    const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+    return unique.sort((a, b) => {
+       const dateA = new Date(typeof a.updatedAt === 'string' ? a.updatedAt : (typeof a.updatedAt?.toMillis === 'function' ? a.updatedAt.toMillis() : (a.updatedAt?.seconds ? a.updatedAt.seconds * 1000 : 0))).getTime();
+       const dateB = new Date(typeof b.updatedAt === 'string' ? b.updatedAt : (typeof b.updatedAt?.toMillis === 'function' ? b.updatedAt.toMillis() : (b.updatedAt?.seconds ? b.updatedAt.seconds * 1000 : 0))).getTime();
+       return dateB - dateA;
+    });
+  })();
+
   const hasActiveResume = Boolean(
     data.personalInfo.fullName?.trim() || 
     data.personalInfo.jobTitle?.trim() || 
@@ -1243,19 +1316,19 @@ function MainApp() {
             <div className="max-w-4xl w-full space-y-10 relative z-10 flex flex-col items-center">
               <div className="text-center space-y-4 max-w-2xl">
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">
-                  Painel de<br/>Currículos
+                  Painel de<br/>Currículos e Cartas
                 </h1>
                 <p className="text-base sm:text-lg text-slate-400 font-medium px-4">
-                  Crie, avalie e gerencie os currículos dos clientes centralizados nesta ferramenta interna de produtividade.
+                  Crie, avalie e gerencie os currículos e as cartas de apresentação dos clientes centralizados nesta ferramenta interna de produtividade.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
                 
                 {/* Criar Novo (IA) - Featured */}
                 <button
                   onClick={() => setAppState('ai-info')}
-                  className="col-span-1 md:col-span-2 flex flex-col sm:flex-row items-center text-center sm:text-left gap-4 sm:gap-6 p-6 sm:p-8 bg-gradient-to-br from-slate-800/80 to-slate-800/40 hover:from-slate-700/80 hover:to-slate-800/80 border border-white/10 hover:border-purple-500/40 rounded-3xl transition-all group shadow-xl"
+                  className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row items-center text-center sm:text-left gap-4 sm:gap-6 p-6 sm:p-8 bg-gradient-to-br from-slate-800/80 to-slate-800/40 hover:from-slate-700/80 hover:to-slate-800/80 border border-white/10 hover:border-purple-500/40 rounded-3xl transition-all group shadow-xl"
                 >
                   <div className="w-16 h-16 sm:w-20 sm:h-20 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-400 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all shrink-0">
                     <Sparkles className="w-8 h-8 sm:w-10 sm:h-10" />
@@ -1318,6 +1391,33 @@ function MainApp() {
                   </p>
                 </button>
 
+                {/* Minhas Cartas */}
+                <button
+                  onClick={() => {
+                    if (!user && localPurchasedCoverLetters.length === 0) {
+                       signInWithGoogle().then(() => setAppState('my-cover-letters'));
+                    } else {
+                       setAppState('my-cover-letters');
+                    }
+                  }}
+                  className="flex flex-col text-center sm:text-left items-center sm:items-start p-6 sm:p-8 bg-slate-800/40 hover:bg-slate-800/80 border border-white/5 hover:border-purple-500/30 rounded-3xl transition-all group h-full"
+                >
+                  <div className="w-14 h-14 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-400 mb-6 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all">
+                    <Wand2 className="w-7 h-7" />
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-bold text-white mb-2 flex flex-col sm:flex-row items-center sm:items-start gap-2">
+                    Cartas de Apresentação
+                  </h2>
+                  <div className="mb-3">
+                    <span className="px-2.5 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30">
+                      Gestão
+                    </span>
+                  </div>
+                  <p className="text-slate-400 text-sm">
+                    Crie e gerencie cartas de apresentação conectadas aos perfis dos seus clientes.
+                  </p>
+                </button>
+
                 {/* Avaliar com IA - Featured */}
                 <button
                   onClick={() => {
@@ -1326,7 +1426,7 @@ function MainApp() {
                     }
                   }}
                   disabled={isEvaluating}
-                  className={`col-span-1 md:col-span-2 flex flex-col sm:flex-row items-center justify-between text-center sm:text-left p-6 sm:p-8 bg-sky-900/10 hover:bg-sky-900/20 border border-sky-500/10 hover:border-sky-500/30 rounded-3xl transition-all group gap-4 mt-2`}
+                  className={`col-span-1 md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row items-center justify-between text-center sm:text-left p-6 sm:p-8 bg-sky-900/10 hover:bg-sky-900/20 border border-sky-500/10 hover:border-sky-500/30 rounded-3xl transition-all group gap-4 mt-2`}
                 >
                   <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
                     <div className="w-14 h-14 sm:w-16 sm:h-16 bg-sky-500/10 rounded-2xl flex items-center justify-center text-sky-400 group-hover:scale-110 group-hover:bg-sky-500/20 transition-all shrink-0">
@@ -1437,7 +1537,10 @@ function MainApp() {
               </button>
               {hasCoverLetter && (
                 <button
-                  onClick={() => setAppState('cover-letter')}
+                  onClick={() => {
+                    setCurrentCoverLetterId(currentResumeId);
+                    setAppState('cover-letter');
+                  }}
                   className="flex items-center justify-center gap-3 px-8 py-4 bg-purple-600 shadow-xl shadow-purple-600/30 hover:bg-purple-500 text-white text-lg font-bold rounded-2xl transition-all w-full sm:w-auto"
                 >
                   <Wand2 className="w-5 h-5" /> Acessar Carta
@@ -1540,7 +1643,7 @@ function MainApp() {
               </h1>
             </div>
             <button
-              onClick={returnToEditor}
+              onClick={() => setAppState('my-cover-letters')}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
             >
               <ArrowLeft className="w-4 h-4" /> Voltar
@@ -1548,7 +1651,7 @@ function MainApp() {
           </header>
 
           <main className="flex-1 overflow-y-auto w-full mx-auto p-4 sm:p-8 flex flex-col gap-6 pb-20 relative">
-            <CoverLetterGenerator data={data} setData={setData} onDownloadPdf={generateCoverLetterPdf} onAiGenerated={(newData) => autoSaveIfAuthenticated(newData, currentResumeId)} />
+            <CoverLetterGenerator data={data} setData={setData} onDownloadPdf={generateCoverLetterPdf} onAiGenerated={(newData) => autoSaveCoverLetterIfAuthenticated(newData, currentCoverLetterId)} />
             <div className="absolute top-[-9999px] left-[-9999px]">
                <CoverLetterPreview data={data} template={template} ref={coverLetterRef} />
             </div>
@@ -1640,7 +1743,10 @@ function MainApp() {
 
               {hasCoverLetter && (
                 <button
-                  onClick={() => setAppState('cover-letter')}
+                  onClick={() => {
+                    setCurrentCoverLetterId(currentResumeId);
+                    setAppState('cover-letter');
+                  }}
                   className="flex lg:flex-none flex-1 justify-center items-center gap-2 px-3 sm:px-6 py-2 bg-purple-600 hover:bg-purple-500 shadow-lg shadow-purple-600/30 text-white text-sm font-bold rounded-xl transition-all"
                 >
                   <Wand2 className="w-4 h-4" />
@@ -1861,6 +1967,147 @@ function MainApp() {
                           className={`px-4 py-2 ${currentResumeId === resume.id ? 'bg-slate-700 text-slate-300' : 'bg-indigo-600 hover:bg-indigo-500 text-white'} text-sm font-bold rounded-lg transition-all`}
                         >
                           {currentResumeId === resume.id ? 'Aberto' : 'Abrir'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            <input 
+              type="file" 
+              ref={internalPdfInputRef} 
+              onChange={handleUploadInternalPdfChange} 
+              accept="application/pdf,image/*" 
+              className="hidden" 
+            />
+          </main>
+        </div>
+      )}
+
+{appState === 'my-cover-letters' && (
+        <div key="my-cover-letters" className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
+          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black text-xl ring-1 ring-white/20 font-serif">
+                <Wand2 className="w-5 h-5" />
+              </div>
+              <h1 className="text-lg sm:text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">
+                Minhas Cartas de Apresentação
+              </h1>
+            </div>
+            <button
+              onClick={() => setAppState('onboarding')}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" /> Voltar
+            </button>
+          </header>
+          
+          <main className="flex-1 overflow-y-auto w-full max-w-6xl mx-auto p-4 sm:p-8 flex flex-col gap-6 pb-20">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <button
+                onClick={() => {
+                   const initial = getInitialData();
+                   setData(initial);
+                   setCurrentCoverLetterId(initial.id || uuidv4());
+                   setLastEnhancedLength(null);
+                   setAppState('cover-letter');
+                }}
+                className="bg-slate-800/40 border border-white/10 hover:border-indigo-500/50 hover:bg-slate-800/80 border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-4 text-slate-400 hover:text-white min-h-[160px] group"
+              >
+                <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-500/20 group-hover:text-indigo-400 transition-all">
+                  <Sparkles className="w-6 h-6" />
+                </div>
+                <span className="font-medium text-lg">Criar Nova Carta</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                   if (internalPdfInputRef.current) {
+                     internalPdfInputRef.current.click();
+                   }
+                }}
+                disabled={isUploadingInternalPdf}
+                className={`bg-slate-800/40 border border-white/10 hover:border-indigo-500/50 hover:bg-slate-800/80 border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-4 ${isUploadingInternalPdf ? 'text-indigo-400' : 'text-slate-400 hover:text-white'} min-h-[160px] group`}
+              >
+                <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-500/20 group-hover:text-indigo-400 transition-all">
+                  {isUploadingInternalPdf ? <Loader2 className="w-6 h-6 animate-spin" /> : <MonitorDown className="w-6 h-6" />}
+                </div>
+                <span className="font-medium text-lg text-center">{isUploadingInternalPdf ? 'Lendo...' : 'Importar Dados para Carta'}</span>
+                <span className="text-xs text-slate-500 mt-[-10px] text-center">Restaure uma carta já baixado neste app ou extraia de um PDF/Imagem</span>
+              </button>
+              
+              {purchasedCoverLetters.length > 0 && purchasedCoverLetters.map(letter => (
+                  <div key={letter.id} className={`bg-slate-800/80 border ${currentCoverLetterId === letter.id ? 'border-indigo-500 shadow-lg shadow-indigo-500/10' : 'border-white/10 hover:border-indigo-500/50'} rounded-2xl p-5 transition-all flex flex-col gap-4 relative group`}>
+                    {currentCoverLetterId === letter.id && (
+                      <div className="absolute -top-3 -right-3 bg-indigo-500 text-white text-[10px] uppercase tracking-wider font-bold px-3 py-1 rounded-full shadow-md shadow-indigo-500/20">
+                        Aberto Agora
+                      </div>
+                    )}
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="flex-1 w-full">
+                        <input
+                          type="text"
+                          defaultValue={letter.data.name || letter.data.personalInfo.fullName || 'Sem Nome'}
+                          className="w-full bg-transparent text-lg font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded px-2 py-1 -ml-2 border border-transparent focus:bg-slate-900 transition-all border-b-white/10 hover:border-b-white/30 truncate"
+                          placeholder="Nome do Currículo"
+                          title="Clique para editar o nome"
+                          onBlur={async (e) => {
+                            const newName = e.target.value.trim();
+                            if (newName && newName !== letter.data.name) {
+                              const updatedData = { ...letter.data, name: newName };
+                              if (user) {
+                                await saveCoverLetter(user.uid, letter.id, updatedData);
+                                setCoverLettersList(prev => prev.map(r => r.id === letter.id ? { ...r, data: updatedData } : r));
+                              }
+                              // Always update local list if it's there
+                              setLocalPurchasedCoverLetters(prev => prev.map(r => r.id === letter.id ? { ...r, data: updatedData } : r));
+                              
+                              if (currentCoverLetterId === letter.id) setData(updatedData);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.currentTarget.blur();
+                          }}
+                        />
+                        <p className="text-sm text-slate-400 px-1 mt-1 truncate">
+                          {letter.data.personalInfo.jobTitle || 'Sem Título'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between mt-auto pt-4 border-t border-white/5">
+                      <span className="text-xs text-slate-500">
+                        {letter.updatedAt ? new Date(typeof letter.updatedAt === 'string' ? letter.updatedAt : (typeof letter.updatedAt.toMillis === 'function' ? letter.updatedAt.toMillis() : (letter.updatedAt.seconds ? letter.updatedAt.seconds * 1000 : letter.updatedAt))).toLocaleDateString() : 'Recente'}
+                      </span>
+                      <div className="flex gap-2">
+                        {user?.email === 'jp1067107@gmail.com' && (
+                          <button
+                            onClick={async () => {
+                              if (window.confirm("Certeza que deseja excluir este carta?")) {
+                                if (user) {
+                                  await deleteCoverLetter(user.uid, letter.id);
+                                  setCoverLettersList(prev => prev.filter(r => r.id !== letter.id));
+                                }
+                                setLocalPurchasedCoverLetters(prev => prev.filter(r => r.id !== letter.id));
+                                if (currentCoverLetterId === letter.id) {
+                                  const initial = getInitialData();
+                                  setData(initial);
+                                  setCurrentCoverLetterId(initial.id || uuidv4());
+                                }
+                              }
+                            }}
+                            className="p-2 bg-red-900/40 hover:bg-red-800 text-red-200 rounded-lg transition-all"
+                            title="Excluir"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleLoadCoverLetter(letter)}
+                          className={`px-4 py-2 ${currentCoverLetterId === letter.id ? 'bg-slate-700 text-slate-300' : 'bg-indigo-600 hover:bg-indigo-500 text-white'} text-sm font-bold rounded-lg transition-all`}
+                        >
+                          {currentCoverLetterId === letter.id ? 'Aberto' : 'Abrir'}
                         </button>
                       </div>
                     </div>

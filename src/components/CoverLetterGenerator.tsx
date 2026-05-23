@@ -63,6 +63,29 @@ export function CoverLetterGenerator({ data, setData, onDownloadPdf, onAiGenerat
         </p>
 
         <div className="space-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 border-b border-white/5">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">Seu Nome *</label>
+              <input 
+                type="text" 
+                value={data.personalInfo.fullName || ''}
+                onChange={(e) => setData({ ...data, personalInfo: { ...data.personalInfo, fullName: e.target.value } })}
+                placeholder="Ex: João Silva" 
+                className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">E-mail</label>
+              <input 
+                type="email" 
+                value={data.personalInfo.email || ''}
+                onChange={(e) => setData({ ...data, personalInfo: { ...data.personalInfo, email: e.target.value } })}
+                placeholder="Ex: joao@email.com" 
+                className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-sm"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">Cargo Desejado / Nome da Vaga *</label>
             <input 

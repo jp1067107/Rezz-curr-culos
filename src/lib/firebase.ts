@@ -189,6 +189,43 @@ export const loadResumes = async (userId: string): Promise<ResumeDoc[]> => {
   }
 };
 
+export const saveCoverLetter = async (userId: string, id: string, data: ResumeData) => {
+  const path = `users/${userId}/cover_letters/${id}`;
+  try {
+    const docRef = doc(db, 'users', userId, 'cover_letters', id);
+    const snap = await getDocFromServer(docRef);
+    const updateData = { data, updatedAt: serverTimestamp() };
+    if (snap.exists()) {
+      await updateDoc(docRef, updateData);
+    } else {
+      await setDoc(docRef, { ownerId: userId, data, createdAt: serverTimestamp(), ...updateData });
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+};
+
+export const loadCoverLetters = async (userId: string): Promise<ResumeDoc[]> => {
+  const path = `users/${userId}/cover_letters`;
+  try {
+    const q = query(collection(db, 'users', userId, 'cover_letters'), where('ownerId', '==', userId));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as ResumeDoc));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
+  }
+};
+
+export const deleteCoverLetter = async (userId: string, id: string) => {
+  const path = `users/${userId}/cover_letters/${id}`;
+  try {
+    await deleteDoc(doc(db, 'users', userId, 'cover_letters', id));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+};
+
 export const deleteResume = async (userId: string, resumeId: string) => {
   const path = `users/${userId}/resumes/${resumeId}`;
   try {
