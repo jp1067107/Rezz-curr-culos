@@ -529,11 +529,11 @@ function MainApp() {
     try {
       const clonedContainer = elementToPrint.cloneNode(true) as HTMLElement;
       
-      // Fix width to ensure standard layout rendering
-      clonedContainer.style.width = '794px';
-      clonedContainer.style.maxWidth = '794px';
-      clonedContainer.style.minWidth = '794px';
-      clonedContainer.style.margin = '0 auto';
+      // Allow the container to fill the page, ensuring full-width backgrounds
+      clonedContainer.style.width = '100%';
+      clonedContainer.style.maxWidth = '100%';
+      clonedContainer.style.minWidth = '100%';
+      clonedContainer.style.margin = '0';
       clonedContainer.style.padding = '0';
       clonedContainer.style.position = 'relative';
       clonedContainer.style.backgroundColor = '#ffffff';
