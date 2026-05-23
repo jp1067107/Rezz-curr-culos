@@ -61,6 +61,7 @@ export interface ResumeData {
   skills: Skill[];
   courses?: Course[];
   customSections?: CustomSection[];
+  sectionOrder?: string[];
   coverLetter?: string;
   keywords?: string[];
   showHighlights?: boolean;

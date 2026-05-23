@@ -125,6 +125,16 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
     );
   };
 
+  
+  const sectionOrderKeys = data.sectionOrder?.length 
+    ? data.sectionOrder 
+    : ['summary', 'experience', 'education', 'skills', 'courses', ...(data.customSections || []).map(s => s.id)];
+
+  const getOrder = (key: string) => {
+    const idx = sectionOrderKeys.indexOf(key);
+    return idx === -1 ? 999 : idx;
+  };
+
   const renderModern = () => (
     <div className="relative font-sans text-[#1f2937] bg-[#ffffff] w-[794px] min-h-[1122px] shadow-lg rounded-sm mx-auto flex print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible">
       
@@ -155,7 +165,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         </div>
 
         {skills.length > 0 && (
-          <div className={`${t.mb} w-full`}>
+        <div style={{ order: getOrder("skills") }} className={`${t.mb} w-full`}>
             <h2 className={`${t.h2} font-bold text-[#94a3b8] uppercase ${isDense ? 'mb-2' : 'mb-4'} border-b border-[#334155] pb-1 page-break-avoid`}>Habilidades</h2>
             <div className="flex flex-col gap-1.5 w-full">
               {skills.map((skill, index) => (
@@ -168,7 +178,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {(data.courses || []).length > 0 && (
-          <div className={`${t.mb} w-full`}>
+        <div style={{ order: getOrder("courses") }} className={`${t.mb} w-full`}>
             <h2 className={`${t.h2} font-bold text-[#94a3b8] uppercase ${isDense ? 'mb-2' : 'mb-4'} border-b border-[#334155] pb-1 page-break-avoid`}>Cursos</h2>
             <div className={t.space}>
               {data.courses!.map((course, index) => (
@@ -190,7 +200,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         </div>
 
         {personalInfo.summary && (
-          <div className={t.mb}>
+        <div style={{ order: getOrder("summary") }} className={t.mb}>
             <h2 className={`${t.h2} font-bold text-[#1e293b] mb-2 flex items-center gap-2 uppercase tracking-wide`}>
               <span className={`w-6 h-[2px] bg-[#2563eb] inline-block`}></span> Perfil
             </h2>
@@ -199,7 +209,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {experience.length > 0 && (
-          <div className={t.mb}>
+        <div style={{ order: getOrder("experience") }} className={t.mb}>
             <h2 className={`${t.h2} font-bold text-[#1e293b] mb-3 flex items-center gap-2 uppercase tracking-wide`}>
               <span className={`w-6 h-[2px] bg-[#2563eb] inline-block`}></span> Experiência Profissional
             </h2>
@@ -223,7 +233,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {education.length > 0 && (
-          <div className={t.mb}>
+        <div style={{ order: getOrder("education") }} className={t.mb}>
             <h2 className={`${t.h2} font-bold text-[#1e293b] mb-3 flex items-center gap-2 uppercase tracking-wide`}>
                <span className={`w-6 h-[2px] bg-[#2563eb] inline-block`}></span> Formação Acadêmica
             </h2>
@@ -244,7 +254,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {(data.customSections || []).map((section) => (
-          <div key={section.id} className={t.mb}>
+        <div style={{ order: getOrder(section.id) }} key={section.id} className={t.mb}>
             <h2 className={`${t.h2} font-bold text-[#1e293b] mb-3 flex items-center gap-2 uppercase tracking-wide`}>
                <span className={`w-6 h-[2px] bg-[#2563eb] inline-block`}></span> {section.name}
             </h2>
@@ -284,14 +294,14 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
       </div>
 
       {personalInfo.summary && (
-        <div className={t.mb}>
+        <div style={{ order: getOrder("summary") }} className={t.mb}>
           <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1 page-break-avoid`}>Resumo Profissional</h2>
           <p className={`${t.body} leading-relaxed whitespace-pre-line `}><HighlightText text={personalInfo.summary} keywords={data.keywords} showHighlights={data.showHighlights} /></p>
         </div>
       )}
 
       {experience.length > 0 && (
-        <div className={t.mb}>
+        <div style={{ order: getOrder("experience") }} className={t.mb}>
           <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1 page-break-avoid`}>Experiência Profissional</h2>
           <div className={isDense ? 'space-y-3' : 'space-y-4'}>
             {experience.map((exp, index) => (
@@ -316,7 +326,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
       )}
 
       {education.length > 0 && (
-        <div className={t.mb}>
+        <div style={{ order: getOrder("education") }} className={t.mb}>
           <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1 page-break-avoid`}>Formação Acadêmica</h2>
           <div className={isDense ? 'space-y-2' : 'space-y-3'}>
             {education.map((edu, index) => (
@@ -337,7 +347,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
       )}
 
       {skills.length > 0 && (
-        <div className={`w-full ${t.mb}`}>
+        <div style={{ order: getOrder("skills") }} className={`w-full ${t.mb}`}>
           <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1 page-break-avoid`}>Habilidades e Competências</h2>
           <div className={`${t.body} leading-relaxed flex flex-wrap gap-2`}>
             {skills.map((s, index) => (
@@ -348,7 +358,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
       )}
 
       {(data.courses || []).length > 0 && (
-        <div className={`${t.mb} w-full`}>
+        <div style={{ order: getOrder("courses") }} className={`${t.mb} w-full`}>
           <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1 page-break-avoid`}>Cursos Complementares</h2>
           <div className={isDense ? 'space-y-2' : 'space-y-3'}>
             {data.courses!.map((course, index) => (
@@ -362,7 +372,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
       )}
 
       {(data.customSections || []).map((section) => (
-        <div key={section.id} className={`${t.mb} w-full`}>
+        <div style={{ order: getOrder(section.id) }} key={section.id} className={`${t.mb} w-full`}>
           <h2 className={`${isDense ? 'text-sm' : isNormal ? 'text-base' : 'text-lg'} font-bold uppercase border-b border-[black] ${isDense ? 'mb-2' : 'mb-3'} pb-1 page-break-avoid`}>{section.name}</h2>
           <div className={isDense ? 'space-y-2' : 'space-y-3'}>
             {section.items.map((item) => (
@@ -403,14 +413,14 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           {renderPhoto(isDense ? "w-24 h-24 rounded-2xl overflow-hidden bg-[#f3f4f6]" : "w-32 h-32 rounded-2xl overflow-hidden bg-[#f3f4f6]", "w-full h-full object-cover grayscale")}
 
           {personalInfo.summary && (
-            <div>
+        <div style={{ order: getOrder("summary") }}>
               <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-2 tracking-wider page-break-avoid`}>Sobre</h2>
               <p className={`${t.body} leading-relaxed `}><HighlightText text={personalInfo.summary} keywords={data.keywords} showHighlights={data.showHighlights} /></p>
             </div>
           )}
 
           {skills.length > 0 && (
-            <div className="w-full">
+        <div style={{ order: getOrder("skills") }} className="w-full">
               <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-2 tracking-wider page-break-avoid`}>Especialidades</h2>
               <div className="flex flex-wrap gap-1.5">
                 {skills.map((skill, index) => (
@@ -421,7 +431,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           )}
           
           {education.length > 0 && (
-            <div className={isDense ? 'mb-4' : 'mb-6'}>
+        <div style={{ order: getOrder("education") }} className={isDense ? 'mb-4' : 'mb-6'}>
               <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-2 tracking-wider page-break-avoid`}>Formação</h2>
               <div className={isDense ? 'space-y-2' : 'space-y-3'}>
                 {education.map((edu, index) => (
@@ -438,7 +448,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           )}
 
           {(data.courses || []).length > 0 && (
-            <div>
+        <div style={{ order: getOrder("courses") }}>
               <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-2 tracking-wider page-break-avoid`}>Cursos</h2>
               <div className={isDense ? 'space-y-2' : 'space-y-3'}>
                 {data.courses!.map((course, index) => (
@@ -454,7 +464,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
 
         <div className={`col-span-8 ${isDense ? 'space-y-5' : 'space-y-8'}`}>
           {experience.length > 0 && (
-            <div>
+        <div style={{ order: getOrder("experience") }}>
               <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-4 tracking-wider page-break-avoid`}>Experiência</h2>
               <div className={isDense ? 'space-y-4' : 'space-y-6'}>
                 {experience.map((exp, index) => (
@@ -475,7 +485,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           )}
 
           {(data.customSections || []).map((section) => (
-            <div key={section.id} className="pt-2">
+        <div style={{ order: getOrder(section.id) }} key={section.id} className="pt-2">
               <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-4 tracking-wider page-break-avoid`}>{section.name}</h2>
               <div className={isDense ? 'space-y-4' : 'space-y-6'}>
                 {section.items.map((item) => (
@@ -537,7 +547,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         </div>
 
         {education.length > 0 && (
-          <div className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} w-full relative z-10`}>
+        <div style={{ order: getOrder("education") }} className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} w-full relative z-10`}>
             <h2 className={`${t.sidebarSmall} font-bold text-[#ffffff] uppercase tracking-wider mb-2 border-b border-[#64748b] pb-1 page-break-avoid`}>Educação</h2>
             <div className={isDense ? 'space-y-2' : 'space-y-3'}>
               {education.map((edu, index) => (
@@ -558,7 +568,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {skills.length > 0 && (
-          <div className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} w-full relative z-10`}>
+        <div style={{ order: getOrder("skills") }} className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} w-full relative z-10`}>
             <h2 className={`${t.sidebarSmall} font-bold text-[#ffffff] uppercase tracking-wider mb-2 border-b border-[#64748b] pb-1 page-break-avoid`}>Habilidades e<br/>Competências</h2>
             <div className="flex flex-wrap gap-1.5 w-full">
               {skills.map((skill, index) => (
@@ -572,7 +582,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {data.courses && data.courses.length > 0 && (
-          <div className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} w-full relative z-10`}>
+        <div style={{ order: getOrder("courses") }} className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} w-full relative z-10`}>
             <h2 className={`${t.sidebarSmall} font-bold text-[#ffffff] uppercase tracking-wider mb-2 border-b border-[#64748b] pb-1 page-break-avoid`}>Cursos</h2>
             <ul className="space-y-2">
               {data.courses.map((course, index) => (
@@ -588,8 +598,8 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           </div>
         )}
         
-        {data.customSections && data.customSections.map(section => (
-          <div key={section.id} className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} w-full relative z-10`}>
+        {data.customSections && data.customSections.map((section) => (
+        <div style={{ order: getOrder(section.id) }} key={section.id} className={`mb-5 ${isDense ? 'space-y-1.5' : 'space-y-2'} w-full relative z-10`}>
             <h2 className={`${t.sidebarSmall} font-bold text-[#ffffff] uppercase tracking-wider mb-2 border-b border-[#64748b] pb-1 page-break-avoid`}>{section.name}</h2>
             <div className={isDense ? 'space-y-2' : 'space-y-2.5'}>
               {section.items.map((item, index) => (
@@ -638,7 +648,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         
         <div className={`relative z-10 ${t.space} flex-1`}>
           {personalInfo.summary && (
-            <div className="relative flex min-h-[50px]">
+        <div style={{ order: getOrder("summary") }} className="relative flex min-h-[50px]">
                <div className="flex flex-col items-center shrink-0 w-10 z-10 pt-0.5">
                   <div className="w-8 h-8 rounded-full bg-[#ffffff] flex items-center justify-center border-2 border-[#fbbf24] shadow-sm z-10">
                     <User className="w-4 h-4 text-[#fbbf24]" strokeWidth={2.5} />
@@ -657,7 +667,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           )}
           
           {experience.length > 0 && (
-            <div className="relative flex min-h-[50px]">
+        <div style={{ order: getOrder("experience") }} className="relative flex min-h-[50px]">
                <div className="flex flex-col items-center shrink-0 w-10 z-10 pt-0.5">
                   <div className="w-8 h-8 rounded-full bg-[#ffffff] flex items-center justify-center border-2 border-[#fbbf24] shadow-sm z-10">
                      <Briefcase className="w-4 h-4 text-[#fbbf24]" strokeWidth={2.5} />
@@ -725,7 +735,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
 
       <div className={`px-8 pt-8 pb-6 flex-1 flex flex-col ${t.mb} gap-y-6`}>
         {personalInfo.summary && (
-          <div className="w-full">
+        <div style={{ order: getOrder("summary") }} className="w-full">
             <h2 className={`${t.h2} font-black text-[#1e293b] border-b-2 border-[#e5e7eb] uppercase pb-1 mb-2 tracking-wider flex items-center gap-2 page-break-avoid`}>
                <span className="w-3 h-3 bg-[#fbbf24] inline-block rounded-sm shrink-0"></span>
                Resumo Profissional
@@ -737,7 +747,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {experience.length > 0 && (
-          <div className="w-full">
+        <div style={{ order: getOrder("experience") }} className="w-full">
             <h2 className={`${t.h2} font-black text-[#1e293b] border-b-2 border-[#e5e7eb] uppercase pb-1 mb-3 tracking-wider flex items-center gap-2`}>
                <span className="w-3 h-3 bg-[#fbbf24] inline-block rounded-sm shrink-0"></span>
                Experiência Profissional
@@ -764,7 +774,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {education.length > 0 && (
-          <div className="w-full">
+        <div style={{ order: getOrder("education") }} className="w-full">
             <h2 className={`${t.h2} font-black text-[#1e293b] border-b-2 border-[#e5e7eb] uppercase pb-1 mb-3 tracking-wider flex items-center gap-2`}>
                <span className="w-3 h-3 bg-[#fbbf24] inline-block rounded-sm shrink-0"></span>
                Formação Acadêmica
@@ -788,7 +798,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {skills.length > 0 && (
-          <div className="w-full">
+        <div style={{ order: getOrder("skills") }} className="w-full">
             <h2 className={`${t.h2} font-black text-[#1e293b] border-b-2 border-[#e5e7eb] uppercase pb-1 mb-3 tracking-wider flex items-center gap-2 page-break-avoid`}>
                <span className="w-3 h-3 bg-[#fbbf24] inline-block rounded-sm shrink-0"></span>
                Habilidades
@@ -804,7 +814,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {data.courses && data.courses.length > 0 && (
-          <div className="w-full">
+        <div style={{ order: getOrder("courses") }} className="w-full">
             <h2 className={`${t.h2} font-black text-[#1e293b] border-b-2 border-[#e5e7eb] uppercase pb-1 mb-3 tracking-wider flex items-center gap-2`}>
                <span className="w-3 h-3 bg-[#fbbf24] inline-block rounded-sm shrink-0"></span>
                Cursos Complementares
@@ -821,7 +831,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {data.customSections && data.customSections.map((section) => (
-          <div key={section.id} className="w-full">
+        <div style={{ order: getOrder(section.id) }} key={section.id} className="w-full">
             <h2 className={`${t.h2} font-black text-[#1e293b] border-b-2 border-[#e5e7eb] uppercase pb-1 mb-3 tracking-wider flex items-center gap-2`}>
                <span className="w-3 h-3 bg-[#fbbf24] inline-block rounded-sm shrink-0"></span>
                {section.name}
@@ -878,7 +888,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
 
       <div className="flex flex-col gap-y-7 w-full">
         {personalInfo.summary && (
-          <div className="">
+        <div style={{ order: getOrder("summary") }} className="">
             <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest mb-2 flex items-center gap-2 page-break-avoid`}>
                <span className="w-4 h-4 rounded-sm bg-[#2563eb] inline-block shrink-0"></span> Resumo Profissional
             </h2>
@@ -889,7 +899,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {experience.length > 0 && (
-          <div>
+        <div style={{ order: getOrder("experience") }}>
             <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest mb-4 flex items-center gap-2`}>
                <span className="w-4 h-4 rounded-sm bg-[#2563eb] inline-block shrink-0"></span> Experiência
             </h2>
@@ -916,7 +926,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {education.length > 0 && (
-          <div>
+        <div style={{ order: getOrder("education") }}>
             <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest mb-4 flex items-center gap-2`}>
                <span className="w-4 h-4 rounded-sm bg-[#2563eb] inline-block shrink-0"></span> Formação Acadêmica
             </h2>
@@ -940,7 +950,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         {(skills.length > 0 || (data.courses && data.courses.length > 0)) && (
           <div className="flex flex-wrap items-start w-full gap-8">
             {skills.length > 0 && (
-              <div className="flex-1 min-w-[250px]">
+        <div style={{ order: getOrder("skills") }} className="flex-1 min-w-[250px]">
                 <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest mb-4 flex items-center gap-2 page-break-avoid`}>
                    <span className="w-4 h-4 rounded-sm bg-[#2563eb] inline-block shrink-0"></span> Competências
                 </h2>
@@ -955,7 +965,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
             )}
             
             {data.courses && data.courses.length > 0 && (
-              <div className="flex-1 min-w-[250px]">
+        <div style={{ order: getOrder("courses") }} className="flex-1 min-w-[250px]">
                 <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest mb-4 flex items-center gap-2 page-break-avoid`}>
                    <span className="w-4 h-4 rounded-sm bg-[#2563eb] inline-block shrink-0"></span> Cursos Relevantes
                 </h2>
@@ -973,7 +983,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {data.customSections && data.customSections.map((section) => (
-          <div key={section.id} className="w-full">
+        <div style={{ order: getOrder(section.id) }} key={section.id} className="w-full">
             <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest mb-4 flex items-center gap-2`}>
                <span className="w-4 h-4 rounded-sm bg-[#2563eb] inline-block shrink-0"></span> {section.name}
             </h2>
@@ -1034,7 +1044,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {experience.length > 0 && (
-          <section className={`w-full`}>
+        <section style={{ order: getOrder("experience") }} className={`w-full`}>
             <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest border-b-2 border-gray-100 pb-2 mb-4 flex items-center gap-2 page-break-avoid`}>
                <div className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm transform rotate-45"></div> Experiência Profissional
             </h2>
@@ -1059,7 +1069,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {education.length > 0 && (
-          <section className={`w-full`}>
+        <section style={{ order: getOrder("education") }} className={`w-full`}>
             <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest border-b-2 border-gray-100 pb-2 mb-4 flex items-center gap-2 page-break-avoid`}>
                <div className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm transform rotate-45"></div> Formação Acadêmica
             </h2>
@@ -1083,7 +1093,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {skills.length > 0 && (
-          <section className={`w-full`}>
+        <section style={{ order: getOrder("skills") }} className={`w-full`}>
             <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest border-b-2 border-gray-100 pb-2 mb-4 flex items-center gap-2 page-break-avoid`}>
                <div className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm transform rotate-45"></div> Habilidades
             </h2>
@@ -1096,7 +1106,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {(data.courses || []).length > 0 && (
-          <section className={`w-full`}>
+        <section style={{ order: getOrder("courses") }} className={`w-full`}>
             <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest border-b-2 border-gray-100 pb-2 mb-4 flex items-center gap-2 page-break-avoid`}>
                <div className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm transform rotate-45"></div> Cursos
             </h2>
@@ -1112,7 +1122,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {(data.customSections || []).map((section) => (
-          <section key={section.id} className={`w-full`}>
+        <section style={{ order: getOrder(section.id) }} key={section.id} className={`w-full`}>
             <h2 className={`${t.h3} font-black text-[#0f172a] uppercase tracking-widest border-b-2 border-gray-100 pb-2 mb-4 flex items-center gap-2 page-break-avoid`}>
                <div className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm transform rotate-45"></div> {section.name}
             </h2>
@@ -1170,7 +1180,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {experience.length > 0 && (
-          <section className="w-full">
+        <section style={{ order: getOrder("experience") }} className="w-full">
             <h2 className={`${t.h3} font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center`}>
               <span className="bg-gray-800 text-white px-2 py-0.5 rounded-sm mr-2 text-xs">02</span> Experiência
             </h2>
@@ -1193,7 +1203,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {education.length > 0 && (
-          <section className="w-full">
+        <section style={{ order: getOrder("education") }} className="w-full">
             <h2 className={`${t.h3} font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center`}>
               <span className="bg-gray-800 text-white px-2 py-0.5 rounded-sm mr-2 text-xs">03</span> Educação
             </h2>
@@ -1212,7 +1222,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {skills.length > 0 && (
-          <section className="w-full">
+        <section style={{ order: getOrder("skills") }} className="w-full">
             <h2 className={`${t.h3} font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center`}>
               <span className="bg-gray-800 text-white px-1.5 py-0.5 rounded-sm mr-2 text-xs">★</span> Habilidades
             </h2>
@@ -1225,7 +1235,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         )}
 
         {(data.courses || []).length > 0 && (
-          <section className="w-full">
+        <section style={{ order: getOrder("courses") }} className="w-full">
             <h2 className={`${t.h3} font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center`}>
               <span className="bg-gray-800 text-white px-1.5 py-0.5 rounded-sm mr-2 text-xs">★</span> Cursos
             </h2>

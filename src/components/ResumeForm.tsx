@@ -10,7 +10,7 @@ interface ResumeFormProps {
 }
 
 export function ResumeForm({ data, onChange }: ResumeFormProps) {
-  const [activeTab, setActiveTab] = useState<'personal' | 'experience' | 'education' | 'skills' | 'courses' | 'customSections'>('personal');
+  const [activeTab, setActiveTab] = useState<'personal' | 'experience' | 'education' | 'skills' | 'courses' | 'customSections' | 'sectionOrder'>('personal');
 
   const updatePersonalInfo = (field: keyof ResumeData['personalInfo'], value: string | null) => {
     onChange({
@@ -67,6 +67,32 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
         ...sec,
         items: sec.items.filter(item => item.id !== itemId)
       } : sec)
+    });
+  };
+
+  const moveCustomSection = (index: number, direction: 'up' | 'down') => {
+    if (!data.customSections) return;
+    if ((direction === 'up' && index === 0) || (direction === 'down' && index === data.customSections.length - 1)) return;
+    const newItems = [...data.customSections];
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    [newItems[index], newItems[swapIndex]] = [newItems[swapIndex], newItems[index]];
+    onChange({ ...data, customSections: newItems });
+  };
+
+  const moveCustomItem = (sectionId: string, index: number, direction: 'up' | 'down') => {
+    if (!data.customSections) return;
+    onChange({
+      ...data,
+      customSections: data.customSections.map(sec => {
+        if (sec.id === sectionId) {
+          if ((direction === 'up' && index === 0) || (direction === 'down' && index === sec.items.length - 1)) return sec;
+          const newItems = [...sec.items];
+          const swapIndex = direction === 'up' ? index - 1 : index + 1;
+          [newItems[index], newItems[swapIndex]] = [newItems[swapIndex], newItems[index]];
+          return { ...sec, items: newItems };
+        }
+        return sec;
+      })
     });
   };
 
@@ -192,6 +218,30 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
     </button>
   );
 
+  const getSectionOrderKeys = () => {
+    return data.sectionOrder?.length 
+      ? data.sectionOrder 
+      : ['experience', 'education', 'skills', 'courses', ...(data.customSections || []).map(s => s.id)];
+  };
+
+  const moveSectionOrder = (index: number, direction: 'up' | 'down') => {
+    const keys = getSectionOrderKeys();
+    if ((direction === 'up' && index === 0) || (direction === 'down' && index === keys.length - 1)) return;
+    const newKeys = [...keys];
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    [newKeys[index], newKeys[swapIndex]] = [newKeys[swapIndex], newKeys[index]];
+    onChange({ ...data, sectionOrder: newKeys });
+  };
+  
+  const getSectionName = (key: string) => {
+    if (key === 'experience') return 'Experiência Profissional';
+    if (key === 'education') return 'Formação Acadêmica';
+    if (key === 'skills') return 'Habilidades e Competências';
+    if (key === 'courses') return 'Cursos Complementares';
+    const c = data.customSections?.find(s => s.id === key);
+    return c ? c.name : 'Seção Extra';
+  };
+
   return (
     <div className="flex flex-col gap-4 sm:gap-6 h-full w-full overflow-hidden">
       {/* Top Navigation */}
@@ -203,6 +253,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
           {renderTabButton('skills', 'Habilidades', 4)}
           {renderTabButton('courses', 'Cursos', 5)}
           {renderTabButton('customSections', 'Seções Extras', 6)}
+          {renderTabButton('sectionOrder', 'Ordenar Seções', 7)}
         </div>
       </aside>
 
@@ -544,16 +595,32 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                 Adicione seções arbitrárias ao seu currículo (ex: <b>Idiomas</b>, <b>Trabalho Voluntário</b>, <b>Projetos Pessoais</b>, etc).
               </p>
             </div>
-            {(data.customSections || []).map((section) => (
+            {(data.customSections || []).map((section, sIndex) => (
               <div key={section.id} className="space-y-4 p-5 bg-white/5 border border-white/10 rounded-3xl relative group/section">
-                <button 
-                  onClick={() => removeCustomSection(section.id)}
-                  className="absolute right-4 top-4 text-slate-400 hover:text-red-400 opacity-100 lg:opacity-0 lg:group-hover/section:opacity-100 transition-opacity p-2 bg-white/5 rounded-lg"
-                  aria-label={`Excluir seção ${section.name}`}
-                  title="Remover sessão"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                <div className="absolute top-4 right-4 flex items-center gap-2 opacity-100 lg:opacity-0 lg:group-hover/section:opacity-100 transition-opacity z-10 bg-slate-900/50 p-1 rounded-lg backdrop-blur-sm">
+                  <button 
+                    onClick={() => moveCustomSection(sIndex, 'up')}
+                    disabled={sIndex === 0}
+                    className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 rounded-md"
+                  >
+                    <ChevronUp className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={() => moveCustomSection(sIndex, 'down')}
+                    disabled={sIndex === (data.customSections || []).length - 1}
+                    className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 rounded-md"
+                  >
+                    <ChevronDown className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={() => removeCustomSection(section.id)}
+                    className="p-1 text-slate-400 hover:text-red-400 bg-white/5 rounded-md"
+                    aria-label={`Excluir seção ${section.name}`}
+                    title="Remover sessão"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
                 <div>
                   <label className={labelClass}>Nome da Seção (ex: Projetos)</label>
                   <input 
@@ -566,18 +633,34 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                 </div>
 
                 <div className="space-y-4 pt-4 border-t border-white/10">
-                  {section.items.map((item) => (
+                  {section.items.map((item, iIndex) => (
                     <div key={item.id} className="p-4 bg-white/5 rounded-xl border border-white/5 relative group/item">
-                      <button 
-                        onClick={() => removeCustomItem(section.id, item.id)}
-                        className="absolute right-3 top-3 text-slate-400 hover:text-red-400 opacity-100 lg:opacity-0 lg:group-hover/item:opacity-100 transition-opacity p-1.5 bg-white/5 rounded-md"
-                        aria-label={`Excluir item ${item.title}`}
-                        title={`Excluir item ${item.title}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="absolute top-3 right-3 flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover/item:opacity-100 transition-opacity bg-slate-900/50 p-1 rounded-lg backdrop-blur-sm">
+                        <button 
+                          onClick={() => moveCustomItem(section.id, iIndex, 'up')}
+                          disabled={iIndex === 0}
+                          className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 rounded-md"
+                        >
+                          <ChevronUp className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => moveCustomItem(section.id, iIndex, 'down')}
+                          disabled={iIndex === section.items.length - 1}
+                          className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 rounded-md"
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => removeCustomItem(section.id, item.id)}
+                          className="p-1 text-slate-400 hover:text-red-400 bg-white/5 rounded-md"
+                          aria-label={`Excluir item ${item.title}`}
+                          title={`Excluir item ${item.title}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3 pr-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3 pr-24">
                         <div>
                           <label className={labelClass}>Título Principal</label>
                           <input 
@@ -637,6 +720,45 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
             >
               <Plus className="w-5 h-5" /> Adicionar Nova Seção
             </button>
+          </div>
+        )}
+
+        {activeTab === 'sectionOrder' && (
+          <div className="space-y-6">
+            <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
+              <p className="text-sm text-indigo-200">
+                Ajuste a ordem em que as seções aparecem no seu currículo. A seção de <b>Dados Pessoais / Perfil</b> é sempre exibida no topo. 
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              {getSectionOrderKeys().map((key, index) => {
+                const isFirst = index === 0;
+                const isLast = index === getSectionOrderKeys().length - 1;
+                
+                return (
+                  <div key={key} className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
+                    <span className="font-bold text-slate-100">{getSectionName(key)}</span>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => moveSectionOrder(index, 'up')}
+                        disabled={isFirst}
+                        className={`p-1.5 rounded-md transition-colors ${isFirst ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/10 text-slate-300 hover:text-white'}`}
+                      >
+                        <ChevronUp className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => moveSectionOrder(index, 'down')}
+                        disabled={isLast}
+                        className={`p-1.5 rounded-md transition-colors ${isLast ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/10 text-slate-300 hover:text-white'}`}
+                      >
+                        <ChevronDown className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </section>
