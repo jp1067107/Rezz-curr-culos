@@ -1,6 +1,6 @@
 import React, { forwardRef } from 'react';
 import { ResumeData, TemplateType } from '../types';
-import { Mail, Phone, MapPin } from 'lucide-react';
+import { Mail, Phone, MapPin, Linkedin } from 'lucide-react';
 
 interface Props {
   data: ResumeData;
@@ -33,6 +33,9 @@ export const CoverLetterPreview = forwardRef<HTMLDivElement, Props>(({ data, tem
         {personalInfo.location && (
           <div className="flex items-center gap-1.5"><MapPin className="w-4 h-4 text-[#3b82f6]" /> {personalInfo.location}</div>
         )}
+        {personalInfo.linkedin && (
+          <div className="flex items-center gap-1.5"><Linkedin className="w-4 h-4 text-[#3b82f6]" /> {personalInfo.linkedin}</div>
+        )}
       </div>
 
       <div className="p-10 flex-1 flex flex-col">
@@ -55,6 +58,8 @@ export const CoverLetterPreview = forwardRef<HTMLDivElement, Props>(({ data, tem
             {personalInfo.phone && <span>{personalInfo.phone}</span>}
             {(personalInfo.phone && personalInfo.email) && <span>|</span>}
             {personalInfo.email && <span>{personalInfo.email}</span>}
+            {(personalInfo.email && personalInfo.linkedin) && <span>|</span>}
+            {personalInfo.linkedin && <span>{personalInfo.linkedin}</span>}
           </div>
         </header>
 
@@ -78,6 +83,7 @@ export const CoverLetterPreview = forwardRef<HTMLDivElement, Props>(({ data, tem
           {personalInfo.phone && <span>{personalInfo.phone}</span>}
           {personalInfo.email && <span>• {personalInfo.email}</span>}
           {personalInfo.location && <span>• {personalInfo.location}</span>}
+          {personalInfo.linkedin && <span>• {personalInfo.linkedin}</span>}
         </div>
       </header>
       <div className="flex-1">

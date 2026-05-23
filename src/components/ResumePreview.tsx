@@ -1,6 +1,6 @@
 import React, { forwardRef } from 'react';
 import { ResumeData, TemplateType } from '../types';
-import { Mail, Phone, MapPin, User, Briefcase, GraduationCap, Award, BookOpen, Layers } from 'lucide-react';
+import { Mail, Phone, MapPin, Linkedin, User, Briefcase, GraduationCap, Award, BookOpen, Layers } from 'lucide-react';
 
 interface ResumePreviewProps {
   data: ResumeData;
@@ -162,6 +162,12 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
               <span>{personalInfo.location}</span>
             </div>
           )}
+          {personalInfo.linkedin && (
+            <div className={`flex items-start gap-2 ${t.sidebarSmall}`}>
+              <Linkedin className={`${isDense ? 'w-3 h-3' : 'w-4 h-4'} text-[#94a3b8] shrink-0 mt-0.5`} />
+              <span>{personalInfo.linkedin}</span>
+            </div>
+          )}
         </div>
 
         {skills.length > 0 && (
@@ -290,6 +296,8 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           {personalInfo.phone && <span>{personalInfo.phone}</span>}
           {(personalInfo.phone && personalInfo.email) && <span>|</span>}
           {personalInfo.email && <span>{personalInfo.email}</span>}
+          {(personalInfo.email && personalInfo.linkedin) && <span>|</span>}
+          {personalInfo.linkedin && <span>{personalInfo.linkedin}</span>}
         </div>
       </div>
 
@@ -405,6 +413,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           {personalInfo.email && <div className="font-medium">{personalInfo.email}</div>}
           {personalInfo.phone && <div>{personalInfo.phone}</div>}
           {personalInfo.location && <div className="text-[#9ca3af]">{personalInfo.location}</div>}
+          {personalInfo.linkedin && <div className="text-[#9ca3af]">{personalInfo.linkedin}</div>}
         </div>
       </div>
 
@@ -541,6 +550,12 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
               <div className={`flex items-start gap-2 ${t.sidebarSmall}`}>
                 <MapPin className={`${isDense ? 'w-3 h-3 mt-0' : 'w-3.5 h-3.5 mt-0.5'} text-[#fbbf24] shrink-0`} />
                 <span>{personalInfo.location}</span>
+              </div>
+            )}
+            {personalInfo.linkedin && (
+              <div className={`flex items-start gap-2 ${t.sidebarSmall}`}>
+                <Linkedin className={`${isDense ? 'w-3 h-3 mt-0' : 'w-3.5 h-3.5 mt-0.5'} text-[#fbbf24] shrink-0`} />
+                <span>{personalInfo.linkedin}</span>
               </div>
             )}
           </div>
@@ -731,6 +746,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           {personalInfo.email && <div className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-[#fbbf24]"/> {personalInfo.email}</div>}
           {personalInfo.phone && <div className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-[#fbbf24]"/> {personalInfo.phone}</div>}
           {personalInfo.location && <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-[#fbbf24]"/> {personalInfo.location}</div>}
+          {personalInfo.linkedin && <div className="flex items-center gap-1.5"><Linkedin className="w-3.5 h-3.5 text-[#fbbf24]"/> {personalInfo.linkedin}</div>}
       </div>
 
       <div className={`px-8 pt-8 pb-6 flex-1 flex flex-col ${t.mb} gap-y-6`}>
@@ -882,6 +898,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
               {personalInfo.email && <div className="flex items-center gap-1.5"><Mail className="w-4 h-4 text-[#cbd5e1]"/> {personalInfo.email}</div>}
               {personalInfo.phone && <div className="flex items-center gap-1.5"><Phone className="w-4 h-4 text-[#cbd5e1]"/> {personalInfo.phone}</div>}
               {personalInfo.location && <div className="flex items-center gap-1.5"><MapPin className="w-4 h-4 text-[#cbd5e1]"/> {personalInfo.location}</div>}
+              {personalInfo.linkedin && <div className="flex items-center gap-1.5"><Linkedin className="w-4 h-4 text-[#cbd5e1]"/> {personalInfo.linkedin}</div>}
           </div>
         </div>
       </div>
@@ -1030,6 +1047,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           {personalInfo.email && <div className="flex items-center gap-1.5"><Mail className="w-4 h-4 text-[#2563eb]"/> {personalInfo.email}</div>}
           {personalInfo.phone && <div className="flex items-center gap-1.5"><Phone className="w-4 h-4 text-[#2563eb]"/> {personalInfo.phone}</div>}
           {personalInfo.location && <div className="flex items-center gap-1.5"><MapPin className="w-4 h-4 text-[#2563eb]"/> {personalInfo.location}</div>}
+          {personalInfo.linkedin && <div className="flex items-center gap-1.5"><Linkedin className="w-4 h-4 text-[#2563eb]"/> {personalInfo.linkedin}</div>}
         </div>
       </header>
 
@@ -1160,6 +1178,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
             {personalInfo.email && <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5 text-gray-400"/> {personalInfo.email}</span>}
             {personalInfo.phone && <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-gray-400"/> {personalInfo.phone}</span>}
             {personalInfo.location && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-gray-400"/> {personalInfo.location}</span>}
+            {personalInfo.linkedin && <span className="flex items-center gap-1"><Linkedin className="w-3.5 h-3.5 text-gray-400"/> {personalInfo.linkedin}</span>}
           </div>
         </div>
         {shouldRenderPhotoArea && personalInfo.photoUrl && (

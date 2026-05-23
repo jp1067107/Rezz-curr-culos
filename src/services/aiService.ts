@@ -460,6 +460,7 @@ function normalizeResponse(rawData: any): ResumeData {
       email: rawData.personalInfo?.email || '',
       phone: rawData.personalInfo?.phone || '',
       location: rawData.personalInfo?.location || '',
+      linkedin: rawData.personalInfo?.linkedin || '',
       summary: rawData.personalInfo?.summary || '',
       photoUrl: null, 
     },

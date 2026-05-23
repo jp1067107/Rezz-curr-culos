@@ -26,6 +26,7 @@ const getInitialData = (): ResumeData => ({
     email: '',
     phone: '',
     location: '',
+    linkedin: '',
     summary: '',
     photoUrl: null,
   },
@@ -317,7 +318,7 @@ function MainApp() {
                  return newResumes;
               }
             } else {
-              const hasData = data.personalInfo.fullName || data.personalInfo.jobTitle || data.coverLetter || data.summary;
+              const hasData = data.personalInfo.fullName || data.personalInfo.jobTitle || data.coverLetter || data.personalInfo.summary;
               if (hasData) {
                  return [...prev, { id: currentResumeId, ownerId: user.uid, data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ResumeDoc];
               }
@@ -338,7 +339,7 @@ function MainApp() {
                  return newLetters;
               }
             } else {
-              const hasData = data.personalInfo.fullName || data.personalInfo.jobTitle || data.coverLetter || data.summary;
+              const hasData = data.personalInfo.fullName || data.personalInfo.jobTitle || data.coverLetter || data.personalInfo.summary;
               if (hasData) {
                  return [...prev, { id: currentCoverLetterId, ownerId: user.uid, data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ResumeDoc];
               }
@@ -572,7 +573,7 @@ function MainApp() {
 
   const isResumeWellFormed = () => {
     const hasName = (data.name?.trim()?.length ?? 0) > 0 || (data.personalInfo.fullName?.trim()?.length ?? 0) > 0;
-    const hasContact = (data.personalInfo.email?.trim()?.length ?? 0) > 0 || (data.personalInfo.phone?.trim()?.length ?? 0) > 0;
+    const hasContact = (data.personalInfo.email?.trim()?.length ?? 0) > 0 || (data.personalInfo.phone?.trim()?.length ?? 0) > 0 || (data.personalInfo.linkedin?.trim()?.length ?? 0) > 0;
     const hasExperience = data.experience && data.experience.length > 0 && data.experience.some(e => e.position?.trim() || e.company?.trim());
     const hasEducation = data.education && data.education.length > 0 && data.education.some(e => e.institution?.trim() || e.degree?.trim());
     const hasSkills = data.skills && data.skills.length > 0 && data.skills.some(s => s.name?.trim());

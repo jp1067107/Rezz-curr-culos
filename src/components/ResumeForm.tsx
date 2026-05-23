@@ -306,7 +306,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                   placeholder="(11) 99999-9999"
                 />
               </div>
-              <div className="md:col-span-2">
+              <div>
                 <label className={labelClass}>Localização</label>
                 <input 
                   type="text" 
@@ -314,6 +314,16 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                   onChange={(e) => updatePersonalInfo('location', e.target.value)}
                   className={inputClass}
                   placeholder="São Paulo, SP"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>LinkedIn (URL)</label>
+                <input 
+                  type="url" 
+                  value={data.personalInfo.linkedin || ''}
+                  onChange={(e) => updatePersonalInfo('linkedin', e.target.value)}
+                  className={inputClass}
+                  placeholder="https://linkedin.com/in/joaosilva"
                 />
               </div>
               <div className="md:col-span-2">
