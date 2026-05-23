@@ -96,7 +96,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 }
 
 function MainApp() {
-  const [appState, setAppStateInternal] = useState<'onboarding' | 'ai-info' | 'editor' | 'payment-success' | 'affiliate' | 'cover-letter' | 'my-cover-letters' | 'my-resumes' | 'purchased-view'>(() => {
+  const [appState, setAppStateInternal] = useState<'onboarding' | 'ai-info' | 'ai-info-cover-letter' | 'editor' | 'payment-success' | 'affiliate' | 'cover-letter' | 'my-cover-letters' | 'my-resumes' | 'purchased-view'>(() => {
     return (window.history.state?.appState) || 'onboarding';
   });
 
@@ -957,8 +957,10 @@ function MainApp() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const evaluateFileInputRef = useRef<HTMLInputElement>(null);
   const internalPdfInputRef = useRef<HTMLInputElement>(null);
+  const coverLetterPdfInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isUploadingInternalPdf, setIsUploadingInternalPdf] = useState(false);
+  const [isUploadingCoverLetterPdf, setIsUploadingCoverLetterPdf] = useState(false);
 
   const handleUploadInternalPdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -988,6 +990,38 @@ function MainApp() {
       setIsUploadingInternalPdf(false);
       if (internalPdfInputRef.current) {
         internalPdfInputRef.current.value = '';
+      }
+    }
+  };
+
+const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    
+    setIsUploadingCoverLetterPdf(true);
+    
+    try {
+      const data = await extractInternalResumeData(files[0]);
+      if (data) {
+        if (!data.id) data.id = uuidv4();
+        setData(data);
+        setCurrentCoverLetterId(data.id);
+        setAppState('cover-letter');
+      } else {
+        // Fallback to exact AI extraction for images or generic PDFs
+        const exactData = await extractResumeDataFromFiles(files, true);
+        if (!exactData.id) exactData.id = uuidv4();
+        setData(exactData);
+        setCurrentCoverLetterId(exactData.id);
+        setAppState('cover-letter');
+      }
+    } catch (error: any) {
+      console.error('Error recovering internal file:', error);
+      alert(error.message || 'Houve um erro ao processar o arquivo.');
+    } finally {
+      setIsUploadingCoverLetterPdf(false);
+      if (coverLetterPdfInputRef.current) {
+        coverLetterPdfInputRef.current.value = '';
       }
     }
   };
@@ -1074,6 +1108,30 @@ function MainApp() {
       }
     };
   }, [mobileView, data, template]);
+
+  const handleAiCoverLetterImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      setIsProcessing(true);
+      const extractedData = await extractResumeDataFromFiles(files);
+      setData(extractedData);
+      const newResumeId = uuidv4();
+      setCurrentCoverLetterId(newResumeId);
+      setLastEnhancedLength(null);
+      setAppState('cover-letter');
+      setMobileView('preview');
+      autoSaveCoverLetterIfAuthenticated(extractedData, newResumeId);
+    } catch (error: any) {
+      alert(error.message || 'Falha ao extrair dados. Por favor, insira suas informações manualmente.');
+    } finally {
+      setIsProcessing(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
 
   const handleAiImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1348,6 +1406,30 @@ function MainApp() {
                   </div>
                 </button>
 
+                
+                {/* Criar Carta via IA */}
+                <button
+                  onClick={() => setAppState('ai-info-cover-letter')}
+                  className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row items-center text-center sm:text-left gap-4 sm:gap-6 p-6 sm:p-8 bg-gradient-to-br from-slate-800/80 to-slate-800/40 hover:from-slate-700/80 hover:to-slate-800/80 border border-white/10 hover:border-purple-500/40 rounded-3xl transition-all group shadow-xl"
+                >
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-400 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all shrink-0">
+                    <Sparkles className="w-8 h-8 sm:w-10 sm:h-10" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 flex flex-col sm:flex-row items-center gap-3">
+                      Criar Carta via Inteligência Artificial
+                    </h2>
+                    <p className="text-slate-400 text-sm sm:text-base">
+                      Faça o upload do documento bruto do cliente para preenchimento rápido via IA conservadora.
+                    </p>
+                  </div>
+                  <div className="hidden sm:flex ml-auto pl-4">
+                     <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-purple-500/20 transition-all">
+                       <ArrowLeft className="w-5 h-5 text-slate-400 group-hover:text-purple-400 rotate-180" />
+                     </div>
+                  </div>
+                </button>
+
                 {/* Editor Manual */}
                 <button
                   onClick={() => {
@@ -1486,6 +1568,212 @@ function MainApp() {
                 multiple
                 ref={fileInputRef} 
                 onChange={handleAiImport} 
+                onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
+                accept="application/pdf,image/*" 
+                className="hidden" 
+              />
+              <button
+                onClick={() => {
+                  if (fileInputRef.current) {
+                    fileInputRef.current.click();
+                  } else {
+                    setTimeout(() => fileInputRef.current?.click(), 100);
+                  }
+                }}
+                disabled={isProcessing}
+                className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-purple-600 shadow-xl shadow-purple-600/30 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-lg font-bold rounded-2xl transition-all"
+              >
+                {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5 rotate-180" />}
+                {isProcessing ? "Analisando Arquivo(s)..." : "Enviar Arquivo(s)"}
+              </button>
+              <button
+                onClick={() => setAppState('onboarding')}
+                disabled={isProcessing}
+                className="text-slate-400 hover:text-white font-medium text-sm transition-colors py-2 px-4"
+              >
+                Voltar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {appState === 'payment-success' && (
+        <div key="payment-success" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
+          <div className="max-w-xl bg-slate-800/50 border border-emerald-500/20 p-8 sm:p-12 rounded-3xl shadow-2xl shadow-emerald-500/10 text-center space-y-6 animate-in fade-in zoom-in duration-500">
+            <div className="mx-auto w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6 text-emerald-400 border border-emerald-500/30 shadow-lg shadow-emerald-500/20">
+              <CheckCircle className="w-10 h-10" />
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+              Pagamento Confirmado!
+            </h2>
+            <p className="text-lg text-slate-300 leading-relaxed max-w-md mx-auto">
+              Muito obrigado pela confiança. Seu acesso para exportar o currículo limpo e em alta qualidade foi liberado com sucesso.
+            </p>
+            <div className="pt-8 flex flex-col sm:flex-row justify-center gap-4">
+              <button
+                onClick={() => setAppState('purchased-view')}
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-emerald-600 shadow-xl shadow-emerald-600/30 hover:bg-emerald-500 text-white text-lg font-bold rounded-2xl transition-all w-full sm:w-auto"
+              >
+                Acessar Meu Currículo
+              </button>
+              {hasCoverLetter && (
+                <button
+                  onClick={() => {
+                    setCurrentCoverLetterId(currentResumeId);
+                    setAppState('cover-letter');
+                  }}
+                  className="flex items-center justify-center gap-3 px-8 py-4 bg-purple-600 shadow-xl shadow-purple-600/30 hover:bg-purple-500 text-white text-lg font-bold rounded-2xl transition-all w-full sm:w-auto"
+                >
+                  <Wand2 className="w-5 h-5" /> Acessar Carta
+                </button>
+              )}
+              <button
+                onClick={() => setAppState('affiliate')}
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white text-lg font-bold rounded-2xl transition-all w-full sm:w-auto"
+              >
+                Como Ganhar Dinheiro
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {appState === 'affiliate' && (
+        <div key="affiliate" className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
+          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black text-xl ring-1 ring-white/20 font-serif">
+                R
+              </div>
+              <h1 className="text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">
+                Programa de Afiliados
+              </h1>
+            </div>
+            <button
+              onClick={() => setAppState('onboarding')}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" /> Voltar
+            </button>
+          </header>
+          
+          <main className="flex-1 overflow-y-auto w-full max-w-4xl mx-auto p-4 sm:p-8 flex flex-col gap-8 pb-20">
+             <div className="text-center space-y-4 py-8">
+               <div className="mx-auto w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-400 mb-6 border border-emerald-500/20">
+                 <DollarSign className="w-10 h-10" />
+               </div>
+               <h2 className="text-4xl sm:text-5xl font-bold text-white tracking-tight">Ganhe recomendando o Rezz</h2>
+               <p className="text-xl text-slate-400 max-w-2xl mx-auto">
+                 Ajude outras pessoas a conseguirem o emprego dos sonhos e fature com isso. Receba uma comissão generosa por cada venda realizada através do seu link exclusivo da Cakto.
+               </p>
+             </div>
+
+             <div className="grid sm:grid-cols-3 gap-6">
+               <div className="bg-slate-800/50 border border-white/5 p-6 rounded-2xl flex flex-col items-center text-center gap-4">
+                 <div className="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400">
+                   <LinkIcon className="w-6 h-6" />
+                 </div>
+                 <h3 className="font-bold text-lg text-white">1. Crie seu Link</h3>
+                 <p className="text-slate-400 text-sm">Cadastre-se na Cakto como afiliado do nosso produto e copie seu link de indicação exclusivo.</p>
+               </div>
+               <div className="bg-slate-800/50 border border-white/5 p-6 rounded-2xl flex flex-col items-center text-center gap-4">
+                 <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center text-purple-400">
+                   <Share2 className="w-6 h-6" />
+                 </div>
+                 <h3 className="font-bold text-lg text-white">2. Compartilhe seu Link</h3>
+                 <p className="text-slate-400 text-sm">Na Cakto, copie o seu link de afiliado da <strong>Página de Vendas</strong>. Compartilhe-o no LinkedIn, TikTok ou WhatsApp.</p>
+               </div>
+               <div className="bg-slate-800/50 border border-white/5 p-6 rounded-2xl flex flex-col items-center text-center gap-4">
+                 <div className="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400">
+                   <DollarSign className="w-6 h-6" />
+                 </div>
+                 <h3 className="font-bold text-lg text-white">3. Receba</h3>
+                 <p className="text-slate-400 text-sm">Quando o cliente vier pelo seu link, montar o currículo e pagar para exportar, a comissão entra na hora na sua conta Cakto!</p>
+               </div>
+             </div>
+
+             <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-3xl p-8 sm:p-10 flex flex-col sm:flex-row items-center gap-8 text-center sm:text-left mt-8">
+               <div className="flex-1 space-y-4">
+                 <h2 className="text-2xl font-bold text-white">Pronto para começar?</h2>
+                 <p className="text-slate-300">
+                   Siga o link abaixo para ir direto para a plataforma da Cakto, afiliar-se com 1 clique e começar a ganhar 45% de comissão por cada venda!
+                 </p>
+                 <a 
+                   href="https://app.cakto.com.br/affiliate/invite/4ca6dedc-130a-49fe-aee2-5216ede37d0e"
+                   target="_blank" 
+                   rel="noreferrer"
+                   className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/20 mt-4"
+                 >
+                   Quero ser Afiliado do Rezz (45% de Ganho)
+                 </a>
+               </div>
+             </div>
+          </main>
+        </div>
+      )}
+
+      {appState === 'cover-letter' && (
+        <div key="cover-letter" className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
+          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20 text-white font-black text-xl ring-1 ring-white/20">
+                <Wand2 className="w-5 h-5" />
+              </div>
+              <h1 className="text-lg sm:text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">
+                Gerador de Carta de Apresentação
+              </h1>
+            </div>
+            <button
+              onClick={() => setAppState('my-cover-letters')}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" /> Voltar
+            </button>
+          </header>
+
+          <main className="flex-1 overflow-y-auto w-full mx-auto p-4 sm:p-8 flex flex-col gap-6 pb-20 relative">
+            <CoverLetterGenerator data={data} setData={setData} onDownloadPdf={generateCoverLetterPdf} onAiGenerated={(newData) => autoSaveCoverLetterIfAuthenticated(newData, currentCoverLetterId)} />
+            <div className="absolute top-[-9999px] left-[-9999px]">
+               <CoverLetterPreview data={data} template={template} ref={coverLetterRef} />
+            </div>
+          </main>
+        </div>
+      )}
+
+      
+{appState === 'ai-info-cover-letter' && (
+        <div key="ai-info-cover-letter" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
+          <div className="max-w-3xl bg-slate-800/50 border border-white/10 p-8 sm:p-12 rounded-3xl shadow-2xl text-center space-y-8">
+            <div className="mx-auto w-16 h-16 bg-purple-500/20 rounded-2xl flex items-center justify-center mb-6 text-purple-400 border border-purple-500/30">
+              <Wand2 className="w-8 h-8" />
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+              Tecnologia Pura na sua Carta
+            </h2>
+            <div className="text-lg text-slate-300 leading-relaxed max-w-xl mx-auto text-left space-y-4">
+              <p className="text-center mb-6">A nossa IA transforma qualquer foto ou currículo antigo em material de <strong className="text-white">altíssimo nível</strong>.</p>
+              <ul className="space-y-4">
+                <li className="flex items-start gap-3">
+                  <span className="text-purple-400 mt-1">✓</span>
+                  <span><strong>Reescrita Profissional:</strong> Linguagem corporativa persuasiva que destaca seus resultados e liderança.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-purple-400 mt-1">✓</span>
+                  <span><strong>Aprimoramento Automático:</strong> Organiza rascunhos rasos, inferindo e enriquecendo os pontos mais fracos.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-purple-400 mt-1">✓</span>
+                  <span><strong>Super Simples:</strong> Basta enviar um PDF ou uma simples foto tirada pelo seu celular.</span>
+                </li>
+              </ul>
+            </div>
+            <div className="pt-6 flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <input 
+                type="file" 
+                multiple
+                ref={fileInputRef} 
+                onChange={handleAiCoverLetterImport} 
                 onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
                 accept="application/pdf,image/*" 
                 className="hidden" 
@@ -2023,17 +2311,17 @@ function MainApp() {
               
               <button
                 onClick={() => {
-                   if (internalPdfInputRef.current) {
-                     internalPdfInputRef.current.click();
+                   if (coverLetterPdfInputRef.current) {
+                     coverLetterPdfInputRef.current.click();
                    }
                 }}
-                disabled={isUploadingInternalPdf}
-                className={`bg-slate-800/40 border border-white/10 hover:border-indigo-500/50 hover:bg-slate-800/80 border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-4 ${isUploadingInternalPdf ? 'text-indigo-400' : 'text-slate-400 hover:text-white'} min-h-[160px] group`}
+                disabled={isUploadingCoverLetterPdf}
+                className={`bg-slate-800/40 border border-white/10 hover:border-indigo-500/50 hover:bg-slate-800/80 border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-4 ${isUploadingCoverLetterPdf ? 'text-indigo-400' : 'text-slate-400 hover:text-white'} min-h-[160px] group`}
               >
                 <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-500/20 group-hover:text-indigo-400 transition-all">
-                  {isUploadingInternalPdf ? <Loader2 className="w-6 h-6 animate-spin" /> : <MonitorDown className="w-6 h-6" />}
+                  {isUploadingCoverLetterPdf ? <Loader2 className="w-6 h-6 animate-spin" /> : <MonitorDown className="w-6 h-6" />}
                 </div>
-                <span className="font-medium text-lg text-center">{isUploadingInternalPdf ? 'Lendo...' : 'Importar Dados para Carta'}</span>
+                <span className="font-medium text-lg text-center">{isUploadingCoverLetterPdf ? 'Lendo...' : 'Importar Dados para Carta'}</span>
                 <span className="text-xs text-slate-500 mt-[-10px] text-center">Restaure uma carta já baixado neste app ou extraia de um PDF/Imagem</span>
               </button>
               
@@ -2116,8 +2404,8 @@ function MainApp() {
               </div>
             <input 
               type="file" 
-              ref={internalPdfInputRef} 
-              onChange={handleUploadInternalPdfChange} 
+              ref={coverLetterPdfInputRef} 
+              onChange={handleUploadCoverLetterPdfChange} 
               accept="application/pdf,image/*" 
               className="hidden" 
             />
