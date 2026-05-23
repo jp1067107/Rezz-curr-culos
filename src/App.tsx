@@ -269,7 +269,8 @@ function MainApp() {
     }
     
     // Auto-update local list with the draft
-    setLocalPurchasedResumes(prev => {
+    if (appState === 'editor') {
+      setLocalPurchasedResumes(prev => {
       const index = prev.findIndex(r => r.id === currentResumeId);
       if (index >= 0) {
          const newResumes = [...prev];
@@ -283,34 +284,69 @@ function MainApp() {
           return [...prev, { id: currentResumeId, ownerId: 'local', data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ResumeDoc];
       }
     });
+    } else if (appState === 'cover-letter') {
+      setLocalPurchasedCoverLetters(prev => {
+        const index = prev.findIndex(r => r.id === currentCoverLetterId);
+        if (index >= 0) {
+           const newLetters = [...prev];
+           if (JSON.stringify(newLetters[index].data) !== JSON.stringify(data)) {
+             newLetters[index] = { ...newLetters[index], data, updatedAt: new Date().toISOString() };
+             return newLetters;
+           }
+           return prev;
+        } else {
+           return [...prev, { id: currentCoverLetterId, ownerId: 'local', data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ResumeDoc];
+        }
+      });
+    }
 
     // Auto-save to Firebase if logged in
     if (user) {
       const timeoutId = setTimeout(() => {
-        const docUnlocked = unlockedConfigs.filter(cfg => cfg.startsWith(`${currentResumeId}_`));
-        saveResume(user.uid, currentResumeId, data, docUnlocked.length > 0 ? docUnlocked : undefined)
-          .catch(err => console.error("Auto-save failed", err));
-          
-        setResumesList(prev => {
-          const index = prev.findIndex(r => r.id === currentResumeId);
-          if (index >= 0) {
-            const newResumes = [...prev];
-            if (JSON.stringify(newResumes[index].data) !== JSON.stringify(data)) {
-               newResumes[index] = { ...newResumes[index], data, updatedAt: new Date().toISOString() };
-               return newResumes;
+        if (appState === 'editor') {
+          const docUnlocked = unlockedConfigs.filter(cfg => cfg.startsWith(`${currentResumeId}_`));
+          saveResume(user.uid, currentResumeId, data, docUnlocked.length > 0 ? docUnlocked : undefined)
+            .catch(err => console.error("Auto-save failed", err));
+            
+          setResumesList(prev => {
+            const index = prev.findIndex(r => r.id === currentResumeId);
+            if (index >= 0) {
+              const newResumes = [...prev];
+              if (JSON.stringify(newResumes[index].data) !== JSON.stringify(data)) {
+                 newResumes[index] = { ...newResumes[index], data, updatedAt: new Date().toISOString() };
+                 return newResumes;
+              }
+            } else {
+              const hasData = data.personalInfo.fullName || data.personalInfo.jobTitle || data.coverLetter || data.summary;
+              if (hasData) {
+                 return [...prev, { id: currentResumeId, ownerId: user.uid, data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ResumeDoc];
+              }
+              return prev;
             }
             return prev;
-          } else {
-             return [...prev, { 
-               id: currentResumeId, 
-               ownerId: user.uid, 
-               data, 
-               createdAt: new Date().toISOString(), 
-               updatedAt: new Date().toISOString(),
-               unlockedTemplates: docUnlocked.length > 0 ? docUnlocked : undefined
-             } as ResumeDoc];
-          }
-        });
+          });
+        } else if (appState === 'cover-letter') {
+          saveCoverLetter(user.uid, currentCoverLetterId, data)
+            .catch(err => console.error("Auto-save letter failed", err));
+            
+          setCoverLettersList(prev => {
+            const index = prev.findIndex(r => r.id === currentCoverLetterId);
+            if (index >= 0) {
+              const newLetters = [...prev];
+              if (JSON.stringify(newLetters[index].data) !== JSON.stringify(data)) {
+                 newLetters[index] = { ...newLetters[index], data, updatedAt: new Date().toISOString() };
+                 return newLetters;
+              }
+            } else {
+              const hasData = data.personalInfo.fullName || data.personalInfo.jobTitle || data.coverLetter || data.summary;
+              if (hasData) {
+                 return [...prev, { id: currentCoverLetterId, ownerId: user.uid, data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ResumeDoc];
+              }
+              return prev;
+            }
+            return prev;
+          });
+        }
       }, 2000); // 2 segundos debounce
       return () => clearTimeout(timeoutId);
     }
@@ -1713,34 +1749,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
         </div>
       )}
 
-      {appState === 'cover-letter' && (
-        <div key="cover-letter" className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
-          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20 text-white font-black text-xl ring-1 ring-white/20">
-                <Wand2 className="w-5 h-5" />
-              </div>
-              <h1 className="text-lg sm:text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">
-                Gerador de Carta de Apresentação
-              </h1>
-            </div>
-            <button
-              onClick={() => setAppState('my-cover-letters')}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" /> Voltar
-            </button>
-          </header>
-
-          <main className="flex-1 overflow-y-auto w-full mx-auto p-4 sm:p-8 flex flex-col gap-6 pb-20 relative">
-            <CoverLetterGenerator data={data} setData={setData} onDownloadPdf={generateCoverLetterPdf} onAiGenerated={(newData) => autoSaveCoverLetterIfAuthenticated(newData, currentCoverLetterId)} />
-            <div className="absolute top-[-9999px] left-[-9999px]">
-               <CoverLetterPreview data={data} template={template} ref={coverLetterRef} />
-            </div>
-          </main>
-        </div>
-      )}
-
+      
       
 {appState === 'ai-info-cover-letter' && (
         <div key="ai-info-cover-letter" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
@@ -2530,6 +2539,16 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
               className={`hidden lg:flex items-center justify-center gap-2 px-6 py-2 text-sm font-bold rounded-xl transition-all shrink-0 ${hasActiveResume ? 'bg-indigo-500 shadow-md shadow-indigo-500/20 hover:bg-indigo-400 text-white' : 'bg-slate-800 border border-white/5 hover:border-indigo-500/50 text-slate-300'}`}
             >
               <Download className="w-4 h-4" /> <span className="whitespace-nowrap">Exportar PDF</span>
+            </button>
+            
+            <button
+              onClick={() => {
+                setCurrentCoverLetterId(currentResumeId);
+                setAppState('cover-letter');
+              }}
+              className="hidden lg:flex items-center justify-center gap-2 px-6 py-2 bg-purple-600 hover:bg-purple-500 shadow-md shadow-purple-600/30 text-white text-sm font-bold rounded-xl transition-all shrink-0"
+            >
+              <Wand2 className="w-4 h-4" /> <span className="whitespace-nowrap">Carta Profissional</span>
             </button>
             
             <button
