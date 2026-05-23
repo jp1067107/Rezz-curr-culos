@@ -126,13 +126,13 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
   };
 
   const renderModern = () => (
-    <div className="relative font-sans text-[#1f2937] bg-[#ffffff] w-[794px] min-h-[1122px] shadow-lg rounded-sm mx-auto flex print:block print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-[linear-gradient(to_right,#1e293b_30%,transparent_30%)]">
-      <div className="absolute left-0 top-0 bottom-0 w-[30%] bg-[#1e293b] z-0 print:hidden"></div>
+    <div className="relative font-sans text-[#1f2937] bg-[#ffffff] w-[794px] min-h-[1122px] shadow-lg rounded-sm mx-auto flex print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible">
+      
       {/* Sidebar */}
-      <div className={`relative z-10 w-[30%] text-[#ffffff] ${t.p} flex flex-col print:float-left print:bg-[transparent]`}>
+      <div className={`relative z-10 w-[30%] bg-[#1e293b] text-[#ffffff] ${t.p} flex flex-col shrink-0`}>
         {renderPhoto(isDense ? "w-24 h-24 rounded-full overflow-hidden border-4 border-[#475569] mx-auto mb-5" : "w-32 h-32 rounded-full overflow-hidden border-4 border-[#475569] mx-auto mb-6")}
         
-        <div className={`${t.mb} ${t.space}`}>
+        <div className={`${t.mb} ${t.space} relative z-10`}>
           <h2 className={`${t.h2} font-bold text-[#94a3b8] uppercase ${isDense ? 'mb-2' : 'mb-4'} border-b border-[#334155] pb-1`}>Contato</h2>
           {personalInfo.email && (
             <div className={`flex items-start gap-2 ${t.sidebarSmall}`}>
@@ -183,7 +183,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
       </div>
 
       {/* Main Content */}
-      <div className={`relative z-10 w-[70%] ${t.p} pr-8 pt-8 print:float-right`}>
+      <div className={`relative z-10 w-[70%] ${t.p} pr-8 pt-8 shrink-0`}>
         <div className={`${isDense ? 'mb-4 pb-3' : 'mb-8 pb-6'} border-b-2 border-[#e2e8f0]`}>
           <h1 className={`${t.name} font-extrabold text-[#0f172a] mb-1.5 tracking-tight`}>{personalInfo.fullName || 'Seu Nome'}</h1>
           <p className={`${t.job} text-[#2563eb] font-semibold`}>{personalInfo.jobTitle || 'Seu Cargo'}</p>
@@ -266,7 +266,6 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           </div>
         ))}
       </div>
-      <div className="clear-both hidden print:block w-full h-px"></div>
     </div>
   );
 
@@ -399,8 +398,8 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         </div>
       </div>
 
-      <div className={`grid grid-cols-12 ${isDense ? 'gap-5' : 'gap-8'} flex-1 print:block`}>
-        <div className={`col-span-4 ${isDense ? 'space-y-4' : 'space-y-6'} print:float-left print:w-[32%]`}>
+      <div className={`grid grid-cols-12 ${isDense ? 'gap-5' : 'gap-8'} flex-1`}>
+        <div className={`col-span-4 ${isDense ? 'space-y-4' : 'space-y-6'}`}>
           {renderPhoto(isDense ? "w-24 h-24 rounded-2xl overflow-hidden bg-[#f3f4f6]" : "w-32 h-32 rounded-2xl overflow-hidden bg-[#f3f4f6]", "w-full h-full object-cover grayscale")}
 
           {personalInfo.summary && (
@@ -453,7 +452,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           )}
         </div>
 
-        <div className={`col-span-8 ${isDense ? 'space-y-5' : 'space-y-8'} print:float-right print:w-[65%]`}>
+        <div className={`col-span-8 ${isDense ? 'space-y-5' : 'space-y-8'}`}>
           {experience.length > 0 && (
             <div>
               <h2 className={`${t.sidebarSmall} font-bold text-[#9ca3af] uppercase mb-4 tracking-wider page-break-avoid`}>Experiência</h2>
@@ -498,19 +497,17 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           ))}
         </div>
       </div>
-      <div className="clear-both hidden print:block w-full h-px"></div>
     </div>
   );
 
   const renderCreative = () => (
-    <div className="relative font-sans text-[#1f2937] bg-[#ffffff] w-[794px] min-h-[1122px] shadow-lg rounded-sm mx-auto flex print:block print:max-w-full print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible print:bg-[linear-gradient(to_right,#374151_35%,transparent_35%)]">
-      {/* Absolute background covering left sidebar */}
-      <div className="absolute left-0 top-0 bottom-0 w-[35%] bg-[#374151] z-0 overflow-hidden print:hidden">
+    <div className="relative font-sans text-[#1f2937] bg-[#ffffff] w-[794px] min-h-[1122px] shadow-lg rounded-sm mx-auto flex print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible">
+      
+      <div className={`relative z-10 w-[35%] bg-[#374151] text-[#ffffff] ${t.p} flex flex-col shrink-0 overflow-hidden`}>
+        {/* Absolute decorative backgrounds covering left sidebar */}
         <div className="absolute top-0 left-[-20%] w-[140%] h-64 bg-[#fbbf24] z-0 opacity-10 print:hidden" style={{ transform: 'rotate(-10deg) translateY(-20px)' }}></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-48 h-48 bg-[#ffffff] opacity-[0.03] print:hidden" style={{ transform: 'rotate(45deg)' }}></div>
-      </div>
-      
-      <div className={`relative z-10 w-[35%] text-[#ffffff] ${t.p} flex flex-col print:float-left print:bg-[transparent]`}>
+
         <div className="relative z-10 flex flex-col pt-2">
           {renderPhoto(isDense ? "w-24 h-24 rounded-full overflow-hidden border-[3px] border-[#fbbf24] mx-auto mb-4" : "w-32 h-32 rounded-full overflow-hidden border-[3px] border-[#fbbf24] mx-auto mb-6")}
         </div>
@@ -610,7 +607,7 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
         ))}
       </div>
       
-      <div className={`relative z-10 w-[65%] pl-6 pr-8 pt-8 pb-6 flex flex-col print:float-right`}>
+      <div className={`relative z-10 w-[65%] pl-6 pr-8 pt-8 pb-6 flex flex-col shrink-0`}>
         {/* Geometric shapes pattern on the top right */}
         <div className="absolute top-0 right-0 z-0 overflow-hidden pointer-events-none">
            <svg width="200" height="200" viewBox="0 0 250 250" xmlns="http://www.w3.org/2000/svg">
@@ -703,7 +700,6 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
           )}
         </div>
       </div>
-      <div className="clear-both hidden print:block w-full h-px"></div>
     </div>
   );
 
