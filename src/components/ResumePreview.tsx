@@ -138,8 +138,10 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
   const renderModern = () => (
     <div className="relative font-sans text-[#1f2937] bg-[#ffffff] w-[794px] min-h-[1122px] shadow-lg rounded-sm mx-auto flex print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible">
       
+      <div className="absolute top-0 bottom-0 left-0 w-[30%] bg-[#1e293b] print:block z-0"></div>
+
       {/* Sidebar */}
-      <div className={`relative z-10 w-[30%] bg-[#1e293b] text-[#ffffff] ${t.p} flex flex-col shrink-0`}>
+      <div className={`relative z-10 w-[30%] text-[#ffffff] ${t.p} flex flex-col shrink-0`}>
         {renderPhoto(isDense ? "w-24 h-24 rounded-full overflow-hidden border-4 border-[#475569] mx-auto mb-5" : "w-32 h-32 rounded-full overflow-hidden border-4 border-[#475569] mx-auto mb-6")}
         
         <div className={`${t.mb} ${t.space} relative z-10`}>
@@ -522,7 +524,9 @@ export const ResumePreview = forwardRef<HTMLDivElement, ResumePreviewProps>(({ d
   const renderCreative = () => (
     <div className="relative font-sans text-[#1f2937] bg-[#ffffff] w-[794px] min-h-[1122px] shadow-lg rounded-sm mx-auto flex print:w-[100%] print:shadow-none print:rounded-none print:overflow-visible">
       
-      <div className={`relative z-10 w-[35%] bg-[#374151] text-[#ffffff] ${t.p} flex flex-col shrink-0 overflow-hidden`}>
+      <div className="absolute top-0 bottom-0 left-0 w-[35%] bg-[#374151] print:block z-0"></div>
+
+      <div className={`relative z-10 w-[35%] text-[#ffffff] ${t.p} flex flex-col shrink-0 overflow-hidden`}>
         {/* Absolute decorative backgrounds covering left sidebar */}
         <div className="absolute top-0 left-[-20%] w-[140%] h-64 bg-[#fbbf24] z-0 opacity-10 print:hidden" style={{ transform: 'rotate(-10deg) translateY(-20px)' }}></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-48 h-48 bg-[#ffffff] opacity-[0.03] print:hidden" style={{ transform: 'rotate(45deg)' }}></div>
