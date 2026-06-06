@@ -180,7 +180,7 @@ export const checkPremiumPrivilege = async (email: string | null): Promise<boole
 export const loadResumes = async (userId: string): Promise<ResumeDoc[]> => {
   const path = `users/${userId}/resumes`;
   try {
-    const q = query(collection(db, 'users', userId, 'resumes'), where('ownerId', '==', userId));
+    const q = collection(db, 'users', userId, 'resumes');
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as ResumeDoc));
   } catch (error) {
@@ -208,7 +208,7 @@ export const saveCoverLetter = async (userId: string, id: string, data: ResumeDa
 export const loadCoverLetters = async (userId: string): Promise<ResumeDoc[]> => {
   const path = `users/${userId}/cover_letters`;
   try {
-    const q = query(collection(db, 'users', userId, 'cover_letters'), where('ownerId', '==', userId));
+    const q = collection(db, 'users', userId, 'cover_letters');
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as ResumeDoc));
   } catch (error) {

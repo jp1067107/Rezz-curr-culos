@@ -40,6 +40,12 @@
         "$ref": "#/entities/resume"
       },
       "description": "A user's saved resumes."
+    },
+    "/users/{userId}/cover_letters/{coverLetterId}": {
+      "schema": {
+        "$ref": "#/entities/resume"
+      },
+      "description": "A user's saved cover letters."
     }
   }
 }
