@@ -53,7 +53,8 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  // Don't throw by default to prevent app crashing on transient errors
+  // let the caller handle the empty throw or catch if they need to
 }
 
 // Ensure the connection is valid
@@ -180,7 +181,7 @@ export const checkPremiumPrivilege = async (email: string | null): Promise<boole
 export const loadResumes = async (userId: string): Promise<ResumeDoc[]> => {
   const path = `users/${userId}/resumes`;
   try {
-    const q = collection(db, 'users', userId, 'resumes');
+    const q = query(collection(db, 'users', userId, 'resumes'), where('ownerId', '==', userId));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as ResumeDoc));
   } catch (error) {
@@ -208,7 +209,7 @@ export const saveCoverLetter = async (userId: string, id: string, data: ResumeDa
 export const loadCoverLetters = async (userId: string): Promise<ResumeDoc[]> => {
   const path = `users/${userId}/cover_letters`;
   try {
-    const q = collection(db, 'users', userId, 'cover_letters');
+    const q = query(collection(db, 'users', userId, 'cover_letters'), where('ownerId', '==', userId));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as ResumeDoc));
   } catch (error) {

@@ -2238,28 +2238,26 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                         {resume.updatedAt ? new Date(typeof resume.updatedAt === 'string' ? resume.updatedAt : (typeof resume.updatedAt.toMillis === 'function' ? resume.updatedAt.toMillis() : (resume.updatedAt.seconds ? resume.updatedAt.seconds * 1000 : resume.updatedAt))).toLocaleDateString() : 'Recente'}
                       </span>
                       <div className="flex gap-2">
-                        {user?.email === 'jp1067107@gmail.com' && (
-                          <button
-                            onClick={async () => {
-                              if (window.confirm("Certeza que deseja excluir este currículo?")) {
-                                if (user) {
-                                  await deleteResume(user.uid, resume.id);
-                                  setResumesList(prev => prev.filter(r => r.id !== resume.id));
-                                }
-                                setLocalPurchasedResumes(prev => prev.filter(r => r.id !== resume.id));
-                                if (currentResumeId === resume.id) {
-                                  const initial = getInitialData();
-                                  setData(initial);
-                                  setCurrentResumeId(initial.id || uuidv4());
-                                }
+                        <button
+                          onClick={async () => {
+                            if (window.confirm("Certeza que deseja excluir este currículo?")) {
+                              if (user) {
+                                await deleteResume(user.uid, resume.id);
+                                setResumesList(prev => prev.filter(r => r.id !== resume.id));
                               }
-                            }}
-                            className="p-2 bg-red-900/40 hover:bg-red-800 text-red-200 rounded-lg transition-all"
-                            title="Excluir"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
+                              setLocalPurchasedResumes(prev => prev.filter(r => r.id !== resume.id));
+                              if (currentResumeId === resume.id) {
+                                const initial = getInitialData();
+                                setData(initial);
+                                setCurrentResumeId(initial.id || uuidv4());
+                              }
+                            }
+                          }}
+                          className="p-2 bg-red-900/40 hover:bg-red-800 text-red-200 rounded-lg transition-all"
+                          title="Excluir"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => handleLoadResume(resume)}
                           className={`px-4 py-2 ${currentResumeId === resume.id ? 'bg-slate-700 text-slate-300' : 'bg-indigo-600 hover:bg-indigo-500 text-white'} text-sm font-bold rounded-lg transition-all`}
@@ -2379,28 +2377,26 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                         {letter.updatedAt ? new Date(typeof letter.updatedAt === 'string' ? letter.updatedAt : (typeof letter.updatedAt.toMillis === 'function' ? letter.updatedAt.toMillis() : (letter.updatedAt.seconds ? letter.updatedAt.seconds * 1000 : letter.updatedAt))).toLocaleDateString() : 'Recente'}
                       </span>
                       <div className="flex gap-2">
-                        {user?.email === 'jp1067107@gmail.com' && (
-                          <button
-                            onClick={async () => {
-                              if (window.confirm("Certeza que deseja excluir este carta?")) {
-                                if (user) {
-                                  await deleteCoverLetter(user.uid, letter.id);
-                                  setCoverLettersList(prev => prev.filter(r => r.id !== letter.id));
-                                }
-                                setLocalPurchasedCoverLetters(prev => prev.filter(r => r.id !== letter.id));
-                                if (currentCoverLetterId === letter.id) {
-                                  const initial = getInitialData();
-                                  setData(initial);
-                                  setCurrentCoverLetterId(initial.id || uuidv4());
-                                }
+                        <button
+                          onClick={async () => {
+                            if (window.confirm("Certeza que deseja excluir este carta?")) {
+                              if (user) {
+                                await deleteCoverLetter(user.uid, letter.id);
+                                setCoverLettersList(prev => prev.filter(r => r.id !== letter.id));
                               }
-                            }}
-                            className="p-2 bg-red-900/40 hover:bg-red-800 text-red-200 rounded-lg transition-all"
-                            title="Excluir"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
+                              setLocalPurchasedCoverLetters(prev => prev.filter(r => r.id !== letter.id));
+                              if (currentCoverLetterId === letter.id) {
+                                const initial = getInitialData();
+                                setData(initial);
+                                setCurrentCoverLetterId(initial.id || uuidv4());
+                              }
+                            }
+                          }}
+                          className="p-2 bg-red-900/40 hover:bg-red-800 text-red-200 rounded-lg transition-all"
+                          title="Excluir"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => handleLoadCoverLetter(letter)}
                           className={`px-4 py-2 ${currentCoverLetterId === letter.id ? 'bg-slate-700 text-slate-300' : 'bg-indigo-600 hover:bg-indigo-500 text-white'} text-sm font-bold rounded-lg transition-all`}
