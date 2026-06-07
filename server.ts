@@ -3,8 +3,23 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import * as dotenv from "dotenv";
 import fs from "fs";
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 
 dotenv.config();
+
+try {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    initializeApp({
+      credential: cert(serviceAccount)
+    });
+  } else {
+    initializeApp();
+  }
+} catch (e) {
+  console.log("Firebase admin initialization failed", e);
+}
 
 let systemDefaultKey = "";
 try {
@@ -20,6 +35,43 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json({ limit: '50mb' }));
+
+  // Cakto Webhook Endpoint
+  app.post("/api/webhook/cakto", async (req, res) => {
+    try {
+      const data = req.body;
+      console.log("Webhook Cakto recebido:", JSON.stringify(data, null, 2));
+
+      // Cakto envia os dados do cliente e da transação. 
+      // Dependendo da estrutura exata (vamos cobrir as mais comuns para o caso de aprovação):
+      const email = data?.customer?.email || data?.data?.customer?.email;
+      const status = data?.status || data?.data?.status;
+      const event = data?.event;
+
+      const isApproved = status === 'approved' || status === 'paid' || event === 'payment.approved' || event === 'transaction.approved';
+
+      if (email && isApproved) {
+         console.log(`Liberando acesso premium via Webhook para: ${email}`);
+         try {
+            const db = getFirestore();
+            await db.collection('premium_accounts').doc(email).set({
+               active: true,
+               updatedAt: new Date().toISOString(),
+               source: 'cakto_webhook'
+            }, { merge: true });
+            console.log(`Sucesso ao salvar premium para: ${email}`);
+         } catch(dbErr) {
+            console.error("Erro ao salvar no Firestore (você configurou o FIREBASE_SERVICE_ACCOUNT no painel?):", dbErr);
+         }
+         return res.status(200).json({ received: true });
+      }
+
+      return res.status(200).json({ received: true, ignored: true, message: "Não foi um evento de aprovação ou o e-mail não estava presente." });
+    } catch(e) {
+      console.error("Erro no webhook:", e);
+      return res.status(500).json({ error: "Server error" });
+    }
+  });
 
   app.post("/api/anthropic", async (req, res) => {
     try {

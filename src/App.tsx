@@ -9,7 +9,7 @@ import { ResumeForm } from './components/ResumeForm';
 import { ResumePreview } from './components/ResumePreview';
 import { CoverLetterGenerator } from './components/CoverLetterGenerator';
 import { CoverLetterPreview } from './components/CoverLetterPreview';
-import { extractResumeDataFromFiles, extractInternalResumeData } from './services/aiService';
+import { extractInternalResumeData } from './services/aiService';
 import { auth, signInWithGoogle, signOut, saveResume, loadResumes, deleteResume, saveCoverLetter, loadCoverLetters, deleteCoverLetter, ResumeDoc, checkPremiumPrivilege, createSharedDraft, getSharedDraft } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Download, Sparkles, Loader2, Eye, Edit2, Wand2, X, LogIn, LogOut, Save, FolderOpen, CreditCard, CheckCircle, UserCircle, DollarSign, Share2, Link as LinkIcon, ArrowLeft, MonitorDown, Trash2, Highlighter, BarChart, Upload, Settings } from 'lucide-react';
@@ -97,7 +97,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 }
 
 function MainApp() {
-  const [appState, setAppStateInternal] = useState<'onboarding' | 'ai-info' | 'ai-info-cover-letter' | 'editor' | 'payment-success' | 'affiliate' | 'cover-letter' | 'my-cover-letters' | 'my-resumes' | 'purchased-view'>(() => {
+  const [appState, setAppStateInternal] = useState<'onboarding' | 'editor' | 'payment-success' | 'affiliate' | 'cover-letter' | 'my-cover-letters' | 'my-resumes' | 'purchased-view'>(() => {
     return (window.history.state?.appState) || 'onboarding';
   });
 
@@ -175,7 +175,7 @@ function MainApp() {
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
   
   const [user, setUser] = useState<User | null>(null);
-  const [isPremium, setIsPremium] = useState(false);
+  const [isPremium, setIsPremium] = useState(() => localStorage.getItem('rezz_premium_unlocked') === 'true');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
@@ -380,13 +380,8 @@ function MainApp() {
     }
 
     if (params.get('payment') === 'success') {
-      setUnlockedConfigs(prev => {
-        let newConfigs = [...prev, signature];
-        if (params.get('cover_letter') === 'true' || params.get('order_bump') === 'cover_letter') {
-          newConfigs.push(`${currentResumeId}_cover_letter`);
-        }
-        return [...new Set(newConfigs)];
-      });
+      localStorage.setItem('rezz_premium_unlocked', 'true');
+      setIsPremium(true);
       
       // Save locally so it appears in "My Resumes" even without login
       setLocalPurchasedResumes(prev => {
@@ -416,7 +411,7 @@ function MainApp() {
   // However, the old `localStorage` check might run again. Since we `removeItem`, it's safe.
 
   const getCheckoutUrl = () => {
-    let baseUrl = import.meta.env.VITE_CAKTO_CHECKOUT_URL || "https://pay.cakto.com.br/";
+    let baseUrl = "https://pay.cakto.com.br/335j5qw_882544";
     const affCode = localStorage.getItem('cakto_aff_code');
     
     if (affCode) {
@@ -437,7 +432,8 @@ function MainApp() {
       setUser(currentUser);
       if (currentUser) {
         const premiumStatus = await checkPremiumPrivilege(currentUser.email);
-        setIsPremium(premiumStatus);
+        const hasLocalPremium = localStorage.getItem('rezz_premium_unlocked') === 'true';
+        setIsPremium(premiumStatus || hasLocalPremium);
         // Sync any local purchased resumes to the cloud now that we are logged in
         try {
           const localStr = localStorage.getItem('rezz_local_purchased');
@@ -549,18 +545,7 @@ function MainApp() {
     setData(doc.data);
     setIsPurchasedEditing(false);
     setLastEnhancedLength(null);
-    
-    // Check if it's purchased
-    const signaturePrefix = `${doc.id}_`;
-    const isPurchased = unlockedConfigs.some(cfg => cfg.startsWith(signaturePrefix));
-    
-    if (isPurchased) {
-      const purchasedTemplate = unlockedConfigs.find(cfg => cfg.startsWith(signaturePrefix))?.split('_')[1] as TemplateType;
-      if (purchasedTemplate) setTemplate(purchasedTemplate);
-      setAppState('purchased-view');
-    } else {
-      setAppState('editor');
-    }
+    setAppState('editor');
   };
 
   const handleLoadCoverLetter = (doc: ResumeDoc) => {
@@ -585,6 +570,11 @@ function MainApp() {
   const handleDownloadClick = async () => {
     if (!isResumeWellFormed()) {
       setIsInsufficientDataModalOpen(true);
+      return;
+    }
+
+    if (!isPremium) {
+      setIsPaymentModalOpen(true);
       return;
     }
 
@@ -737,6 +727,10 @@ function MainApp() {
   };
 
   const generateCoverLetterPdf = async (isDraft: boolean = false) => {
+    if (!isDraft && !isPremium) {
+      setIsPaymentModalOpen(true);
+      return;
+    }
     if (!coverLetterRef.current) return;
     await document.fonts.ready;
     setIsProcessing(true);
@@ -1013,12 +1007,7 @@ function MainApp() {
         setCurrentResumeId(data.id);
         setAppState('editor');
       } else {
-        // Fallback to exact AI extraction for images or generic PDFs
-        const exactData = await extractResumeDataFromFiles(files, true);
-        if (!exactData.id) exactData.id = uuidv4();
-        setData(exactData);
-        setCurrentResumeId(exactData.id);
-        setAppState('editor');
+        throw new Error('Este arquivo não foi gerado pelo Rezz, ou os metadados foram perdidos. Apenas arquivos exportados pela plataforma podem ser reimportados nesta versão.');
       }
     } catch (error: any) {
       console.error('Error recovering internal file:', error);
@@ -1045,12 +1034,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
         setCurrentCoverLetterId(data.id);
         setAppState('cover-letter');
       } else {
-        // Fallback to exact AI extraction for images or generic PDFs
-        const exactData = await extractResumeDataFromFiles(files, true);
-        if (!exactData.id) exactData.id = uuidv4();
-        setData(exactData);
-        setCurrentCoverLetterId(exactData.id);
-        setAppState('cover-letter');
+        throw new Error('Este arquivo não foi gerado pelo Rezz, ou os metadados foram perdidos. Apenas arquivos exportados pela plataforma podem ser reimportados nesta versão.');
       }
     } catch (error: any) {
       console.error('Error recovering internal file:', error);
@@ -1063,55 +1047,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
     }
   };
 
-  const [isPrompting, setIsPrompting] = useState(false);
-  const [dataBeforeAI, setDataBeforeAI] = useState<ResumeData | null>(null);
-  const [isEvaluating, setIsEvaluating] = useState(false);
-  const [evaluationResult, setEvaluationResult] = useState<string | null>(null);
-  const [lastEnhancedLength, setLastEnhancedLength] = useState<number | null>(null);
-  
-  const [isAiEditModalOpen, setIsAiEditModalOpen] = useState(false);
-  const [aiEditPrompt, setAiEditPrompt] = useState('');
-  const [aiEditFiles, setAiEditFiles] = useState<FileList | null>(null);
-  const aiEditFileInputRef = useRef<HTMLInputElement>(null);
-  const [isAiEditing, setIsAiEditing] = useState(false);
 
-  const handleEvaluateFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-    
-    setIsEvaluating(true);
-    
-    try {
-      const resumeData = await extractResumeDataFromFiles(files);
-      const isRezzApp = (resumeData as any)._isRezzApp;
-      
-      const { evaluateResume } = await import('./services/aiService');
-      const result = await evaluateResume(resumeData, isRezzApp ? 'app' : 'external');
-      setEvaluationResult(result);
-    } catch (error) {
-      console.error('Error in evaluate file process:', error);
-      alert('Houve um erro ao processar o arquivo para avaliação. Formato não suportado ou instabilidade na IA.');
-    } finally {
-      setIsEvaluating(false);
-      // Reset input
-      if (evaluateFileInputRef.current) {
-        evaluateFileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const handleEvaluateResume = async () => {
-    try {
-      setIsEvaluating(true);
-      const { evaluateResume } = await import('./services/aiService');
-      const result = await evaluateResume(data, 'app');
-      setEvaluationResult(result);
-    } catch (err: any) {
-      alert("Erro ao avaliar currículo");
-    } finally {
-      setIsEvaluating(false);
-    }
-  };
 
   React.useEffect(() => {
     const updateScale = () => {
@@ -1146,117 +1082,9 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
     };
   }, [mobileView, data, template]);
 
-  const handleAiCoverLetterImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
 
-    try {
-      setIsProcessing(true);
-      const extractedData = await extractResumeDataFromFiles(files);
-      setData(extractedData);
-      const newResumeId = uuidv4();
-      setCurrentCoverLetterId(newResumeId);
-      setLastEnhancedLength(null);
-      setAppState('cover-letter');
-      setMobileView('preview');
-      autoSaveCoverLetterIfAuthenticated(extractedData, newResumeId);
-    } catch (error: any) {
-      alert(error.message || 'Falha ao extrair dados. Por favor, insira suas informações manualmente.');
-    } finally {
-      setIsProcessing(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
 
-  const handleAiImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
 
-    try {
-      setIsProcessing(true);
-      const extractedData = await extractResumeDataFromFiles(files);
-      setData(extractedData);
-      const newResumeId = uuidv4();
-      setCurrentResumeId(newResumeId);
-      setLastEnhancedLength(null);
-      setAppState('editor');
-      setMobileView('preview');
-      autoSaveIfAuthenticated(extractedData, newResumeId);
-    } catch (error: any) {
-      alert(error.message || 'Falha ao extrair dados. Por favor, insira suas informações manualmente.');
-    } finally {
-      setIsProcessing(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const handleToggleHighlights = async () => {
-    try {
-      setIsPrompting(true);
-      if (!data.keywords || data.keywords.length === 0) {
-        const { extractKeywordsFromResume } = await import('./services/aiService');
-        const keywords = await extractKeywordsFromResume(data);
-        const newData = { ...data, keywords, showHighlights: !data.showHighlights };
-        setData(newData);
-        autoSaveIfAuthenticated(newData, currentResumeId);
-      } else {
-        setData({ ...data, showHighlights: !data.showHighlights });
-      }
-    } catch (err: any) {
-      alert("Erro ao destacar palavras-chave");
-    } finally {
-      setIsPrompting(false);
-    }
-  };
-
-  const handleEnhanceWithAI = async () => {
-    if (dataBeforeAI) {
-      setData(dataBeforeAI);
-      setDataBeforeAI(null);
-      setLastEnhancedLength(null);
-      return;
-    }
-
-    try {
-      setIsPrompting(true); // We can still use isPrompting to show the loading state
-      const { enhanceResumeData } = await import('./services/aiService');
-      const newData = await enhanceResumeData(data);
-      setDataBeforeAI(data);
-      setData(newData);
-      setLastEnhancedLength(JSON.stringify(newData).length);
-      autoSaveIfAuthenticated(newData, currentResumeId);
-    } catch (error: any) {
-      alert(error.message || 'Falha ao aprimorar currículo com IA.');
-    } finally {
-      setIsPrompting(false);
-    }
-  };
-
-  const handleAiEditSubmit = async () => {
-    if (!aiEditPrompt.trim()) return;
-    try {
-      setIsAiEditing(true);
-      const { editResumeWithAI } = await import('./services/aiService');
-      const newData = await editResumeWithAI(data, aiEditPrompt, aiEditFiles);
-      setData(newData);
-      setIsAiEditModalOpen(false);
-      setAiEditPrompt('');
-      setAiEditFiles(null);
-      autoSaveIfAuthenticated(newData, currentResumeId);
-    } catch (error: any) {
-      alert(error.message || 'Falha ao editar currículo com IA.');
-    } finally {
-      setIsAiEditing(false);
-    }
-  };
-
-  const returnToEditor = () => {
-    setAppState(unlockedConfigs.some(cfg => cfg.startsWith(`${currentResumeId}_`)) ? 'purchased-view' : 'editor');
-  };
 
   const templateNames = {
     modern: 'Moderno',
@@ -1302,46 +1130,8 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
     data.skills?.length > 0
   );
 
-  const currentDataLength = JSON.stringify(data).length;
-  // Can enhance if never enhanced, or if user removed a significant amount of text
-  const canEnhance = hasActiveResume && (lastEnhancedLength === null || currentDataLength < lastEnhancedLength - 100);
-
   return (
     <div className="w-full min-h-screen bg-slate-900 flex flex-col">
-      {/* Evaluation Results Modal */}
-      {evaluationResult && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm shadow-2xl z-[100] flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-white/10 p-6 sm:p-8 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col relative animate-in fade-in zoom-in-95 duration-200">
-            <button 
-              onClick={() => setEvaluationResult(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-
-            <div className="flex items-center gap-3 mb-6 shrink-0">
-              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
-                <BarChart className="w-6 h-6" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-white">Análise do Currículo</h2>
-                <p className="text-slate-400 text-sm">Feedback construtivo com Inteligência Artificial.</p>
-              </div>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto mb-6 pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-               <div className="prose prose-invert prose-emerald max-w-none text-sm leading-relaxed whitespace-pre-line break-words">
-                 <ReactMarkdown>{evaluationResult}</ReactMarkdown>
-               </div>
-            </div>
-            
-            <div className="shrink-0 flex justify-end">
-               <button onClick={() => setEvaluationResult(null)} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">Entendido</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {appState === 'onboarding' && (
         <div key="onboarding" className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black text-slate-100 flex flex-col font-sans relative overflow-hidden">
           {/* Header */}
@@ -1420,53 +1210,6 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
                 
-                {/* Criar Novo (IA) - Featured */}
-                <button
-                  onClick={() => setAppState('ai-info')}
-                  className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row items-center text-center sm:text-left gap-4 sm:gap-6 p-6 sm:p-8 bg-gradient-to-br from-slate-800/80 to-slate-800/40 hover:from-slate-700/80 hover:to-slate-800/80 border border-white/10 hover:border-purple-500/40 rounded-3xl transition-all group shadow-xl"
-                >
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-400 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all shrink-0">
-                    <Sparkles className="w-8 h-8 sm:w-10 sm:h-10" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 flex flex-col sm:flex-row items-center gap-3">
-                      Criar via Inteligência Artificial
-                    </h2>
-                    <p className="text-slate-400 text-sm sm:text-base">
-                      Faça o upload do documento bruto do cliente para preenchimento rápido via IA conservadora.
-                    </p>
-                  </div>
-                  <div className="hidden sm:flex ml-auto pl-4">
-                     <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-purple-500/20 transition-all">
-                       <ArrowLeft className="w-5 h-5 text-slate-400 group-hover:text-purple-400 rotate-180" />
-                     </div>
-                  </div>
-                </button>
-
-                
-                {/* Criar Carta via IA */}
-                <button
-                  onClick={() => setAppState('ai-info-cover-letter')}
-                  className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row items-center text-center sm:text-left gap-4 sm:gap-6 p-6 sm:p-8 bg-gradient-to-br from-slate-800/80 to-slate-800/40 hover:from-slate-700/80 hover:to-slate-800/80 border border-white/10 hover:border-purple-500/40 rounded-3xl transition-all group shadow-xl"
-                >
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-400 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all shrink-0">
-                    <Sparkles className="w-8 h-8 sm:w-10 sm:h-10" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 flex flex-col sm:flex-row items-center gap-3">
-                      Criar Carta via Inteligência Artificial
-                    </h2>
-                    <p className="text-slate-400 text-sm sm:text-base">
-                      Faça o upload do documento bruto do cliente para preenchimento rápido via IA conservadora.
-                    </p>
-                  </div>
-                  <div className="hidden sm:flex ml-auto pl-4">
-                     <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-purple-500/20 transition-all">
-                       <ArrowLeft className="w-5 h-5 text-slate-400 group-hover:text-purple-400 rotate-180" />
-                     </div>
-                  </div>
-                </button>
-
                 {/* Editor Manual */}
                 <button
                   onClick={() => {
@@ -1477,7 +1220,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                   <div className="w-14 h-14 bg-slate-700/50 text-slate-300 group-hover:bg-slate-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-all">
                     <Edit2 className="w-7 h-7" />
                   </div>
-                  <h2 className="text-lg sm:text-xl font-bold text-white mb-2">Novo Manualmente</h2>
+                  <h2 className="text-lg sm:text-xl font-bold text-white mb-2">Novo Currículo</h2>
                   <p className="text-slate-400 text-sm">
                     Inicie o editor e preencha você mesmo. O rascunho fica salvo localmente no navegador em tempo real.
                   </p>
@@ -1486,11 +1229,11 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                 {/* Meus Currículos */}
                 <button
                   onClick={() => {
-                    if (!user && purchasedResumes.length === 0) {
-                       signInWithGoogle().then(() => setAppState('my-resumes'));
-                    } else {
-                       setAppState('my-resumes');
-                    }
+                      if (!user && purchasedResumes.length === 0) {
+                         signInWithGoogle().then(() => setAppState('my-resumes'));
+                      } else {
+                         setAppState('my-resumes');
+                      }
                   }}
                   className="flex flex-col text-center sm:text-left items-center sm:items-start p-6 sm:p-8 bg-slate-800/40 hover:bg-slate-800/80 border border-white/5 hover:border-indigo-500/30 rounded-3xl transition-all group h-full"
                 >
@@ -1513,11 +1256,11 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                 {/* Minhas Cartas */}
                 <button
                   onClick={() => {
-                    if (!user && localPurchasedCoverLetters.length === 0) {
-                       signInWithGoogle().then(() => setAppState('my-cover-letters'));
-                    } else {
-                       setAppState('my-cover-letters');
-                    }
+                      if (!user && localPurchasedCoverLetters.length === 0) {
+                         signInWithGoogle().then(() => setAppState('my-cover-letters'));
+                      } else {
+                         setAppState('my-cover-letters');
+                      }
                   }}
                   className="flex flex-col text-center sm:text-left items-center sm:items-start p-6 sm:p-8 bg-slate-800/40 hover:bg-slate-800/80 border border-white/5 hover:border-purple-500/30 rounded-3xl transition-all group h-full"
                 >
@@ -1536,100 +1279,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                     Crie e gerencie cartas de apresentação conectadas aos perfis dos seus clientes.
                   </p>
                 </button>
-
-                {/* Avaliar com IA - Featured */}
-                <button
-                  onClick={() => {
-                    if (evaluateFileInputRef.current) {
-                      evaluateFileInputRef.current.click();
-                    }
-                  }}
-                  disabled={isEvaluating}
-                  className={`col-span-1 md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row items-center justify-between text-center sm:text-left p-6 sm:p-8 bg-sky-900/10 hover:bg-sky-900/20 border border-sky-500/10 hover:border-sky-500/30 rounded-3xl transition-all group gap-4 mt-2`}
-                >
-                  <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 bg-sky-500/10 rounded-2xl flex items-center justify-center text-sky-400 group-hover:scale-110 group-hover:bg-sky-500/20 transition-all shrink-0">
-                      {isEvaluating ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" /> : <BarChart className="w-7 h-7 sm:w-8 sm:h-8" />}
-                    </div>
-                    <div>
-                      <h3 className="text-lg sm:text-xl font-bold text-sky-50 mb-1">Avaliar Currículo com IA</h3>
-                      <p className="text-sky-500/70 text-sm font-medium">
-                        {isEvaluating ? 'Avaliando, por favor aguarde...' : 'Envie seu currículo em PDF ou foto e receba feedback detalhado'}
-                      </p>
-                    </div>
-                  </div>
-                  <ArrowLeft className="hidden sm:block w-5 h-5 text-sky-500/50 rotate-180 group-hover:translate-x-1 transition-all" />
-                </button>
               </div>
-            </div>
-          </div>
-          <input 
-            type="file" 
-            ref={evaluateFileInputRef} 
-            onChange={handleEvaluateFileChange} 
-            accept="application/pdf,image/*" 
-            className="hidden" 
-          />
-        </div>
-      )}
-
-      {appState === 'ai-info' && (
-        <div key="ai-info" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
-          <div className="max-w-3xl bg-slate-800/50 border border-white/10 p-8 sm:p-12 rounded-3xl shadow-2xl text-center space-y-8">
-            <div className="mx-auto w-16 h-16 bg-purple-500/20 rounded-2xl flex items-center justify-center mb-6 text-purple-400 border border-purple-500/30">
-              <Wand2 className="w-8 h-8" />
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
-              Tecnologia Pura no seu Currículo
-            </h2>
-            <div className="text-lg text-slate-300 leading-relaxed max-w-xl mx-auto text-left space-y-4">
-              <p className="text-center mb-6">A nossa IA transforma qualquer foto ou currículo antigo em material de <strong className="text-white">altíssimo nível</strong>.</p>
-              <ul className="space-y-4">
-                <li className="flex items-start gap-3">
-                  <span className="text-purple-400 mt-1">✓</span>
-                  <span><strong>Reescrita Profissional:</strong> Linguagem corporativa persuasiva que destaca seus resultados e liderança.</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-purple-400 mt-1">✓</span>
-                  <span><strong>Aprimoramento Automático:</strong> Organiza rascunhos rasos, inferindo e enriquecendo os pontos mais fracos.</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-purple-400 mt-1">✓</span>
-                  <span><strong>Super Simples:</strong> Basta enviar um PDF ou uma simples foto tirada pelo seu celular.</span>
-                </li>
-              </ul>
-            </div>
-            <div className="pt-6 flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <input 
-                type="file" 
-                multiple
-                ref={fileInputRef} 
-                onChange={handleAiImport} 
-                onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
-                accept="application/pdf,image/*" 
-                className="hidden" 
-              />
-              <button
-                onClick={() => {
-                  if (fileInputRef.current) {
-                    fileInputRef.current.click();
-                  } else {
-                    setTimeout(() => fileInputRef.current?.click(), 100);
-                  }
-                }}
-                disabled={isProcessing}
-                className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-purple-600 shadow-xl shadow-purple-600/30 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-lg font-bold rounded-2xl transition-all"
-              >
-                {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5 rotate-180" />}
-                {isProcessing ? "Analisando Arquivo(s)..." : "Enviar Arquivo(s)"}
-              </button>
-              <button
-                onClick={() => setAppState('onboarding')}
-                disabled={isProcessing}
-                className="text-slate-400 hover:text-white font-medium text-sm transition-colors py-2 px-4"
-              >
-                Voltar
-              </button>
             </div>
           </div>
         </div>
@@ -1649,10 +1299,10 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
             </p>
             <div className="pt-8 flex flex-col sm:flex-row justify-center gap-4">
               <button
-                onClick={() => setAppState('purchased-view')}
+                onClick={() => setAppState('my-resumes')}
                 className="flex items-center justify-center gap-3 px-8 py-4 bg-emerald-600 shadow-xl shadow-emerald-600/30 hover:bg-emerald-500 text-white text-lg font-bold rounded-2xl transition-all w-full sm:w-auto"
               >
-                Acessar Meu Currículo
+                Acessar Plataforma
               </button>
               {hasCoverLetter && (
                 <button
@@ -1750,184 +1400,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
         </div>
       )}
 
-      
-      
-{appState === 'ai-info-cover-letter' && (
-        <div key="ai-info-cover-letter" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
-          <div className="max-w-3xl bg-slate-800/50 border border-white/10 p-8 sm:p-12 rounded-3xl shadow-2xl text-center space-y-8">
-            <div className="mx-auto w-16 h-16 bg-purple-500/20 rounded-2xl flex items-center justify-center mb-6 text-purple-400 border border-purple-500/30">
-              <Wand2 className="w-8 h-8" />
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
-              Tecnologia Pura na sua Carta
-            </h2>
-            <div className="text-lg text-slate-300 leading-relaxed max-w-xl mx-auto text-left space-y-4">
-              <p className="text-center mb-6">A nossa IA transforma qualquer foto ou currículo antigo em material de <strong className="text-white">altíssimo nível</strong>.</p>
-              <ul className="space-y-4">
-                <li className="flex items-start gap-3">
-                  <span className="text-purple-400 mt-1">✓</span>
-                  <span><strong>Reescrita Profissional:</strong> Linguagem corporativa persuasiva que destaca seus resultados e liderança.</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-purple-400 mt-1">✓</span>
-                  <span><strong>Aprimoramento Automático:</strong> Organiza rascunhos rasos, inferindo e enriquecendo os pontos mais fracos.</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-purple-400 mt-1">✓</span>
-                  <span><strong>Super Simples:</strong> Basta enviar um PDF ou uma simples foto tirada pelo seu celular.</span>
-                </li>
-              </ul>
-            </div>
-            <div className="pt-6 flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <input 
-                type="file" 
-                multiple
-                ref={fileInputRef} 
-                onChange={handleAiCoverLetterImport} 
-                onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
-                accept="application/pdf,image/*" 
-                className="hidden" 
-              />
-              <button
-                onClick={() => {
-                  if (fileInputRef.current) {
-                    fileInputRef.current.click();
-                  } else {
-                    setTimeout(() => fileInputRef.current?.click(), 100);
-                  }
-                }}
-                disabled={isProcessing}
-                className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-purple-600 shadow-xl shadow-purple-600/30 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-lg font-bold rounded-2xl transition-all"
-              >
-                {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5 rotate-180" />}
-                {isProcessing ? "Analisando Arquivo(s)..." : "Enviar Arquivo(s)"}
-              </button>
-              <button
-                onClick={() => setAppState('onboarding')}
-                disabled={isProcessing}
-                className="text-slate-400 hover:text-white font-medium text-sm transition-colors py-2 px-4"
-              >
-                Voltar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {appState === 'payment-success' && (
-        <div key="payment-success" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
-          <div className="max-w-xl bg-slate-800/50 border border-emerald-500/20 p-8 sm:p-12 rounded-3xl shadow-2xl shadow-emerald-500/10 text-center space-y-6 animate-in fade-in zoom-in duration-500">
-            <div className="mx-auto w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6 text-emerald-400 border border-emerald-500/30 shadow-lg shadow-emerald-500/20">
-              <CheckCircle className="w-10 h-10" />
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
-              Pagamento Confirmado!
-            </h2>
-            <p className="text-lg text-slate-300 leading-relaxed max-w-md mx-auto">
-              Muito obrigado pela confiança. Seu acesso para exportar o currículo limpo e em alta qualidade foi liberado com sucesso.
-            </p>
-            <div className="pt-8 flex flex-col sm:flex-row justify-center gap-4">
-              <button
-                onClick={() => setAppState('purchased-view')}
-                className="flex items-center justify-center gap-3 px-8 py-4 bg-emerald-600 shadow-xl shadow-emerald-600/30 hover:bg-emerald-500 text-white text-lg font-bold rounded-2xl transition-all w-full sm:w-auto"
-              >
-                Acessar Meu Currículo
-              </button>
-              {hasCoverLetter && (
-                <button
-                  onClick={() => {
-                    setCurrentCoverLetterId(currentResumeId);
-                    setAppState('cover-letter');
-                  }}
-                  className="flex items-center justify-center gap-3 px-8 py-4 bg-purple-600 shadow-xl shadow-purple-600/30 hover:bg-purple-500 text-white text-lg font-bold rounded-2xl transition-all w-full sm:w-auto"
-                >
-                  <Wand2 className="w-5 h-5" /> Acessar Carta
-                </button>
-              )}
-              <button
-                onClick={() => setAppState('affiliate')}
-                className="flex items-center justify-center gap-3 px-8 py-4 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white text-lg font-bold rounded-2xl transition-all w-full sm:w-auto"
-              >
-                Como Ganhar Dinheiro
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {appState === 'affiliate' && (
-        <div key="affiliate" className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
-          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black text-xl ring-1 ring-white/20 font-serif">
-                R
-              </div>
-              <h1 className="text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">
-                Programa de Afiliados
-              </h1>
-            </div>
-            <button
-              onClick={() => setAppState('onboarding')}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" /> Voltar
-            </button>
-          </header>
-          
-          <main className="flex-1 overflow-y-auto w-full max-w-4xl mx-auto p-4 sm:p-8 flex flex-col gap-8 pb-20">
-             <div className="text-center space-y-4 py-8">
-               <div className="mx-auto w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-400 mb-6 border border-emerald-500/20">
-                 <DollarSign className="w-10 h-10" />
-               </div>
-               <h2 className="text-4xl sm:text-5xl font-bold text-white tracking-tight">Ganhe recomendando o Rezz</h2>
-               <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-                 Ajude outras pessoas a conseguirem o emprego dos sonhos e fature com isso. Receba uma comissão generosa por cada venda realizada através do seu link exclusivo da Cakto.
-               </p>
-             </div>
-
-             <div className="grid sm:grid-cols-3 gap-6">
-               <div className="bg-slate-800/50 border border-white/5 p-6 rounded-2xl flex flex-col items-center text-center gap-4">
-                 <div className="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400">
-                   <LinkIcon className="w-6 h-6" />
-                 </div>
-                 <h3 className="font-bold text-lg text-white">1. Crie seu Link</h3>
-                 <p className="text-slate-400 text-sm">Cadastre-se na Cakto como afiliado do nosso produto e copie seu link de indicação exclusivo.</p>
-               </div>
-               <div className="bg-slate-800/50 border border-white/5 p-6 rounded-2xl flex flex-col items-center text-center gap-4">
-                 <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center text-purple-400">
-                   <Share2 className="w-6 h-6" />
-                 </div>
-                 <h3 className="font-bold text-lg text-white">2. Compartilhe seu Link</h3>
-                 <p className="text-slate-400 text-sm">Na Cakto, copie o seu link de afiliado da <strong>Página de Vendas</strong>. Compartilhe-o no LinkedIn, TikTok ou WhatsApp.</p>
-               </div>
-               <div className="bg-slate-800/50 border border-white/5 p-6 rounded-2xl flex flex-col items-center text-center gap-4">
-                 <div className="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400">
-                   <DollarSign className="w-6 h-6" />
-                 </div>
-                 <h3 className="font-bold text-lg text-white">3. Receba</h3>
-                 <p className="text-slate-400 text-sm">Quando o cliente vier pelo seu link, montar o currículo e pagar para exportar, a comissão entra na hora na sua conta Cakto!</p>
-               </div>
-             </div>
-
-             <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-3xl p-8 sm:p-10 flex flex-col sm:flex-row items-center gap-8 text-center sm:text-left mt-8">
-               <div className="flex-1 space-y-4">
-                 <h2 className="text-2xl font-bold text-white">Pronto para começar?</h2>
-                 <p className="text-slate-300">
-                   Siga o link abaixo para ir direto para a plataforma da Cakto, afiliar-se com 1 clique e começar a ganhar 45% de comissão por cada venda!
-                 </p>
-                 <a 
-                   href="https://app.cakto.com.br/affiliate/invite/4ca6dedc-130a-49fe-aee2-5216ede37d0e"
-                   target="_blank" 
-                   rel="noreferrer"
-                   className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/20 mt-4"
-                 >
-                   Quero ser Afiliado do Rezz (45% de Ganho)
-                 </a>
-               </div>
-             </div>
-          </main>
-        </div>
-      )}
 
       {appState === 'cover-letter' && (
         <div key="cover-letter" className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
@@ -2177,22 +1650,6 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                 <span className="font-medium text-lg">Criar Novo Currículo</span>
               </button>
               
-              <button
-                onClick={() => {
-                   if (internalPdfInputRef.current) {
-                     internalPdfInputRef.current.click();
-                   }
-                }}
-                disabled={isUploadingInternalPdf}
-                className={`bg-slate-800/40 border border-white/10 hover:border-indigo-500/50 hover:bg-slate-800/80 border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-4 ${isUploadingInternalPdf ? 'text-indigo-400' : 'text-slate-400 hover:text-white'} min-h-[160px] group`}
-              >
-                <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-500/20 group-hover:text-indigo-400 transition-all">
-                  {isUploadingInternalPdf ? <Loader2 className="w-6 h-6 animate-spin" /> : <MonitorDown className="w-6 h-6" />}
-                </div>
-                <span className="font-medium text-lg text-center">{isUploadingInternalPdf ? 'Lendo...' : 'Editar Currículo Antigo'}</span>
-                <span className="text-xs text-slate-500 mt-[-10px] text-center">Restaure um currículo já baixado neste app ou extraia de um PDF/Imagem</span>
-              </button>
-              
               {purchasedResumes.length > 0 && purchasedResumes.map(resume => (
                   <div key={resume.id} className={`bg-slate-800/80 border ${currentResumeId === resume.id ? 'border-indigo-500 shadow-lg shadow-indigo-500/10' : 'border-white/10 hover:border-indigo-500/50'} rounded-2xl p-5 transition-all flex flex-col gap-4 relative group`}>
                     {currentResumeId === resume.id && (
@@ -2315,22 +1772,6 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                   <Sparkles className="w-6 h-6" />
                 </div>
                 <span className="font-medium text-lg">Criar Nova Carta</span>
-              </button>
-              
-              <button
-                onClick={() => {
-                   if (coverLetterPdfInputRef.current) {
-                     coverLetterPdfInputRef.current.click();
-                   }
-                }}
-                disabled={isUploadingCoverLetterPdf}
-                className={`bg-slate-800/40 border border-white/10 hover:border-indigo-500/50 hover:bg-slate-800/80 border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-4 ${isUploadingCoverLetterPdf ? 'text-indigo-400' : 'text-slate-400 hover:text-white'} min-h-[160px] group`}
-              >
-                <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-500/20 group-hover:text-indigo-400 transition-all">
-                  {isUploadingCoverLetterPdf ? <Loader2 className="w-6 h-6 animate-spin" /> : <MonitorDown className="w-6 h-6" />}
-                </div>
-                <span className="font-medium text-lg text-center">{isUploadingCoverLetterPdf ? 'Lendo...' : 'Importar Dados para Carta'}</span>
-                <span className="text-xs text-slate-500 mt-[-10px] text-center">Restaure uma carta já baixado neste app ou extraia de um PDF/Imagem</span>
               </button>
               
               {purchasedCoverLetters.length > 0 && purchasedCoverLetters.map(letter => (
@@ -2578,67 +2019,9 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
           <div className="flex flex-col lg:flex-row gap-4 p-4 bg-slate-800/40 border border-white/5 rounded-2xl shrink-0 items-start lg:items-center justify-between">
             <div>
               <h2 className="text-white font-semibold text-lg">Seu Currículo</h2>
-              <p className="text-slate-400 text-sm hidden sm:block">Preencha os dados manualmente ou use IA.</p>
+              <p className="text-slate-400 text-sm hidden sm:block">Preencha os dados manualmente e escolha seu modelo.</p>
             </div>
             
-            <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
-              <input 
-                type="file" 
-                multiple
-                ref={fileInputRef} 
-                onChange={handleAiImport} 
-                onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
-                accept="application/pdf,image/*" 
-                className="hidden" 
-              />
-              <button
-                onClick={handleToggleHighlights}
-                disabled={isPrompting || isProcessing || !hasActiveResume}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-all shadow-sm shrink-0 ${
-                  !hasActiveResume ? 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50' :
-                  data.showHighlights ? 'bg-blue-500 hover:bg-blue-400 text-white shadow-md shadow-blue-500/20' : 'bg-blue-500/20 border border-blue-500/50 hover:bg-blue-500/40 text-blue-200 cursor-pointer'
-                }`}
-                title="Destacar Palavras-Chave"
-                aria-label="Destacar Palavras-chave"
-              >
-                {isPrompting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Highlighter className="w-4 h-4 shrink-0" />}
-                <span className="whitespace-nowrap">{isPrompting ? "Destacando..." : data.showHighlights ? "Ocultar Destaques" : "Destacar com IA"}</span>
-              </button>
-              <button
-                onClick={handleEnhanceWithAI}
-                disabled={isPrompting || isProcessing || (!canEnhance && !dataBeforeAI)}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-all shadow-sm shrink-0 ${dataBeforeAI ? 'bg-orange-500/20 border border-orange-500/50 hover:bg-orange-500/40 text-orange-200 cursor-pointer' : canEnhance ? 'bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
-                title={dataBeforeAI ? "Desfazer aprimoramento da IA" : canEnhance ? "Aprimorar textos para uma linguagem profissional usando IA" : (hasActiveResume ? "Você já aprimorou esses dados. Faça algumas edições manuais antes de aprimorar novamente." : "Preencha o currículo primeiro")}
-                aria-label={dataBeforeAI ? "Desfazer IA" : "Aprimorar textos com Inteligência Artificial"}
-              >
-                {isPrompting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Wand2 className="w-4 h-4 shrink-0" />}
-                <span className="whitespace-nowrap">{isPrompting ? "Aprimorando..." : dataBeforeAI ? "Desfazer IA" : "Aprimorar com IA"}</span>
-              </button>
-              <button
-                onClick={() => setIsAiEditModalOpen(true)}
-                disabled={!hasActiveResume}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 text-sm font-bold rounded-xl transition-all shadow-sm shrink-0"
-                title="Editar currículo usando Inteligência Artificial"
-              >
-                <Edit2 className="w-4 h-4 shrink-0" />
-                <span className="whitespace-nowrap">Editar com IA</span>
-              </button>
-              <button
-                onClick={() => {
-                  if (fileInputRef.current) {
-                    fileInputRef.current.click();
-                  } else {
-                    setTimeout(() => fileInputRef.current?.click(), 100);
-                  }
-                }}
-                disabled={isProcessing || isPrompting}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-indigo-500/20 border border-indigo-500/50 hover:bg-indigo-500/40 text-indigo-200 text-sm font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                title="Recriar currículo usando inteligência artificial"
-              >
-                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Sparkles className="w-4 h-4 shrink-0" />}
-                <span className="whitespace-nowrap">{isProcessing ? "Lendo..." : "Refazer com IA"}</span>
-              </button>
-            </div>
           </div>
           <ResumeForm data={data} onChange={setData} />
         </div>
@@ -2666,41 +2049,6 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
               </button>
             ))}
           </div>
-
-          <div className="lg:hidden w-full mb-4 px-2 space-y-2">
-            <button
-              onClick={handleToggleHighlights}
-              disabled={isPrompting || isProcessing || !hasActiveResume}
-              className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl transition-all shadow-sm ${
-                !hasActiveResume ? 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50' :
-                data.showHighlights ? 'bg-blue-500 hover:bg-blue-400 text-white shadow-md shadow-blue-500/20' : 'bg-blue-500/20 border border-blue-500/50 hover:bg-blue-500/40 text-blue-200 cursor-pointer'
-              }`}
-              title="Destacar Palavras-Chave"
-              aria-label="Destacar Palavras-chave"
-            >
-              {isPrompting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Highlighter className="w-4 h-4 shrink-0" />}
-              <span className="whitespace-nowrap">{isPrompting ? "Destacando..." : data.showHighlights ? "Ocultar Destaques" : "Destacar com IA"}</span>
-            </button>
-            <button
-              onClick={handleEnhanceWithAI}
-              disabled={isPrompting || isProcessing || (!canEnhance && !dataBeforeAI)}
-              className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl transition-all shadow-sm ${dataBeforeAI ? 'bg-orange-500/20 border border-orange-500/50 hover:bg-orange-500/40 text-orange-200 cursor-pointer' : canEnhance ? 'bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 cursor-pointer' : 'bg-slate-800 border border-white/5 text-slate-500 cursor-not-allowed opacity-50'}`}
-              title={dataBeforeAI ? "Desfazer aprimoramento da IA" : canEnhance ? "Aprimorar textos para uma linguagem profissional usando IA" : (hasActiveResume ? "Você já aprimorou esses dados. Faça algumas edições manuais antes de aprimorar novamente." : "Preencha o currículo primeiro")}
-              aria-label={dataBeforeAI ? "Desfazer IA" : "Aprimorar textos com Inteligência Artificial"}
-            >
-              {isPrompting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Wand2 className="w-4 h-4 shrink-0" />}
-              <span className="whitespace-nowrap">{isPrompting ? "Aprimorando..." : dataBeforeAI ? "Desfazer IA" : "Aprimorar com IA"}</span>
-            </button>
-            <button
-              onClick={() => setIsAiEditModalOpen(true)}
-              disabled={!hasActiveResume}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-500/20 border border-purple-500/50 hover:bg-purple-500/40 text-purple-200 text-sm font-bold rounded-xl transition-all shadow-sm mt-2"
-              title="Editar currículo usando Inteligência Artificial"
-            >
-              <Edit2 className="w-4 h-4 shrink-0" />
-              <span className="whitespace-nowrap">Editar com IA</span>
-            </button>
-          </div>
           
           <div className="flex-1 overflow-y-auto flex justify-center items-start pt-2 lg:pt-0 pb-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent rounded-lg" ref={containerRef}>
             <div style={{ height: previewHeight * scale, width: 794 * scale }} className="flex justify-center transition-all duration-300">
@@ -2723,9 +2071,9 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-emerald-600 text-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/30">
                  <CreditCard className="w-8 h-8" />
                </div>
-               <h3 className="text-2xl font-bold text-slate-800 mb-2">Libere seu Currículo</h3>
+               <h3 className="text-2xl font-bold text-slate-800 mb-2">Assinatura Premium</h3>
                <p className="text-slate-600 mb-6">
-                 O pagamento desbloqueia a exportação deste currículo específico com o layout atual permanentemente.
+                 Para exportar sem marca d'água e de forma ilimitada, torne-se um assinante exclusivo.
                </p>
                
                <a 
@@ -2810,95 +2158,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
           </div>
         )}
 
-        {isAiEditModalOpen && (
-          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col p-6 animate-in fade-in zoom-in duration-300">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <Edit2 className="w-5 h-5 text-purple-500" /> Editar com IA
-                </h3>
-                <button onClick={() => {
-                  setIsAiEditModalOpen(false);
-                  setAiEditFiles(null);
-                }} className="text-slate-400 hover:text-slate-600">
-                  ✕
-                </button>
-              </div>
-              <p className="text-sm text-slate-600 mb-4">
-                Descreva exatamente o que deseja alterar, adicionar ou remover do currículo atual. A inteligência artificial fará todo o trabalho pesado.
-              </p>
-              <textarea
-                value={aiEditPrompt}
-                onChange={(e) => setAiEditPrompt(e.target.value)}
-                placeholder="Exemplo: Adicione 'Inglês Fluente' na seção de Idiomas, ou converta o resumo profissional para Espanhol..."
-                className="w-full h-32 p-3 text-sm border border-slate-300 rounded-lg resize-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none mb-4 text-slate-800"
-                disabled={isAiEditing}
-              ></textarea>
-              
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Informações Adicionais (Opcional)</label>
-                <div 
-                  onClick={() => !isAiEditing && aiEditFileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center transition-colors cursor-pointer
-                    ${aiEditFiles && aiEditFiles.length > 0 ? 'border-pink-500/50 bg-pink-50/50' : 'border-slate-300 hover:border-pink-400 hover:bg-slate-50'}
-                    ${isAiEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <input 
-                    type="file" 
-                    ref={aiEditFileInputRef} 
-                    className="hidden" 
-                    multiple
-                    accept=".pdf,image/*" 
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files.length > 0) {
-                        setAiEditFiles(e.target.files);
-                      }
-                    }} 
-                    disabled={isAiEditing}
-                  />
-                  {aiEditFiles && aiEditFiles.length > 0 ? (
-                    <div className="text-center">
-                      <p className="text-sm font-bold text-pink-600">{aiEditFiles.length} arquivo(s) selecionado(s)</p>
-                      <p className="text-xs text-slate-500 mt-1 truncate max-w-[200px]">{Array.from(aiEditFiles).map(f => f.name).join(', ')}</p>
-                      <button onClick={(e) => {
-                        e.stopPropagation();
-                        setAiEditFiles(null);
-                        if(aiEditFileInputRef.current) aiEditFileInputRef.current.value = '';
-                      }} className="text-xs text-slate-400 hover:text-slate-600 mt-2 font-medium">Remover Arquivos</button>
-                    </div>
-                  ) : (
-                    <div className="text-center text-slate-500">
-                      <Upload className="w-6 h-6 mx-auto mb-2 text-slate-400" />
-                      <p className="text-sm font-medium">Anexar imagens ou PDF</p>
-                      <p className="text-xs mt-1">Para embasar a alteração</p>
-                    </div>
-                  )}
-                </div>
-              </div>
 
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => {
-                    setIsAiEditModalOpen(false);
-                    setAiEditFiles(null);
-                  }}
-                  disabled={isAiEditing}
-                  className="px-4 py-2 font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleAiEditSubmit}
-                  disabled={isAiEditing || !aiEditPrompt.trim()}
-                  className="flex items-center gap-2 px-6 py-2 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-all shadow-md"
-                >
-                  {isAiEditing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  {isAiEditing ? 'Aplicando...' : 'Aplicar Alterações'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     </div>
     )}
