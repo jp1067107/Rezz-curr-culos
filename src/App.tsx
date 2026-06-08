@@ -544,7 +544,6 @@ function MainApp() {
     setCurrentResumeId(doc.id);
     setData(doc.data);
     setIsPurchasedEditing(false);
-    setLastEnhancedLength(null);
     setAppState('editor');
   };
 
@@ -552,7 +551,6 @@ function MainApp() {
     setCurrentCoverLetterId(doc.id);
     setData(doc.data);
     setIsPurchasedEditing(false);
-    setLastEnhancedLength(null);
     setAppState('cover-letter');
   };
 
@@ -1267,6 +1265,19 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                 {/* Editor Manual */}
                 <button
                   onClick={() => {
+                   const initial = getInitialData();
+                   const newId = initial.id || uuidv4();
+                   setData(initial);
+                   setCurrentResumeId(newId);
+                   setIsPurchasedEditing(false);
+                   
+                   const newDoc = { id: newId, ownerId: user ? user.uid : 'local', data: initial, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ResumeDoc;
+                   if (user) {
+                     setResumesList(prev => [...prev, newDoc]);
+                   } else {
+                     setLocalPurchasedResumes(prev => [...prev, newDoc]);
+                   }
+
                    setAppState('editor');
                   }}
                   className="flex flex-col text-center sm:text-left items-center sm:items-start p-6 sm:p-8 bg-[#141f38]/60 hover:bg-[#141f38] border border-white/5 hover:border-[#C19B38]/50 rounded-3xl transition-all group h-full"
@@ -1691,9 +1702,19 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
               <button
                 onClick={() => {
                    const initial = getInitialData();
+                   const newId = initial.id || uuidv4();
                    setData(initial);
-                   setCurrentResumeId(initial.id || uuidv4());
-                   setLastEnhancedLength(null);
+                   setCurrentResumeId(newId);
+                   setIsPurchasedEditing(false); // Fix: Reset form visibility
+
+                   // Fix: Pre-emptively append the draft so it doesn't disappear if empty
+                   const newDoc = { id: newId, ownerId: user ? user.uid : 'local', data: initial, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ResumeDoc;
+                   if (user) {
+                     setResumesList(prev => [...prev, newDoc]);
+                   } else {
+                     setLocalPurchasedResumes(prev => [...prev, newDoc]);
+                   }
+
                    setAppState('editor');
                 }}
                 className="bg-[#141f38]/60 border border-white/10 hover:border-[#C19B38]/50 hover:bg-[#141f38] border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-4 text-slate-400 hover:text-white min-h-[160px] group"
@@ -1815,9 +1836,19 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
               <button
                 onClick={() => {
                    const initial = getInitialData();
+                   const newId = initial.id || uuidv4();
                    setData(initial);
-                   setCurrentCoverLetterId(initial.id || uuidv4());
-                   setLastEnhancedLength(null);
+                   setCurrentCoverLetterId(newId);
+                   setIsPurchasedEditing(false);
+
+                   // Fix: Pre-emptively append the draft
+                   const newDoc = { id: newId, ownerId: user ? user.uid : 'local', data: initial, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ResumeDoc;
+                   if (user) {
+                     setCoverLettersList(prev => [...prev, newDoc]);
+                   } else {
+                     setLocalPurchasedCoverLetters(prev => [...prev, newDoc]);
+                   }
+
                    setAppState('cover-letter');
                 }}
                 className="bg-[#141f38]/60 border border-white/10 hover:border-[#C19B38]/50 hover:bg-[#141f38] border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-4 text-slate-400 hover:text-white min-h-[160px] group"
