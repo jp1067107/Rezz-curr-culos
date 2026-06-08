@@ -77,7 +77,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6">
+        <div className="min-h-screen bg-[#0b132b] text-white flex flex-col items-center justify-center p-6">
           <h1 className="text-3xl text-red-400 font-bold mb-4">Algo deu errado!</h1>
           <p className="text-slate-300 mb-6">Infelizmente ocorreu um erro interno.</p>
           <pre className="bg-black/50 p-4 rounded-xl border border-red-500/30 text-red-200 text-xs overflow-auto max-w-full">
@@ -85,7 +85,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
           </pre>
           <button 
             onClick={() => window.location.reload()} 
-            className="mt-8 px-6 py-3 bg-indigo-500 hover:bg-indigo-600 rounded-lg font-bold"
+            className="mt-8 px-6 py-3 bg-[#C19B38] hover:bg-[#a5842f] rounded-lg font-bold"
           >
             Recarregar Aplicativo
           </button>
@@ -983,8 +983,11 @@ function MainApp() {
 
   // Calculate scaling for the preview to fit nicely on the screen
   const [scale, setScale] = useState(1);
+  const [isManualZoom, setIsManualZoom] = useState(false);
+  const zoomStateRef = useRef<{ clientX: number, clientY: number, fracX: number, fracY: number, scale: number } | null>(null);
   const [previewHeight, setPreviewHeight] = useState(1123);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [zoomTarget, setZoomTarget] = useState<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const evaluateFileInputRef = useRef<HTMLInputElement>(null);
   const internalPdfInputRef = useRef<HTMLInputElement>(null);
@@ -1051,6 +1054,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
 
   React.useEffect(() => {
     const updateScale = () => {
+      if (document.body.dataset.manualZoom === "true") return;
       if (containerRef.current) {
         // 794 is exactly 210mm at 96 DPI (standard print width for A4)
         const availableWidth = containerRef.current.offsetWidth - 32; // 16px padding on each side
@@ -1081,6 +1085,56 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
       }
     };
   }, [mobileView, data, template]);
+
+  React.useEffect(() => {
+    if (!zoomTarget) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setIsManualZoom(true);
+      document.body.dataset.manualZoom = "true";
+
+      const zoomDelta = e.deltaY > 0 ? -0.1 : 0.1;
+      
+      setScale(prev => {
+        const newScale = Math.max(0.3, Math.min(3, prev + zoomDelta));
+        if (newScale === prev) return prev;
+
+        const rect = zoomTarget.getBoundingClientRect();
+        // fractional pos relative to target rect
+        const fracX = (e.clientX - rect.left) / rect.width;
+        const fracY = (e.clientY - rect.top) / rect.height;
+
+        zoomStateRef.current = {
+          clientX: e.clientX,
+          clientY: e.clientY,
+          fracX,
+          fracY,
+          scale: newScale
+        };
+
+        return newScale;
+      });
+    };
+
+    zoomTarget.addEventListener('wheel', handleWheel, { passive: false });
+    return () => zoomTarget.removeEventListener('wheel', handleWheel);
+  }, [zoomTarget]);
+
+  React.useLayoutEffect(() => {
+    if (zoomStateRef.current && zoomTarget && containerRef.current) {
+      const state = zoomStateRef.current;
+      if (scale === state.scale) {
+        zoomStateRef.current = null;
+        const newRect = zoomTarget.getBoundingClientRect();
+        const newPointX = newRect.left + state.fracX * newRect.width;
+        const newPointY = newRect.top + state.fracY * newRect.height;
+
+        containerRef.current.scrollLeft += (newPointX - state.clientX);
+        containerRef.current.scrollTop += (newPointY - state.clientY);
+      }
+    }
+  }, [scale, zoomTarget]);
 
 
 
@@ -1131,13 +1185,13 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
   );
 
   return (
-    <div className="w-full min-h-screen bg-slate-900 flex flex-col">
+    <div className="w-full min-h-screen bg-[#0b132b] flex flex-col">
       {appState === 'onboarding' && (
-        <div key="onboarding" className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black text-slate-100 flex flex-col font-sans relative overflow-hidden">
+        <div key="onboarding" className="min-h-screen bg-[#0b132b] text-slate-100 flex flex-col font-sans relative overflow-hidden">
           {/* Header */}
-          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-slate-900/50 backdrop-blur-md relative z-10 shrink-0">
+          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-brand-blue/50 backdrop-blur-md relative z-10 shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg text-white font-black text-sm sm:text-xl ring-1 ring-white/20 font-serif">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#C19B38] rounded-xl flex items-center justify-center shadow-lg text-white font-black text-sm sm:text-xl ring-1 ring-white/20 font-serif">
                 R
               </div>
               <span className="font-bold text-lg sm:text-xl tracking-tight text-white">Rezz</span>
@@ -1154,7 +1208,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
               )}
               {user ? (
                 <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 bg-slate-800/80 rounded-xl sm:rounded-full border border-white/5">
-                  <div className="w-6 h-6 bg-indigo-500/20 rounded-full flex items-center justify-center text-indigo-400 hidden sm:flex">
+                  <div className="w-6 h-6 bg-[#C19B38]/20 rounded-full flex items-center justify-center text-[#C19B38] hidden sm:flex">
                     <UserCircle className="w-4 h-4" />
                   </div>
                   <span className="text-xs sm:text-sm font-medium text-slate-300 truncate max-w-[100px] sm:max-w-none">{user.displayName?.split(' ')[0] || 'Usuário'}</span>
@@ -1184,7 +1238,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                   </button>
                   <button
                     onClick={signInWithGoogle}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl transition-all shadow-md shadow-indigo-500/20"
+                    className="flex items-center gap-2 px-4 py-2 bg-[#C19B38] hover:bg-[#a5842f] text-white text-sm font-bold rounded-xl transition-all shadow-md shadow-[#C19B38]/20"
                   >
                     <LogIn className="w-4 h-4" /> Entrar
                   </button>
@@ -1196,7 +1250,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
           {/* Main Content */}
           <div className="flex-1 overflow-y-auto flex flex-col justify-center py-10 px-4 sm:px-6 relative w-full items-center">
             {/* Background effects */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none hidden sm:block"></div>
+            
 
             <div className="max-w-4xl w-full space-y-10 relative z-10 flex flex-col items-center">
               <div className="text-center space-y-4 max-w-2xl">
@@ -1215,9 +1269,9 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                   onClick={() => {
                    setAppState('editor');
                   }}
-                  className="flex flex-col text-center sm:text-left items-center sm:items-start p-6 sm:p-8 bg-slate-800/40 hover:bg-slate-800/80 border border-white/5 hover:border-slate-500/50 rounded-3xl transition-all group h-full"
+                  className="flex flex-col text-center sm:text-left items-center sm:items-start p-6 sm:p-8 bg-[#141f38]/60 hover:bg-[#141f38] border border-white/5 hover:border-[#C19B38]/50 rounded-3xl transition-all group h-full"
                 >
-                  <div className="w-14 h-14 bg-slate-700/50 text-slate-300 group-hover:bg-slate-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-all">
+                  <div className="w-14 h-14 bg-[#C19B38]/10 text-[#C19B38] group-hover:bg-[#C19B38] group-hover:text-white rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-all">
                     <Edit2 className="w-7 h-7" />
                   </div>
                   <h2 className="text-lg sm:text-xl font-bold text-white mb-2">Novo Currículo</h2>
@@ -1235,16 +1289,16 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                          setAppState('my-resumes');
                       }
                   }}
-                  className="flex flex-col text-center sm:text-left items-center sm:items-start p-6 sm:p-8 bg-slate-800/40 hover:bg-slate-800/80 border border-white/5 hover:border-indigo-500/30 rounded-3xl transition-all group h-full"
+                  className="flex flex-col text-center sm:text-left items-center sm:items-start p-6 sm:p-8 bg-[#141f38]/60 hover:bg-[#141f38] border border-white/5 hover:border-[#C19B38]/30 rounded-3xl transition-all group h-full"
                 >
-                  <div className="w-14 h-14 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-400 mb-6 group-hover:scale-110 group-hover:bg-indigo-500/20 transition-all">
+                  <div className="w-14 h-14 bg-[#C19B38]/10 rounded-2xl flex items-center justify-center text-[#C19B38] mb-6 group-hover:scale-110 group-hover:bg-[#C19B38]/20 transition-all">
                     <FolderOpen className="w-7 h-7" />
                   </div>
                   <h2 className="text-lg sm:text-xl font-bold text-white mb-2 flex flex-col sm:flex-row items-center sm:items-start gap-2">
                     Banco de Clientes
                   </h2>
                   <div className="mb-3">
-                    <span className="px-2.5 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">
+                    <span className="px-2.5 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-[#C19B38]/20 text-[#e5c76c] rounded-full border border-[#C19B38]/30">
                       Gestão
                     </span>
                   </div>
@@ -1262,16 +1316,16 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                          setAppState('my-cover-letters');
                       }
                   }}
-                  className="flex flex-col text-center sm:text-left items-center sm:items-start p-6 sm:p-8 bg-slate-800/40 hover:bg-slate-800/80 border border-white/5 hover:border-purple-500/30 rounded-3xl transition-all group h-full"
+                  className="flex flex-col text-center sm:text-left items-center sm:items-start p-6 sm:p-8 bg-[#141f38]/60 hover:bg-[#141f38] border border-white/5 hover:border-[#C19B38]/50 rounded-3xl transition-all group h-full"
                 >
-                  <div className="w-14 h-14 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-400 mb-6 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all">
+                  <div className="w-14 h-14 bg-[#C19B38]/10 rounded-2xl flex items-center justify-center text-[#C19B38] mb-6 group-hover:scale-110 group-hover:bg-[#C19B38]/20 transition-all">
                     <Wand2 className="w-7 h-7" />
                   </div>
                   <h2 className="text-lg sm:text-xl font-bold text-white mb-2 flex flex-col sm:flex-row items-center sm:items-start gap-2">
                     Cartas de Apresentação
                   </h2>
                   <div className="mb-3">
-                    <span className="px-2.5 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30">
+                    <span className="px-2.5 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-[#C19B38]/20 text-[#C19B38] rounded-full border border-[#C19B38]/30">
                       Gestão
                     </span>
                   </div>
@@ -1286,7 +1340,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
       )}
 
       {appState === 'payment-success' && (
-        <div key="payment-success" className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-slate-100 flex flex-col font-sans items-center justify-center p-6">
+        <div key="payment-success" className="min-h-screen bg-[#0b132b] text-slate-100 flex flex-col font-sans items-center justify-center p-6">
           <div className="max-w-xl bg-slate-800/50 border border-emerald-500/20 p-8 sm:p-12 rounded-3xl shadow-2xl shadow-emerald-500/10 text-center space-y-6 animate-in fade-in zoom-in duration-500">
             <div className="mx-auto w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6 text-emerald-400 border border-emerald-500/30 shadow-lg shadow-emerald-500/20">
               <CheckCircle className="w-10 h-10" />
@@ -1310,7 +1364,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                     setCurrentCoverLetterId(currentResumeId);
                     setAppState('cover-letter');
                   }}
-                  className="flex items-center justify-center gap-3 px-8 py-4 bg-purple-600 shadow-xl shadow-purple-600/30 hover:bg-purple-500 text-white text-lg font-bold rounded-2xl transition-all w-full sm:w-auto"
+                  className="flex items-center justify-center gap-3 px-8 py-4 bg-[#C19B38] shadow-xl shadow-[#C19B38]/30 hover:bg-[#a5842f] text-white text-lg font-bold rounded-2xl transition-all w-full sm:w-auto"
                 >
                   <Wand2 className="w-5 h-5" /> Acessar Carta
                 </button>
@@ -1327,10 +1381,10 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
       )}
 
       {appState === 'affiliate' && (
-        <div key="affiliate" className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
-          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
+        <div key="affiliate" className="min-h-screen bg-[#0b132b] text-slate-100 flex flex-col font-sans overflow-hidden">
+          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-[#0b132b]/80 backdrop-blur-md">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black text-xl ring-1 ring-white/20 font-serif">
+              <div className="w-10 h-10 bg-[#C19B38] rounded-xl flex items-center justify-center shadow-lg shadow-[#C19B38]/20 text-white font-black text-xl ring-1 ring-white/20 font-serif">
                 R
               </div>
               <h1 className="text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">
@@ -1358,14 +1412,14 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
 
              <div className="grid sm:grid-cols-3 gap-6">
                <div className="bg-slate-800/50 border border-white/5 p-6 rounded-2xl flex flex-col items-center text-center gap-4">
-                 <div className="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400">
+                 <div className="w-12 h-12 bg-[#C19B38]/20 rounded-xl flex items-center justify-center text-[#C19B38]">
                    <LinkIcon className="w-6 h-6" />
                  </div>
                  <h3 className="font-bold text-lg text-white">1. Crie seu Link</h3>
                  <p className="text-slate-400 text-sm">Cadastre-se na Cakto como afiliado do nosso produto e copie seu link de indicação exclusivo.</p>
                </div>
                <div className="bg-slate-800/50 border border-white/5 p-6 rounded-2xl flex flex-col items-center text-center gap-4">
-                 <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center text-purple-400">
+                 <div className="w-12 h-12 bg-[#C19B38]/20 rounded-xl flex items-center justify-center text-[#C19B38]">
                    <Share2 className="w-6 h-6" />
                  </div>
                  <h3 className="font-bold text-lg text-white">2. Compartilhe seu Link</h3>
@@ -1380,7 +1434,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                </div>
              </div>
 
-             <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-3xl p-8 sm:p-10 flex flex-col sm:flex-row items-center gap-8 text-center sm:text-left mt-8">
+             <div className="bg-gradient-to-r from-[#141f38]/60 to-transparent border border-[#C19B38]/20 rounded-3xl p-8 sm:p-10 flex flex-col sm:flex-row items-center gap-8 text-center sm:text-left mt-8">
                <div className="flex-1 space-y-4">
                  <h2 className="text-2xl font-bold text-white">Pronto para começar?</h2>
                  <p className="text-slate-300">
@@ -1390,7 +1444,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                    href="https://app.cakto.com.br/affiliate/invite/4ca6dedc-130a-49fe-aee2-5216ede37d0e"
                    target="_blank" 
                    rel="noreferrer"
-                   className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/20 mt-4"
+                   className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#C19B38] hover:bg-[#a5842f] text-white font-bold rounded-xl transition-all shadow-lg shadow-[#C19B38]/20 mt-4"
                  >
                    Quero ser Afiliado do Rezz (45% de Ganho)
                  </a>
@@ -1403,10 +1457,10 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
 
 
       {appState === 'cover-letter' && (
-        <div key="cover-letter" className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
-          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
+        <div key="cover-letter" className="min-h-screen bg-[#0b132b] text-slate-100 flex flex-col font-sans overflow-hidden">
+          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-[#0b132b]/80 backdrop-blur-md">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20 text-white font-black text-xl ring-1 ring-white/20">
+              <div className="w-10 h-10 bg-[#C19B38] rounded-xl flex items-center justify-center shadow-lg shadow-[#C19B38]/20 text-white font-black text-xl ring-1 ring-white/20">
                 <Wand2 className="w-5 h-5" />
               </div>
               <h1 className="text-lg sm:text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">
@@ -1435,9 +1489,9 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
         const purchasedTemplates = isPremium ? _templates : _templates.filter(t => unlockedConfigs.includes(`${currentResumeId}_${t}`));
         
         return (
-        <div key="purchased-view" className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
-          <div className="h-1.5 w-full bg-gradient-to-r from-emerald-400 via-indigo-500 to-purple-500 shrink-0"></div>
-          <header className="flex flex-col lg:flex-row justify-between items-center px-4 sm:px-6 py-4 border-b border-emerald-500/10 bg-slate-900/40 backdrop-blur-md z-10 shrink-0 relative gap-3">
+        <div key="purchased-view" className="min-h-screen bg-[#0b132b] text-slate-100 flex flex-col font-sans overflow-hidden">
+          <div className="h-1.5 w-full bg-gradient-to-r from-emerald-400 via-[#C19B38] to-[#a5842f] shrink-0"></div>
+          <header className="flex flex-col lg:flex-row justify-between items-center px-4 sm:px-6 py-4 border-b border-emerald-500/10 bg-[#0b132b]/40 backdrop-blur-md z-10 shrink-0 relative gap-3">
             <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 to-transparent pointer-events-none"></div>
             <div className="flex w-full lg:w-auto items-center justify-between lg:justify-start gap-4 relative z-10">
               <div className="flex items-center gap-3">
@@ -1575,14 +1629,14 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
           </header>
 
           <main className="flex-1 overflow-hidden flex flex-col lg:flex-row p-4 gap-6 items-center lg:items-start justify-center relative bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-fixed">
-            <div className="absolute inset-0 bg-slate-950/80 pointer-events-none"></div>
-            <div className={`w-full lg:w-1/2 max-w-[800px] h-full overflow-y-auto bg-slate-900/90 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl flex-col transition-all z-10 ${isPurchasedEditing ? 'lg:flex' : 'lg:hidden'} ${mobileView === 'editor' ? 'flex' : 'hidden'}`}>
+            <div className="absolute inset-0 bg-[#080d1e]/80 pointer-events-none"></div>
+            <div className={`w-full lg:w-1/2 max-w-[800px] h-full overflow-y-auto bg-[#0b132b]/90 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl flex-col transition-all z-10 ${isPurchasedEditing ? 'lg:flex' : 'lg:hidden'} ${mobileView === 'editor' ? 'flex' : 'hidden'}`}>
                <ResumeForm data={data} onChange={setData} />
             </div>
 
             <div className={`h-full w-full max-w-[1000px] flex-col transition-all z-10 ${!isPurchasedEditing ? 'lg:flex-1' : 'lg:w-1/2'} ${mobileView === 'preview' ? 'flex' : 'hidden'} lg:flex`}>
               <div className="flex justify-center mb-6 gap-2 shrink-0">
-                <div className="bg-slate-900/80 backdrop-blur-md p-1.5 rounded-xl border border-white/10 shadow-xl flex gap-1">
+                <div className="bg-[#0b132b]/80 backdrop-blur-md p-1.5 rounded-xl border border-white/10 shadow-xl flex gap-1">
                   {purchasedTemplates.map(t => (
                     <button
                       key={t}
@@ -1597,11 +1651,11 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
 
 
 
-              <div className="flex-1 overflow-y-auto flex items-start justify-center pb-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent rounded-lg" ref={containerRef}>
-                <div style={{ height: previewHeight * scale, width: 794 * scale }} className="flex justify-center transition-all duration-300">
+              <div className="flex-1 overflow-auto pb-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent rounded-lg" ref={containerRef}>
+                <div style={{ height: previewHeight * scale, width: 794 * scale, margin: '0 auto' }} className="shrink-0" ref={setZoomTarget}>
                   <div 
-                    style={{ transform: `scale(${scale})`, transformOrigin: 'top center' }}
-                    className="shadow-2xl rounded-sm transition-all duration-300 bg-white text-slate-900 ring-1 ring-black/5 shrink-0"
+                    style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}
+                    className={`shadow-2xl rounded-sm bg-white text-slate-900 ring-1 ring-black/5 shrink-0 origin-top-left ${isManualZoom ? '' : 'transition-all duration-300'}`}
                   >
                     <ResumePreview data={data} template={template} ref={componentRef} />
                   </div>
@@ -1614,10 +1668,10 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
       })()}
 
       {appState === 'my-resumes' && (
-        <div key="my-resumes" className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
-          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
+        <div key="my-resumes" className="min-h-screen bg-[#0b132b] text-slate-100 flex flex-col font-sans overflow-hidden">
+          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-[#0b132b]/80 backdrop-blur-md">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black text-xl ring-1 ring-white/20 font-serif">
+              <div className="w-10 h-10 bg-[#C19B38] rounded-xl flex items-center justify-center shadow-lg shadow-[#C19B38]/20 text-white font-black text-xl ring-1 ring-white/20 font-serif">
                 <FolderOpen className="w-5 h-5" />
               </div>
               <h1 className="text-lg sm:text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">
@@ -1642,18 +1696,18 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                    setLastEnhancedLength(null);
                    setAppState('editor');
                 }}
-                className="bg-slate-800/40 border border-white/10 hover:border-indigo-500/50 hover:bg-slate-800/80 border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-4 text-slate-400 hover:text-white min-h-[160px] group"
+                className="bg-[#141f38]/60 border border-white/10 hover:border-[#C19B38]/50 hover:bg-[#141f38] border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-4 text-slate-400 hover:text-white min-h-[160px] group"
               >
-                <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-500/20 group-hover:text-indigo-400 transition-all">
+                <div className="w-12 h-12 rounded-full bg-[#0b132b] flex items-center justify-center group-hover:scale-110 group-hover:bg-[#C19B38]/20 group-hover:text-[#C19B38] transition-all">
                   <Sparkles className="w-6 h-6" />
                 </div>
                 <span className="font-medium text-lg">Criar Novo Currículo</span>
               </button>
               
               {purchasedResumes.length > 0 && purchasedResumes.map(resume => (
-                  <div key={resume.id} className={`bg-slate-800/80 border ${currentResumeId === resume.id ? 'border-indigo-500 shadow-lg shadow-indigo-500/10' : 'border-white/10 hover:border-indigo-500/50'} rounded-2xl p-5 transition-all flex flex-col gap-4 relative group`}>
+                  <div key={resume.id} className={`bg-slate-800/80 border ${currentResumeId === resume.id ? 'border-[#C19B38] shadow-lg shadow-[#C19B38]/10' : 'border-white/10 hover:border-[#C19B38]/50'} rounded-2xl p-5 transition-all flex flex-col gap-4 relative group`}>
                     {currentResumeId === resume.id && (
-                      <div className="absolute -top-3 -right-3 bg-indigo-500 text-white text-[10px] uppercase tracking-wider font-bold px-3 py-1 rounded-full shadow-md shadow-indigo-500/20">
+                      <div className="absolute -top-3 -right-3 bg-[#C19B38] text-white text-[10px] uppercase tracking-wider font-bold px-3 py-1 rounded-full shadow-md shadow-[#C19B38]/20">
                         Aberto Agora
                       </div>
                     )}
@@ -1662,7 +1716,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                         <input
                           type="text"
                           defaultValue={resume.data.name || resume.data.personalInfo.fullName || 'Sem Nome'}
-                          className="w-full bg-transparent text-lg font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded px-2 py-1 -ml-2 border border-transparent focus:bg-slate-900 transition-all border-b-white/10 hover:border-b-white/30 truncate"
+                          className="w-full bg-transparent text-lg font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#C19B38]/50 rounded px-2 py-1 -ml-2 border border-transparent focus:bg-[#0b132b] transition-all border-b-white/10 hover:border-b-white/30 truncate"
                           placeholder="Nome do Currículo"
                           title="Clique para editar o nome"
                           onBlur={async (e) => {
@@ -1717,7 +1771,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                         </button>
                         <button
                           onClick={() => handleLoadResume(resume)}
-                          className={`px-4 py-2 ${currentResumeId === resume.id ? 'bg-slate-700 text-slate-300' : 'bg-indigo-600 hover:bg-indigo-500 text-white'} text-sm font-bold rounded-lg transition-all`}
+                          className={`px-4 py-2 ${currentResumeId === resume.id ? 'bg-slate-700 text-slate-300' : 'bg-[#C19B38] hover:bg-[#a5842f] text-white'} text-sm font-bold rounded-lg transition-all`}
                         >
                           {currentResumeId === resume.id ? 'Aberto' : 'Abrir'}
                         </button>
@@ -1738,10 +1792,10 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
       )}
 
 {appState === 'my-cover-letters' && (
-        <div key="my-cover-letters" className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
-          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
+        <div key="my-cover-letters" className="min-h-screen bg-[#0b132b] text-slate-100 flex flex-col font-sans overflow-hidden">
+          <header className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-white/5 bg-[#0b132b]/80 backdrop-blur-md">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black text-xl ring-1 ring-white/20 font-serif">
+              <div className="w-10 h-10 bg-[#C19B38] rounded-xl flex items-center justify-center shadow-lg shadow-[#C19B38]/20 text-white font-black text-xl ring-1 ring-white/20 font-serif">
                 <Wand2 className="w-5 h-5" />
               </div>
               <h1 className="text-lg sm:text-xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">
@@ -1766,18 +1820,18 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                    setLastEnhancedLength(null);
                    setAppState('cover-letter');
                 }}
-                className="bg-slate-800/40 border border-white/10 hover:border-indigo-500/50 hover:bg-slate-800/80 border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-4 text-slate-400 hover:text-white min-h-[160px] group"
+                className="bg-[#141f38]/60 border border-white/10 hover:border-[#C19B38]/50 hover:bg-[#141f38] border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-4 text-slate-400 hover:text-white min-h-[160px] group"
               >
-                <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-500/20 group-hover:text-indigo-400 transition-all">
+                <div className="w-12 h-12 rounded-full bg-[#0b132b] flex items-center justify-center group-hover:scale-110 group-hover:bg-[#C19B38]/20 group-hover:text-[#C19B38] transition-all">
                   <Sparkles className="w-6 h-6" />
                 </div>
                 <span className="font-medium text-lg">Criar Nova Carta</span>
               </button>
               
               {purchasedCoverLetters.length > 0 && purchasedCoverLetters.map(letter => (
-                  <div key={letter.id} className={`bg-slate-800/80 border ${currentCoverLetterId === letter.id ? 'border-indigo-500 shadow-lg shadow-indigo-500/10' : 'border-white/10 hover:border-indigo-500/50'} rounded-2xl p-5 transition-all flex flex-col gap-4 relative group`}>
+                  <div key={letter.id} className={`bg-slate-800/80 border ${currentCoverLetterId === letter.id ? 'border-[#C19B38] shadow-lg shadow-[#C19B38]/10' : 'border-white/10 hover:border-[#C19B38]/50'} rounded-2xl p-5 transition-all flex flex-col gap-4 relative group`}>
                     {currentCoverLetterId === letter.id && (
-                      <div className="absolute -top-3 -right-3 bg-indigo-500 text-white text-[10px] uppercase tracking-wider font-bold px-3 py-1 rounded-full shadow-md shadow-indigo-500/20">
+                      <div className="absolute -top-3 -right-3 bg-[#C19B38] text-white text-[10px] uppercase tracking-wider font-bold px-3 py-1 rounded-full shadow-md shadow-[#C19B38]/20">
                         Aberto Agora
                       </div>
                     )}
@@ -1786,7 +1840,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                         <input
                           type="text"
                           defaultValue={letter.data.name || letter.data.personalInfo.fullName || 'Sem Nome'}
-                          className="w-full bg-transparent text-lg font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded px-2 py-1 -ml-2 border border-transparent focus:bg-slate-900 transition-all border-b-white/10 hover:border-b-white/30 truncate"
+                          className="w-full bg-transparent text-lg font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#C19B38]/50 rounded px-2 py-1 -ml-2 border border-transparent focus:bg-[#0b132b] transition-all border-b-white/10 hover:border-b-white/30 truncate"
                           placeholder="Nome do Currículo"
                           title="Clique para editar o nome"
                           onBlur={async (e) => {
@@ -1840,7 +1894,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                         </button>
                         <button
                           onClick={() => handleLoadCoverLetter(letter)}
-                          className={`px-4 py-2 ${currentCoverLetterId === letter.id ? 'bg-slate-700 text-slate-300' : 'bg-indigo-600 hover:bg-indigo-500 text-white'} text-sm font-bold rounded-lg transition-all`}
+                          className={`px-4 py-2 ${currentCoverLetterId === letter.id ? 'bg-slate-700 text-slate-300' : 'bg-[#C19B38] hover:bg-[#a5842f] text-white'} text-sm font-bold rounded-lg transition-all`}
                         >
                           {currentCoverLetterId === letter.id ? 'Aberto' : 'Abrir'}
                         </button>
@@ -1861,9 +1915,9 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
       )}
 
       {appState === 'editor' && (
-        <div key="editor" className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden">
+        <div key="editor" className="min-h-screen bg-[#0b132b] text-slate-100 flex flex-col font-sans overflow-hidden">
       {/* Header Section */}
-      <header className="flex flex-col lg:flex-row justify-between items-center px-4 sm:px-6 py-3 z-10 shrink-0 gap-4 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
+      <header className="flex flex-col lg:flex-row justify-between items-center px-4 sm:px-6 py-3 z-10 shrink-0 gap-4 border-b border-white/5 bg-[#0b132b]/80 backdrop-blur-md">
         <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
           <div className="flex items-center gap-3">
             <button 
@@ -1878,7 +1932,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
             >
               <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black text-xl ring-1 ring-white/20 font-serif">
+            <div className="w-10 h-10 bg-[#C19B38] rounded-xl flex items-center justify-center shadow-lg shadow-[#C19B38]/20 text-white font-black text-xl ring-1 ring-white/20 font-serif">
               R
             </div>
             <div className="flex items-baseline gap-2">
@@ -1974,7 +2028,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
 
             <button
               onClick={handleDownloadClick}
-              className={`hidden lg:flex items-center justify-center gap-2 px-6 py-2 text-sm font-bold rounded-xl transition-all shrink-0 ${hasActiveResume ? 'bg-indigo-500 shadow-md shadow-indigo-500/20 hover:bg-indigo-400 text-white' : 'bg-slate-800 border border-white/5 hover:border-indigo-500/50 text-slate-300'}`}
+              className={`hidden lg:flex items-center justify-center gap-2 px-6 py-2 text-sm font-bold rounded-xl transition-all shrink-0 ${hasActiveResume ? 'bg-emerald-600 shadow-md shadow-emerald-500/30 hover:bg-emerald-500 text-white' : 'bg-slate-800 border border-white/5 hover:border-slate-500/50 text-slate-300'}`}
             >
               <Download className="w-4 h-4" /> <span className="whitespace-nowrap">Exportar PDF</span>
             </button>
@@ -2016,7 +2070,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
 
         {/* Editor sidebar */}
         <div className={`flex-1 h-full min-w-0 flex flex-col gap-4 ${mobileView !== 'editor' ? 'hidden lg:flex' : 'flex'}`}>
-          <div className="flex flex-col lg:flex-row gap-4 p-4 bg-slate-800/40 border border-white/5 rounded-2xl shrink-0 items-start lg:items-center justify-between">
+          <div className="flex flex-col lg:flex-row gap-4 p-4 bg-[#141f38]/60 border border-white/5 rounded-2xl shrink-0 items-start lg:items-center justify-between">
             <div>
               <h2 className="text-white font-semibold text-lg">Seu Currículo</h2>
               <p className="text-slate-400 text-sm hidden sm:block">Preencha os dados manualmente e escolha seu modelo.</p>
@@ -2037,27 +2091,27 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-1 bg-slate-900 border border-white/10 rounded-xl shrink-0 w-full mb-4 overflow-x-auto">
+          <div className="flex items-center justify-between p-1 bg-[#0b132b] border border-white/10 rounded-xl shrink-0 w-full mb-4 overflow-x-auto">
             {(['modern', 'classic', 'minimal', 'creative', 'executive', 'corporate', 'detailed', 'academic'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTemplate(t as TemplateType)}
                 className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs font-semibold rounded-lg transition-all capitalize flex items-center justify-center gap-1.5
-                  ${template === t ? 'bg-indigo-500 text-white shadow-sm ring-1 ring-white/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                  ${template === t ? 'bg-[#C19B38] text-white shadow-sm ring-1 ring-white/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
               >
                 <span className="whitespace-nowrap">{templateNames[t]}</span>
               </button>
             ))}
           </div>
           
-          <div className="flex-1 overflow-y-auto flex justify-center items-start pt-2 lg:pt-0 pb-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent rounded-lg" ref={containerRef}>
-            <div style={{ height: previewHeight * scale, width: 794 * scale }} className="flex justify-center transition-all duration-300">
+          <div className="flex-1 overflow-auto pt-2 lg:pt-0 pb-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent rounded-lg" ref={containerRef}>
+            <div style={{ height: previewHeight * scale, width: 794 * scale, margin: '0 auto' }} className="shrink-0" ref={setZoomTarget}>
               <div 
                 style={{ 
                   transform: `scale(${scale})`, 
-                  transformOrigin: 'top center'
+                  transformOrigin: 'top left'
                 }}
-                className={`print:transform-none shadow-2xl rounded-sm transition-all duration-300 shrink-0 ${hasActiveResume ? 'bg-white text-slate-900' : 'bg-slate-200 text-slate-400 grayscale opacity-80 blur-[0.5px] select-none pointer-events-none'}`}
+                className={`print:transform-none origin-top-left shadow-2xl rounded-sm shrink-0 ${hasActiveResume ? 'bg-white text-slate-900' : 'bg-slate-200 text-slate-400 grayscale opacity-80 blur-[0.5px] select-none pointer-events-none'} ${isManualZoom ? '' : 'transition-all duration-300'}`}
               >
                 <ResumePreview data={data} template={template} ref={componentRef} />
               </div>
@@ -2066,7 +2120,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
         </section>
 
         {isPaymentModalOpen && (
-          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-[#0b132b]/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col p-8 text-center animate-in fade-in zoom-in duration-300">
                <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-emerald-600 text-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/30">
                  <CreditCard className="w-8 h-8" />
@@ -2099,7 +2153,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                      type="checkbox"
                      checked={simulateOrderBump}
                      onChange={(e) => setSimulateOrderBump(e.target.checked)}
-                     className="w-4 h-4 rounded text-indigo-500"
+                     className="w-4 h-4 rounded text-[#C19B38]"
                    />
                    Simular compra COM Order Bump (Carta)
                  </label>
@@ -2113,7 +2167,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                      setIsPaymentModalOpen(false);
                      setAppState('payment-success');
                    }}
-                   className="text-xs text-slate-400 hover:text-indigo-500 underline transition-colors"
+                   className="text-xs text-slate-400 hover:text-[#C19B38] underline transition-colors"
                  >
                    (Botão Fake de Dev) Simular que já pagou
                  </button>
@@ -2124,7 +2178,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
         )}
 
         {isInsufficientDataModalOpen && (
-          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-[#0b132b]/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col p-8 text-center animate-in fade-in zoom-in duration-300">
                <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-amber-500/30">
                  <Edit2 className="w-8 h-8" />
@@ -2166,14 +2220,14 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
 
 
     {isSettingsOpen && (
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-[#0b132b]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
         <div className="bg-slate-800 rounded-2xl w-full max-w-md p-6 sm:p-8 shadow-2xl border border-white/10 relative">
           <button onClick={() => setIsSettingsOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors bg-slate-700/50 hover:bg-slate-600 rounded-full p-1.5">
             <X className="w-5 h-5" />
           </button>
           
           <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
-            <Settings className="w-6 h-6 text-indigo-400" /> Configurações Gerais
+            <Settings className="w-6 h-6 text-[#C19B38]" /> Configurações Gerais
           </h2>
           <p className="text-slate-400 text-sm mb-6">Configure os parâmetros técnicos do sistema.</p>
           
@@ -2187,7 +2241,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                 value={anthropicApiKeyInput}
                 onChange={(e) => setAnthropicApiKeyInput(e.target.value)}
                 placeholder="sk-ant-api03-..."
-                className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                className="w-full bg-[#0b132b]/50 border border-slate-700/50 rounded-xl px-4 py-3 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-[#C19B38]/50"
               />
               <p className="text-xs text-slate-500 mt-2">
                 Insira sua própria chave da API da Anthropic para utilizar os recursos de inteligência artificial na edição do currículo.
@@ -2208,7 +2262,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                 setIsSettingsOpen(false);
                 alert('Configurações salvas!');
               }}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all shadow-md shadow-indigo-600/20"
+              className="px-6 py-2.5 bg-[#C19B38] hover:bg-[#a5842f] text-white font-bold rounded-xl transition-all shadow-md shadow-[#C19B38]/20"
             >
               Salvar
             </button>

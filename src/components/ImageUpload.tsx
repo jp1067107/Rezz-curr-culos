@@ -54,7 +54,7 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
   return (
     <div className="flex items-center gap-4">
       <div 
-        className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border-2 border-dashed border-white/30 relative group cursor-pointer hover:border-indigo-400 transition-all"
+        className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border-2 border-dashed border-white/30 relative group cursor-pointer hover:border-[#C19B38] transition-all"
         onClick={() => fileInputRef.current?.click()}
       >
         {value ? (
@@ -66,8 +66,8 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
           </>
         ) : (
           <div className="flex flex-col items-center">
-            <Camera className="w-8 h-8 text-white/40 group-hover:text-indigo-400 transition-colors" />
-            <span className="text-[10px] font-bold mt-1 text-white/40 group-hover:text-indigo-400 transition-colors">FOTO</span>
+            <Camera className="w-8 h-8 text-white/40 group-hover:text-[#C19B38] transition-colors" />
+            <span className="text-[10px] font-bold mt-1 text-white/40 group-hover:text-[#C19B38] transition-colors">FOTO</span>
           </div>
         )}
       </div>

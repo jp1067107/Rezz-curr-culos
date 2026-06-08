@@ -197,7 +197,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
   };
 
   // Helper for input classes
-  const inputClass = "w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all text-slate-100 placeholder:text-slate-500";
+  const inputClass = "w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C19B38]/50 transition-all text-slate-100 placeholder:text-slate-500";
   const labelClass = "block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1";
 
   const renderTabButton = (tab: typeof activeTab, label: string, index: number) => (
@@ -205,12 +205,12 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
       onClick={() => setActiveTab(tab)}
       className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl transition-all whitespace-nowrap ${
         activeTab === tab 
-          ? 'bg-indigo-500/20 border border-indigo-400/30 text-indigo-200' 
+          ? 'bg-[#C19B38]/20 border border-[#C19B38]/30 text-[#e5c76c]' 
           : 'text-slate-400 hover:bg-white/5 border border-transparent'
       }`}
     >
       <span className={`text-[10px] sm:text-xs font-bold w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center shrink-0 ${
-        activeTab === tab ? 'bg-indigo-500 text-white' : 'bg-white/10 text-white'
+        activeTab === tab ? 'bg-[#C19B38] text-white' : 'bg-white/10 text-white'
       }`}>
         {index}
       </span>
@@ -422,7 +422,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
             ))}
             <button 
               onClick={addExperience}
-              className="w-full py-3 border-2 border-dashed border-white/20 rounded-xl text-indigo-400 font-bold hover:border-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 border-2 border-dashed border-white/20 rounded-xl text-[#C19B38] font-bold hover:border-[#C19B38] hover:bg-[#C19B38]/10 transition-colors flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" /> Adicionar Experiência
             </button>
@@ -501,7 +501,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
             ))}
             <button 
               onClick={addEducation}
-              className="w-full py-3 border-2 border-dashed border-white/20 rounded-xl text-indigo-400 font-bold hover:border-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 border-2 border-dashed border-white/20 rounded-xl text-[#C19B38] font-bold hover:border-[#C19B38] hover:bg-[#C19B38]/10 transition-colors flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" /> Adicionar Formação
             </button>
@@ -533,7 +533,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
             </div>
             <button 
               onClick={addSkill}
-              className="w-full py-3 border-2 border-dashed border-white/20 rounded-xl text-indigo-400 font-bold hover:border-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 border-2 border-dashed border-white/20 rounded-xl text-[#C19B38] font-bold hover:border-[#C19B38] hover:bg-[#C19B38]/10 transition-colors flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" /> Adicionar Habilidade
             </button>
@@ -591,7 +591,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
             </div>
             <button 
               onClick={addCourse}
-              className="w-full py-4 border-2 border-dashed border-white/20 rounded-xl text-indigo-400 font-bold hover:border-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-4 border-2 border-dashed border-white/20 rounded-xl text-[#C19B38] font-bold hover:border-[#C19B38] hover:bg-[#C19B38]/10 transition-colors flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" /> Adicionar Curso
             </button>
@@ -600,8 +600,8 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
 
         {activeTab === 'customSections' && (
           <div className="space-y-8">
-            <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
-              <p className="text-sm text-indigo-200">
+            <div className="p-4 bg-[#C19B38]/10 border border-[#C19B38]/20 rounded-xl">
+              <p className="text-sm text-[#e5c76c]">
                 Adicione seções arbitrárias ao seu currículo (ex: <b>Idiomas</b>, <b>Trabalho Voluntário</b>, <b>Projetos Pessoais</b>, etc).
               </p>
             </div>
@@ -717,7 +717,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                   
                   <button 
                     onClick={() => addCustomItem(section.id)}
-                    className="w-full py-3 border-2 border-dashed border-white/10 rounded-xl text-indigo-400 text-sm font-bold hover:border-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-3 border-2 border-dashed border-white/10 rounded-xl text-[#C19B38] text-sm font-bold hover:border-[#C19B38] hover:bg-[#C19B38]/10 transition-colors flex items-center justify-center gap-2"
                   >
                     <Plus className="w-4 h-4" /> Adicionar Item em {section.name || 'Nova Seção'}
                   </button>
@@ -726,7 +726,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
             ))}
             <button 
               onClick={addCustomSection}
-              className="w-full py-4 border-2 border-dashed border-white/20 rounded-xl text-indigo-400 font-bold hover:border-indigo-400 hover:bg-indigo-500/10 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-4 border-2 border-dashed border-white/20 rounded-xl text-[#C19B38] font-bold hover:border-[#C19B38] hover:bg-[#C19B38]/10 transition-colors flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" /> Adicionar Nova Seção
             </button>
@@ -735,8 +735,8 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
 
         {activeTab === 'sectionOrder' && (
           <div className="space-y-6">
-            <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
-              <p className="text-sm text-indigo-200">
+            <div className="p-4 bg-[#C19B38]/10 border border-[#C19B38]/20 rounded-xl">
+              <p className="text-sm text-[#e5c76c]">
                 Ajuste a ordem em que as seções aparecem no seu currículo. A seção de <b>Dados Pessoais / Perfil</b> é sempre exibida no topo. 
               </p>
             </div>

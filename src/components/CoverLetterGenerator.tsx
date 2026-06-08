@@ -33,7 +33,7 @@ export function CoverLetterGenerator({ data, setData, onDownloadPdf }: Props) {
               value={data.personalInfo.fullName || ''}
               onChange={(e) => setData({ ...data, personalInfo: { ...data.personalInfo, fullName: e.target.value } })}
               placeholder="Ex: João Silva" 
-              className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+              className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-[#C19B38] transition-all text-sm"
             />
           </div>
           <div>
@@ -43,7 +43,7 @@ export function CoverLetterGenerator({ data, setData, onDownloadPdf }: Props) {
               value={data.personalInfo.email || ''}
               onChange={(e) => setData({ ...data, personalInfo: { ...data.personalInfo, email: e.target.value } })}
               placeholder="Ex: joao@email.com" 
-              className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+              className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-[#C19B38] transition-all text-sm"
             />
           </div>
         </div>
@@ -52,7 +52,7 @@ export function CoverLetterGenerator({ data, setData, onDownloadPdf }: Props) {
           value={data.coverLetter || ""}
           onChange={(e) => setData({ ...data, coverLetter: e.target.value })}
           placeholder="Escreva sua carta de apresentação aqui..."
-          className="w-full flex-1 bg-slate-900 border border-indigo-500/30 rounded-xl p-4 text-white focus:outline-none min-h-[400px] resize-none leading-relaxed text-sm"
+          className="w-full flex-1 bg-slate-900 border border-[#C19B38]/30 rounded-xl p-4 text-white focus:outline-none min-h-[400px] resize-none leading-relaxed text-sm"
         />
         
         <div className="mt-6 flex flex-col sm:flex-row items-center gap-3 w-full">
