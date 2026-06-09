@@ -1295,7 +1295,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                 <button
                   onClick={() => {
                       if (!user && purchasedResumes.length === 0) {
-                         signInWithGoogle().then(() => setAppState('my-resumes'));
+                         signInWithGoogle().then((u) => { if (u) setAppState('my-resumes'); });
                       } else {
                          setAppState('my-resumes');
                       }
@@ -1322,7 +1322,7 @@ const handleUploadCoverLetterPdfChange = async (e: React.ChangeEvent<HTMLInputEl
                 <button
                   onClick={() => {
                       if (!user && localPurchasedCoverLetters.length === 0) {
-                         signInWithGoogle().then(() => setAppState('my-cover-letters'));
+                         signInWithGoogle().then((u) => { if (u) setAppState('my-cover-letters'); });
                       } else {
                          setAppState('my-cover-letters');
                       }

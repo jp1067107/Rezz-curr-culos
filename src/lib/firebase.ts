@@ -79,6 +79,10 @@ export const signInWithGoogle = async () => {
     const result = await signInWithPopup(auth, provider);
     return result.user;
   } catch (error: any) {
+    if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
+      console.log('Google sign-in cancelled by user.');
+      return null;
+    }
     console.error("Error signing in with Google", error);
     
     let userFriendlyMessage = "Erro ao fazer login com Google.";
