@@ -571,10 +571,10 @@ function MainApp() {
       return;
     }
 
-    if (!isPremium) {
+    /* if (!isPremium) {
       setIsPaymentModalOpen(true);
       return;
-    }
+    } */
 
     if (user && hasActiveResume) {
       handleSaveResume();
@@ -725,10 +725,10 @@ function MainApp() {
   };
 
   const generateCoverLetterPdf = async (isDraft: boolean = false) => {
-    if (!isDraft && !isPremium) {
+    /* if (!isDraft && !isPremium) {
       setIsPaymentModalOpen(true);
       return;
-    }
+    } */
     if (!coverLetterRef.current) return;
     await document.fonts.ready;
     setIsProcessing(true);
